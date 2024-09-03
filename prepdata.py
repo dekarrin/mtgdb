@@ -2,6 +2,8 @@ import csv
 import sys
 import sqlite3
 
+confirm_changes = True
+
 def main():
 	if len(sys.argv) < 2:
 		print("need name of csv file and DB to check against as argument", file=sys.stderr)
@@ -13,26 +15,67 @@ def main():
 	csv_filename = sys.argv[1]
 	db_filename = sys.argv[2]
 	
-	new_cards = parse_deckbox_csv(csv_filename, row_limit=3)
+	new_cards = parse_deckbox_csv(csv_filename)
 	drop_unused_fields(new_cards)
 	update_deckbox_values_to_mtgdb(new_cards)
 	update_deckbox_fieldnames_to_mtgdb(new_cards)
 	
 	# then pull everyfin from the db
-	existing_cards = get_existing_cards(db_filename)
+	existing_cards = mtgdb_get_existing_cards(db_filename)
 	
 	# eliminate dupes that already exist
 	new_imports, count_updates = remove_duplicates(new_cards, existing_cards)
 	
+	if len(new_imports) == 0 and len(count_updates) == 0:
+		print("No new cards to import and no counts need updating", file=sys.stderr)
+		sys.exit(0)
+	
 	# prep for db insertion by printing things out:
+	if confirm_changes:
+		if len(new_imports) > 0:
+			print("New cards to import:")
+			for card in new_imports:
+				print("{:d}x {:s}".format(card['count'], card_printing_str(card)))
+			print("")
+		
+		if len(count_updates) > 0:
+			print("Update counts:")
+			for card in count_updates:
+				print("{:d}x -> {:d}x {:s}".format(card['old_count'], card['count'], card_printing_str(card)))
+			print("")
+		
+		s_count = 's' if len(count_updates) != 1 else ''
+		s_card = 's' if len(new_imports) != 1 else ''
+		
+		message = "{:d} new card{:s} will be imported and {:d} count{:s} will be updated"
+		message = message.format(len(new_imports), s_card, len(count_updates), s_count)
+		
+		print(message)
+		
+		if not yn_confirm("Write changes to {:s}?".format(db_filename)):
+			sys.exit(0)
+	
+	mtgdb_insert_new_cards(new_imports, db_filename)
+	mtgdb_update_counts(count_updates, db_filename)
 	
 	
-	# TODO: remove below when done
+def yn_confirm(preprompt):
+	print(preprompt)
 	
-	import pprint
-	pprint.pprint(new_imports)
-	pprint.pprint(count_updates)
+	confirmed = None
 	
+	while confirmed is None:
+		c = input("(Y/N) ")
+		c = c.upper()
+		
+		if c == "Y" or c == "YES":
+			confirmed = True
+		elif c == "N" or c == "NO":
+			confirmed = False
+		else:		
+			print("Please type 'YES' or 'NO'")
+		
+	return confirmed
 	
 def card_printing_str(card):
 	card_str = "{:s}-{:d} {!r}".format(card['edition'], card['tcg_num'], card['name'])
@@ -71,55 +114,121 @@ def remove_duplicates(importing, existing):
 		already_exists = False
 		update_count = False
 		existing_id = 0
+		existing_count = 0
 		for check in existing:
 			# first, check if same print. if so, we still might need to bump up count.
 			if card['name'].lower() != check['name'].lower():
-				break
+				continue
 			if card['edition'].lower() != check['edition'].lower():
-				break
+				continue
 			if card['tcg_num'] != check['tcg_num']:
-				break
+				continue
 			if card['condition'].lower() != check['condition'].lower():
-				break
+				continue
 			if card['language'].lower() != check['language'].lower():
-				break
+				continue
 			if card['foil'] != check['foil']:
-				break
+				continue
 			if card['signed'] != check['signed']:
-				break
+				continue
 			if card['artist_proof'] != check['artist_proof']:
-				break
+				continue
 			if card['altered_art'] != check['altered_art']:
-				break
+				continue
 			if card['misprint'] != check['misprint']:
-				break
+				continue
 			if card['promo'] != check['promo']:
-				break
+				continue
 			if card['textless'] != check['textless']:
-				break
+				continue
 			if card['printing_id'] != check['printing_id']:
-				break
+				continue
 			if card['printing_note'].lower() != check['printing_note'].lower():
-				break
+				continue
 			
 			already_exists = True
 			existing_id = check['id']
+			existing_count = check['count']
 			# they are the same print and instance of card; is count different?
 			if card['count'] != check['count']:
 				print("{:s} already exists (MTGDB ID {:d}), but count will be updated from {:d} to {:d}".format(card_printing_str(card), check['id'], check['count'], card['count']), file=sys.stderr)
 				update_count = True
 			else:
 				print("{:s} already exists (MTGDB ID {:d}) with same count; skipping".format(card_printing_str(card), check['id']), file=sys.stderr)
+				
+			# stop checking other cards, if we are here it is time to stop
+			break
 		
 		if already_exists:
 			if update_count:
 				card['id'] = existing_id
+				card['old_count'] = existing_count
 				count_only.append(card)
 		else:
 			no_dupes.append(card)
 			
 	return no_dupes, count_only
 	
+	
+def mtgdb_insert_new_cards(cards, db_filename):
+	# setup the data to be ONLY what we want
+	
+	insert_data = list()
+	
+	for c in cards:
+		insert_row = (c['count'], c['name'], c['edition'], c['tcg_num'], c['condition'], c['language'], c['foil'], c['signed'], c['artist_proof'], c['altered_art'], c['misprint'], c['promo'], c['textless'], c['printing_id'], c['printing_note'])
+		insert_data.append(insert_row)
+		
+	con = sqlite3.connect(db_filename)
+	cur = con.cursor()
+	cur.executemany(sql_insert_new, insert_data)
+	con.commit()
+	con.close()
+	
+def mtgdb_update_counts(cards, db_filename):
+	update_data = list()
+	
+	for c in cards:
+		row_values = (c['count'], c['id'])
+		update_data.append(row_values)
+	
+	con = sqlite3.connect(db_filename)
+	cur = con.cursor()
+	cur.executemany(sql_update_count, update_data)
+	con.commit()
+	con.close()
+	
+	
+sql_update_count = '''
+UPDATE
+	inventory
+SET
+	count=?
+WHERE
+	id=?;
+'''
+
+sql_insert_new = '''
+INSERT INTO inventory (
+	count,
+	name,
+	edition,
+	tcg_num,
+	condition,
+	language,
+	foil,
+	signed,
+	artist_proof,
+	altered_art,
+	misprint,
+	promo,
+	textless,
+	printing_id,
+	printing_note
+)
+VALUES
+	(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+'''
 	
 sql_get_all_cards = '''
 SELECT
@@ -144,7 +253,7 @@ FROM
 '''
 
 
-def get_existing_cards(db_filename):
+def mtgdb_get_existing_cards(db_filename):
 	con = sqlite3.connect(db_filename)
 	cur = con.cursor()
 	
@@ -322,4 +431,8 @@ def parse_deckbox_csv(filename, row_limit=0):
 	
 
 if __name__ == '__main__':
-	main()
+	try:
+		main()
+	except KeyboardInterrupt:
+		pass
+
