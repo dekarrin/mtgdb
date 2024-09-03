@@ -10,3 +10,7 @@ will be overwritten.
 * `import.py` - Will take an exported decklist csv file and insert into
 inventory database, excluding any that already exist and only updating count
 for cases where that is the only thing that difers.
+
+Beyond that, deck creation, viewing, etc, needs to be handled manually using a
+sqlite3-enabled browser.
+
