@@ -5,10 +5,10 @@ import sqlite3
 
 def main():
 	if len(sys.argv) < 2:
-		print("need name of deck and name of DB as args", file=sys.stderr)
+		print("need name of DB and name of deck as args", file=sys.stderr)
 		sys.exit(1)
 	if len(sys.argv) < 3:
-		print("need name of DB as an arg", file=sys.stderr)
+		print("need name of deck as arg", file=sys.stderr)
 		sys.exit(1)
 		
 	deck_name = sys.argv[1]

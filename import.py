@@ -6,14 +6,14 @@ confirm_changes = True
 
 def main():
 	if len(sys.argv) < 2:
-		print("need name of csv file and DB to check against as argument", file=sys.stderr)
+		print("need DB to import into and name of csv file as arguments", file=sys.stderr)
 		sys.exit(1)
 	if len(sys.argv) < 3:
-		print("need name of DB to check against as argument", file=sys.stderr)
+		print("need name of csv file to import as argument", file=sys.stderr)
 		sys.exit(1)
 		
-	csv_filename = sys.argv[1]
-	db_filename = sys.argv[2]
+	db_filename = sys.argv[1]
+	csv_filename = sys.argv[2]
 	
 	new_cards = parse_deckbox_csv(csv_filename)
 	drop_unused_fields(new_cards)
@@ -55,8 +55,8 @@ def main():
 		if not yn_confirm("Write changes to {:s}?".format(db_filename)):
 			sys.exit(0)
 	
-	mtgdb_insert_new_cards(new_imports, db_filename)
-	mtgdb_update_counts(count_updates, db_filename)
+	mtgdb_insert_new_cards(db_filename, new_imports)
+	mtgdb_update_counts(db_filename, count_updates)
 	
 	
 def yn_confirm(preprompt):
@@ -170,7 +170,7 @@ def remove_duplicates(importing, existing):
 	return no_dupes, count_only
 	
 	
-def mtgdb_insert_new_cards(cards, db_filename):
+def mtgdb_insert_new_cards(db_filename, cards):
 	# setup the data to be ONLY what we want
 	
 	insert_data = list()
@@ -185,7 +185,7 @@ def mtgdb_insert_new_cards(cards, db_filename):
 	con.commit()
 	con.close()
 	
-def mtgdb_update_counts(cards, db_filename):
+def mtgdb_update_counts(db_filename, cards):
 	update_data = list()
 	
 	for c in cards:

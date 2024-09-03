@@ -11,6 +11,7 @@ will be overwritten.
 inventory database, excluding any that already exist and only updating count
 for cases where that is the only thing that difers.
 * `create-deck.py` - Create a new deck with name.
+* `set-deck-state.py` - Set the deck state to something.
 
 Beyond that, deck creation, viewing, etc, needs to be handled manually using a
 sqlite3-enabled browser.
