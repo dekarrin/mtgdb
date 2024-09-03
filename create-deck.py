@@ -11,16 +11,24 @@ def main():
 		print("need name of deck as arg", file=sys.stderr)
 		sys.exit(1)
 		
-	deck_name = sys.argv[1]
-	db_filename = sys.argv[2]
+	db_filename = sys.argv[1]
+	deck_name = sys.argv[2]
 	
 	mtgdb_insert_new_deck(deck_name, db_filename)
 	
 	
 def mtgdb_insert_new_deck(name, db_filename):
 	# setup the data to be ONLY what we want
+	
+	try:
+		con = sqlite3.connect("file:" + db_filename + "?mode=rw", uri=True)
+	except sqlite3.OperationalError as e:
+		if (e.sqlite_errorcode & 0xff) == 0x0e:
+			print("Cannot open DB file {!r}; does it exist?".format(db_filename), file=sys.stderr)
+		else:
+			print("SQLITE returned an error opening DB: {:s}({:d})".format(e.sqlite_errorname, e.sqlite_errorcode), file=sys.stderr)
+		sys.exit(2)
 		
-	con = sqlite3.connect(db_filename)
 	cur = con.cursor()
 	cur.execute(sql_insert_new, (name,))
 	con.commit()
