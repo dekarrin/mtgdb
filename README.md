@@ -7,5 +7,6 @@ decks that cards are in as well as how many copies in main inventory are free.
 Scripts:
 * `createdb.py` - Will create the new DB. If pointing at an existing one, it
 will be overwritten.
-* `prepdata.py` - Will take an exported decklist csv file and prep it for
-insertion into a database inventory, excluding any that already exist.
+* `import.py` - Will take an exported decklist csv file and insert into
+inventory database, excluding any that already exist and only updating count
+for cases where that is the only thing that difers.
