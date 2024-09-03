@@ -80,6 +80,22 @@ CREATE TABLE "inventory" (
 )
 '''
 
+sql_drop_deck_cards = '''
+DROP TABLE IF EXISTS "deck_cards";
+'''
+
+sql_create_deck_cards = '''
+CREATE TABLE "deck_cards" (
+	"id"	INTEGER NOT NULL,
+	"card"  INTEGER NOT NULL,
+	"deck"  INTEGER NOT NULL,
+	"count" INTEGER NOT NULL DEFAULT 1,
+	FOREIGN KEY("card") REFERENCES "inventory"("id"),
+	FOREIGN KEY("deck") REFERENCES "decks"("id"),
+	PRIMARY KEY("id" AUTOINCREMENT)
+);
+'''
+
 sql_insert_conditions = '''
 INSERT INTO "conditions"
 	('id', 'name')
@@ -143,7 +159,8 @@ VALUES
 	('TSR', 'Time Spiral Remastered', '2021-03-19'),
 	('MH1', 'Modern Horizons', '2019-06-14'),
 	('CN2', 'Conspiracy: Take the Crown', '2016-08-26'),
-	('POR', 'Portal', '1997-05-01');
+	('POR', 'Portal', '1997-05-01'),
+	('8ED', 'Eighth Edition', '2003-07-28');
 '''
 
 def main():
@@ -157,6 +174,7 @@ def main():
 	cur = con.cursor()
 	
 	# drop old tables
+	cur.execute(sql_drop_deck_cards)
 	cur.execute(sql_drop_inventory)
 	cur.execute(sql_drop_editions)
 	cur.execute(sql_drop_decks)
@@ -171,6 +189,7 @@ def main():
 	cur.execute(sql_create_decks)
 	cur.execute(sql_create_editions)
 	cur.execute(sql_create_inventory)
+	cur.execute(sql_create_deck_cards)
 	
 	# commit table updates (not shore if necessary)
 	con.commit()
