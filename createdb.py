@@ -64,7 +64,7 @@ CREATE TABLE "inventory" (
 	"edition"	TEXT NOT NULL,
 	"tcg_num"	INTEGER NOT NULL,
 	"condition"	TEXT NOT NULL DEFAULT 'NM',
-	"language"	TEXT NOT NULL DEFAULT 'english',
+	"language"	TEXT NOT NULL DEFAULT 'English',
 	"foil"	INTEGER NOT NULL DEFAULT 0,
 	"signed"	INTEGER NOT NULL DEFAULT 0,
 	"artist_proof"	INTEGER NOT NULL DEFAULT 0,
@@ -73,7 +73,7 @@ CREATE TABLE "inventory" (
 	"promo"	INTEGER NOT NULL DEFAULT 0,
 	"textless"	INTEGER NOT NULL DEFAULT 0,
 	"printing_id"	INTEGER NOT NULL,
-	"printing_notes"	TEXT,
+	"printing_note"	TEXT,
 	FOREIGN KEY("condition") REFERENCES "conditions"("id"),
 	FOREIGN KEY("edition") REFERENCES "editions"("code"),
 	PRIMARY KEY("id" AUTOINCREMENT)
