@@ -1,9 +1,11 @@
 import sqlite3
 import sys
 
-sql_create_conditions = '''
+sql_drop_conditions = '''
 DROP TABLE IF EXISTS "conditions";
+'''
 
+sql_create_conditions = '''
 CREATE TABLE "conditions" (
 	"id"	TEXT NOT NULL,
 	"name"	TEXT NOT NULL,
@@ -11,9 +13,11 @@ CREATE TABLE "conditions" (
 )
 '''
 
-sql_create_deck_states = '''
+sql_drop_deck_states = '''
 DROP TABLE IF EXISTS "deck_states";
+'''
 
+sql_create_deck_states = '''
 CREATE TABLE "deck_states" (
 	"id"	TEXT NOT NULL,
 	"name"	TEXT NOT NULL,
@@ -21,9 +25,11 @@ CREATE TABLE "deck_states" (
 )
 '''
 
-sql_create_decks = '''
+sql_drop_decks = '''
 DROP TABLE IF EXISTS "decks";
+'''
 
+sql_create_decks = '''
 CREATE TABLE "decks" (
 	"id"	INTEGER NOT NULL,
 	"name"	TEXT NOT NULL,
@@ -33,9 +39,11 @@ CREATE TABLE "decks" (
 )
 '''
 
-sql_create_editions = '''
+sql_drop_editions = '''
 DROP TABLE IF EXISTS "editions";
+'''
 
+sql_create_editions = '''
 CREATE TABLE "editions" (
 	"code"	TEXT NOT NULL,
 	"name"	INTEGER NOT NULL,
@@ -44,9 +52,11 @@ CREATE TABLE "editions" (
 )
 '''
 
-sql_create_inventory = '''
+sql_drop_inventory = '''
 DROP TABLE IF EXISTS "inventory";
+'''
 
+sql_create_inventory = '''
 CREATE TABLE "inventory" (
 	"id"	INTEGER NOT NULL,
 	"count"	INTEGER NOT NULL DEFAULT 1,
@@ -141,10 +151,19 @@ def main():
 		print("Need name of db file to write to", file=sys.stderr)
 		sys.exit(1)
 		
-	filename = argv[1]
+	filename = sys.argv[1]
 	
-	con = sqlite3.connect(filename, autocommit=False)
+	con = sqlite3.connect(filename)
 	cur = con.cursor()
+	
+	# drop old tables
+	cur.execute(sql_drop_inventory)
+	cur.execute(sql_drop_editions)
+	cur.execute(sql_drop_decks)
+	cur.execute(sql_drop_deck_states)
+	cur.execute(sql_drop_conditions)
+	
+	con.commit()
 	
 	# create tables
 	cur.execute(sql_create_conditions)
