@@ -32,7 +32,7 @@ DROP TABLE IF EXISTS "decks";
 sql_create_decks = '''
 CREATE TABLE "decks" (
 	"id"	INTEGER NOT NULL,
-	"name"	TEXT NOT NULL,
+	"name"	TEXT NOT NULL UNIQUE,
 	"state"	TEXT NOT NULL DEFAULT 'B',
 	FOREIGN KEY("state") REFERENCES "deck_states"("id"),
 	PRIMARY KEY("id" AUTOINCREMENT)
