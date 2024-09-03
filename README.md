@@ -14,3 +14,12 @@ for cases where that is the only thing that difers.
 Beyond that, deck creation, viewing, etc, needs to be handled manually using a
 sqlite3-enabled browser.
 
+Supported Command Plans:
+------------------------
+
+* Create Deck
+* List Decks
+* Add card to deck
+* Remove card from deck
+* Print list of deck cards
+* List how many free of a card <-- ultimate goal.
