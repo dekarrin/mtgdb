@@ -4,6 +4,33 @@ import sys
 from . import util
 from .. import cio
 
+
+def update_state(db_filename, name, state):
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	cur.execute(sql_update_state, (state, name))
+	con.commit()
+	
+	if con.total_changes < 1:
+		print("ERROR: No deck called {!r} exists".format(name), file=sys.stderr)
+		sys.exit(3)
+	
+	con.close()
+	
+	
+def update_name(db_filename, name, new_name):
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	cur.execute(sql_update_name, (new_name, name))
+	con.commit()
+	
+	if con.total_changes < 1:
+		print("ERROR: No deck called {!r} exists".format(name), file=sys.stderr)
+		sys.exit(3)
+		
+	con.close()
+
+
 def get_one(db_filename, did):
 	con = util.connect(db_filename)
 	cur = con.cursor()
@@ -91,6 +118,47 @@ def add_card(db_filename, cid, did, amount=1):
 	con.close()
 	
 
+def create(db_filename, name):
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	cur.execute(sql_insert_new, (name,))
+	con.commit()
+	con.close()
+	
+
+def get_all(db_filename):
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	
+	data = []
+	
+	for r in cur.execute(sql_select_decks):
+		row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3]}
+		data.append(row)
+	
+	con.close()
+	
+	return data
+
+
+sql_select_decks = '''
+SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards
+FROM decks AS d
+INNER JOIN deck_states AS s ON d.state = s.id
+LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
+GROUP BY d.id;
+'''
+
+
+sql_insert_new = '''
+INSERT INTO decks (
+	name
+)
+VALUES
+	(?);
+'''
+
+
 sql_find_deck_by_id = '''
 SELECT id, name FROM decks WHERE id = ?;
 '''
@@ -108,15 +176,34 @@ WHERE card = ? AND deck = ?
 LIMIT 1;
 '''
 
+
 sql_update_deck_card_count = '''
 UPDATE deck_cards
 SET count=?
 WHERE card = ? AND deck = ?;
 '''
 
+
 sql_add_deck_card = '''
 INSERT INTO deck_cards
 (card, deck, count)
 VALUES
 (?, ?, ?);
+'''
+
+sql_update_state = '''
+UPDATE decks
+SET
+	state=?
+WHERE
+	name=?;
+'''
+
+
+sql_update_name = '''
+UPDATE decks
+SET
+	name=?
+WHERE
+	name=?;
 '''

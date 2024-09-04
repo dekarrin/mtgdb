@@ -195,13 +195,6 @@ def drop_unused_fields(cards):
 			sys.exit(2)
 		rn += 1
 
-def none_to_empty_str(data):
-	if data is None:
-		return ''
-	return data
-
-def int_to_bool(data):
-	return data > 0
 	
 def filled(text):
 	return text != ''
