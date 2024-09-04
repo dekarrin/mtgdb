@@ -5,21 +5,23 @@ import sqlite3
 
 def main():
 	if len(sys.argv) < 2:
-		print("need name of DB and name of deck as args", file=sys.stderr)
+		print("ERROR: need name of DB and name of deck as args", file=sys.stderr)
 		sys.exit(1)
 	if len(sys.argv) < 3:
-		print("need name of deck as arg", file=sys.stderr)
+		print("ERROR: need name of deck as arg", file=sys.stderr)
 		sys.exit(1)
 		
 	db_filename = sys.argv[1]
 	deck_name = sys.argv[2]
+	if deck_name.strip() == '':
+		print("ERROR: Deck name must have at least one non-space character in it", file=sys.stderr)
+		sys.exit(4)
 	
 	mtgdb_insert_new_deck(deck_name, db_filename)
 	
+	print("Created new deck {!r}".format(deck_name))
 	
 def mtgdb_insert_new_deck(name, db_filename):
-	# setup the data to be ONLY what we want
-	
 	try:
 		con = sqlite3.connect("file:" + db_filename + "?mode=rw", uri=True)
 	except sqlite3.OperationalError as e:
@@ -48,4 +50,7 @@ if __name__ == '__main__':
 		main()
 	except KeyboardInterrupt:
 		pass
+	except sqlite3.IntegrityError:
+		print("ERROR: A deck with that name already exists", file=sys.stderr)
+		sys.exit(1)
 

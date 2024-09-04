@@ -19,7 +19,6 @@ sqlite3-enabled browser.
 Supported Command Plans:
 ------------------------
 
-* Update deck state
 * List Decks
 * Add card to deck
 * Remove card from deck
