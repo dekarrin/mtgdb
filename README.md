@@ -12,6 +12,9 @@ inventory database, excluding any that already exist and only updating count
 for cases where that is the only thing that difers.
 * `create-deck.py` - Create a new deck with name.
 * `set-deck-state.py` - Set the deck state to something.
+* `set-deck-name.py` - Set the deck name.
+* `list-decks.py` - Show all decks and card count currently within.
+* `list-cards.py` - Show all cards in inventory, with filters via cli flags
 
 Beyond that, deck creation, viewing, etc, needs to be handled manually using a
 sqlite3-enabled browser.
@@ -19,7 +22,6 @@ sqlite3-enabled browser.
 Supported Command Plans:
 ------------------------
 
-* List Decks
 * Add card to deck
 * Remove card from deck
 * Print list of deck cards
