@@ -6,4 +6,4 @@
 
 *.swp
 *.db-journal
-
+__pycache__

@@ -1,53 +1,56 @@
-import csv
 import sys
 import sqlite3
+import argparse
+
+from mtg import mtgdb, cardutil
 
 
 def main():
-	if len(sys.argv) < 2:
-		print("ERROR: need name of DB as arg", file=sys.stderr)
+	parser = argparse.ArgumentParser(prog='add-card-to-deck.py', description='Add a card to deck')
+	parser.add_argument('db_filename', help="path to sqlite3 holding cards")
+	parser.add_argument('-n', '--card', help="Filter on the name; partial matching will be applied. If multiple match, you must select one")
+	parser.add_argument('-c', '--card-num', help="Filter on a TCG number in format EDC-123; must be exact. If multiple match, you must select one.")
+	parser.add_argument('--cid', help="Specify card by ID. If given, cannot also give -c or -n")
+	parser.add_argument('-d', '--deck', help="Give name of the deck; prefix matching is used. If multiple match, you must select one")
+	parser.add_argument('--did', help="Specify deck by ID. If given, cannot also give -d")
+	parser.add_argument('-a', '--amount', default=1, type=int, help="specify amount of that card to add")
+	args = parser.parse_args()
+	
+	if args.deck is not None and args.did is not None:
+		print("ERROR: cannot give both --did and -d/--deck", file=sys.stderr)
+		sys.exit(1)
+	if args.deck is None and args.did is None:
+		print("ERROR: must select a deck with either --did or -d/--deck", file=sys.stderr)
 		sys.exit(1)
 		
-	db_filename = sys.argv[1]
+	if (args.card is not None or args.card_num is not None) and args.cid is not None:
+		print("ERROR: cannot give -c/--card-num or -n/--card-name if --cid is given", file=sys.stderr)
+		sys.exit(1)
+	if (args.card is None and args.card_num is None and args.cid is None):
+		print("ERROR: must specify card by --cid or -c/--card-num and/or -n/--name", file=sys.stderr)
+		sys.exit(1)
+		
+	if args.amount < 1:
+		print("ERROR: -a/--amount must be at least 1")
+		
+	db_filename = args.db_filename
 	
-	decks = mtgdb_get_decks(db_filename)
+	# okay the user has SOMEHOW given the card and deck. Find the card.
+	if args.card is not None or args.card_num is not None:
+		card = mtgdb.find_card_by_filter(db_filename, args.card, args.card_num)
+	else:
+		card = mtgdb.get_card(db_filename, args.cid)
+		
+	# Find the deck
+	if args.deck is not None:
+		deck = mtgdb.find_deck_by_name(db_filename, args.deck)
+	else:
+		deck = mtgdb.get_deck(db_filename, args.did)
 	
-	for d in decks:
-		s_card = 's' if d['cards'] != 1 else ''
-		print("{:d}: {!r} - {:s} - {:d} card{:s}".format(d['id'], d['name'], d['state'], d['cards'], s_card))
+	mtgdb.add_card_to_deck(db_filename, card['id'], deck['id'], args.amount)
 
+	print("Added {:d}x {:s} to {:s}".format(args.amount, cardutil.to_str(card), deck['name']))
 
-def mtgdb_get_decks(db_filename):
-	try:
-		con = sqlite3.connect("file:" + db_filename + "?mode=rw", uri=True)
-	except sqlite3.OperationalError as e:
-		if (e.sqlite_errorcode & 0xff) == 0x0e:
-			print("ERROR: Cannot open DB file {!r}; does it exist?".format(db_filename), file=sys.stderr)
-		else:
-			print("ERROR: SQLITE returned an error opening DB: {:s}({:d})".format(e.sqlite_errorname, e.sqlite_errorcode), file=sys.stderr)
-		sys.exit(2)
-	
-	cur = con.cursor()
-	
-	data = []
-	
-	for r in cur.execute(sql_select_decks):
-		row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3]}
-		data.append(row)
-	
-	con.close()
-	
-	return data
-
-
-sql_select_decks = '''
-SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards
-FROM decks AS d
-INNER JOIN deck_states AS s ON d.state = s.id
-LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
-GROUP BY d.id;
-'''
-	
 
 if __name__ == '__main__':
 	try:
