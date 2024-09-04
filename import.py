@@ -2,6 +2,9 @@ import csv
 import sys
 import sqlite3
 
+from mtg import cardutil, cio
+from mtg.db import carddb
+
 confirm_changes = True
 
 def main():
@@ -21,7 +24,7 @@ def main():
 	update_deckbox_fieldnames_to_mtgdb(new_cards)
 	
 	# then pull everyfin from the db
-	existing_cards = mtgdb_get_existing_cards(db_filename)
+	existing_cards = carddb.get_all(db_filename)
 	
 	# eliminate dupes that already exist
 	new_imports, count_updates = remove_duplicates(new_cards, existing_cards)
@@ -35,13 +38,13 @@ def main():
 		if len(new_imports) > 0:
 			print("New cards to import:")
 			for card in new_imports:
-				print("{:d}x {:s}".format(card['count'], card_printing_str(card)))
+				print("{:d}x {:s}".format(card['count'], cardutil.to_str(card)))
 			print("")
 		
 		if len(count_updates) > 0:
 			print("Update counts:")
 			for card in count_updates:
-				print("{:d}x -> {:d}x {:s}".format(card['old_count'], card['count'], card_printing_str(card)))
+				print("{:d}x -> {:d}x {:s}".format(card['old_count'], card['count'], cardutil.to_str(card)))
 			print("")
 		
 		s_count = 's' if len(count_updates) != 1 else ''
@@ -52,57 +55,11 @@ def main():
 		
 		print(message)
 		
-		if not yn_confirm("Write changes to {:s}?".format(db_filename)):
+		if not cio.confirm("Write changes to {:s}?".format(db_filename)):
 			sys.exit(0)
 	
-	mtgdb_insert_new_cards(db_filename, new_imports)
-	mtgdb_update_counts(db_filename, count_updates)
-	
-	
-def yn_confirm(preprompt):
-	print(preprompt)
-	
-	confirmed = None
-	
-	while confirmed is None:
-		c = input("(Y/N) ")
-		c = c.upper()
-		
-		if c == "Y" or c == "YES":
-			confirmed = True
-		elif c == "N" or c == "NO":
-			confirmed = False
-		else:		
-			print("Please type 'YES' or 'NO'")
-		
-	return confirmed
-	
-def card_printing_str(card):
-	card_str = "{:s}-{:d} {!r}".format(card['edition'], card['tcg_num'], card['name'])
-	
-	special_print_items = list()
-	if card['foil']:
-		special_print_items.append('F')
-	if card['signed']:
-		special_print_items.append('SIGNED')
-	if card['artist_proof']:
-		special_print_items.append('PROOF')
-	if card['altered_art']:
-		special_print_items.append('ALTERED')
-	if card['misprint']:
-		special_print_items.append('MIS')
-	if card['promo']:
-		special_print_items.append('PROMO')
-	if card['textless']:
-		special_print_items.append('TXL')
-	if card['printing_note'] != '':
-		special_print_items.append(card['printing_note'])
-		
-	if len(special_print_items) > 0:
-		card_str += ' (' + ','.join(special_print_items) + ')'
-		
-	return card_str
-		
+	carddb.insert_multiple(db_filename, new_imports)
+	carddb.update_counts(db_filename, count_updates)
 	
 	
 # returns the set of de-duped (brand-new) card listings and the set of those that difer only in
@@ -151,10 +108,10 @@ def remove_duplicates(importing, existing):
 			existing_count = check['count']
 			# they are the same print and instance of card; is count different?
 			if card['count'] != check['count']:
-				print("{:s} already exists (MTGDB ID {:d}), but count will be updated from {:d} to {:d}".format(card_printing_str(card), check['id'], check['count'], card['count']), file=sys.stderr)
+				print("{:s} already exists (MTGDB ID {:d}), but count will be updated from {:d} to {:d}".format(cardutil.to_str(card), check['id'], check['count'], card['count']), file=sys.stderr)
 				update_count = True
 			else:
-				print("{:s} already exists (MTGDB ID {:d}) with same count; skipping".format(card_printing_str(card), check['id']), file=sys.stderr)
+				print("{:s} already exists (MTGDB ID {:d}) with same count; skipping".format(cardutil.to_str(card), check['id']), file=sys.stderr)
 				
 			# stop checking other cards, if we are here it is time to stop
 			break
@@ -169,122 +126,6 @@ def remove_duplicates(importing, existing):
 			
 	return no_dupes, count_only
 	
-	
-def mtgdb_insert_new_cards(db_filename, cards):
-	# setup the data to be ONLY what we want
-	
-	insert_data = list()
-	
-	for c in cards:
-		insert_row = (c['count'], c['name'], c['edition'], c['tcg_num'], c['condition'], c['language'], c['foil'], c['signed'], c['artist_proof'], c['altered_art'], c['misprint'], c['promo'], c['textless'], c['printing_id'], c['printing_note'])
-		insert_data.append(insert_row)
-		
-	con = sqlite3.connect(db_filename)
-	cur = con.cursor()
-	cur.executemany(sql_insert_new, insert_data)
-	con.commit()
-	con.close()
-	
-def mtgdb_update_counts(db_filename, cards):
-	update_data = list()
-	
-	for c in cards:
-		row_values = (c['count'], c['id'])
-		update_data.append(row_values)
-	
-	con = sqlite3.connect(db_filename)
-	cur = con.cursor()
-	cur.executemany(sql_update_count, update_data)
-	con.commit()
-	con.close()
-	
-	
-sql_update_count = '''
-UPDATE
-	inventory
-SET
-	count=?
-WHERE
-	id=?;
-'''
-
-sql_insert_new = '''
-INSERT INTO inventory (
-	count,
-	name,
-	edition,
-	tcg_num,
-	condition,
-	language,
-	foil,
-	signed,
-	artist_proof,
-	altered_art,
-	misprint,
-	promo,
-	textless,
-	printing_id,
-	printing_note
-)
-VALUES
-	(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-'''
-	
-sql_get_all_cards = '''
-SELECT
-	id,
-	count,
-	name,
-	edition,
-	tcg_num,
-	condition,
-	language,
-	foil,
-	signed,
-	artist_proof,
-	altered_art,
-	misprint,
-	promo,
-	textless,
-	printing_id,
-	printing_note
-FROM
-	inventory;
-'''
-
-
-def mtgdb_get_existing_cards(db_filename):
-	con = sqlite3.connect(db_filename)
-	cur = con.cursor()
-	
-	data = list()
-	
-	for r in cur.execute(sql_get_all_cards):
-		data_dict = {
-			'id': r[0],
-			'count': r[1],
-			'name': r[2],
-			'edition': r[3],
-			'tcg_num': r[4],
-			'condition': r[5],
-			'language': r[6],
-			'foil': int_to_bool(r[7]),
-			'signed': int_to_bool(r[8]),
-			'artist_proof': int_to_bool(r[9]),
-			'altered_art': int_to_bool(r[10]),
-			'misprint': int_to_bool(r[11]),
-			'promo': int_to_bool(r[12]),
-			'textless': int_to_bool(r[13]),
-			'printing_id': r[14],
-			'printing_note': none_to_empty_str(r[15]),
-		}
-		
-		data.append(data_dict)
-		
-	con.close()
-	
-	return data
-
 
 def update_deckbox_fieldnames_to_mtgdb(cards):
 	deckbox_to_mtgdb_columns = {

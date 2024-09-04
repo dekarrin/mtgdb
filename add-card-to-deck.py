@@ -2,7 +2,8 @@ import sys
 import sqlite3
 import argparse
 
-from mtg import mtgdb, cardutil
+from mtg import cardutil
+from mtg.db import deckdb, carddb
 
 
 def main():
@@ -37,17 +38,17 @@ def main():
 	
 	# okay the user has SOMEHOW given the card and deck. Find the card.
 	if args.card is not None or args.card_num is not None:
-		card = mtgdb.find_card_by_filter(db_filename, args.card, args.card_num)
+		card = carddb.find_one_by_filter(db_filename, args.card, args.card_num)
 	else:
-		card = mtgdb.get_card(db_filename, args.cid)
+		card = carddb.get_one(db_filename, args.cid)
 		
 	# Find the deck
 	if args.deck is not None:
-		deck = mtgdb.find_deck_by_name(db_filename, args.deck)
+		deck = deckdb.find_one_by_name(db_filename, args.deck)
 	else:
-		deck = mtgdb.get_deck(db_filename, args.did)
+		deck = deckdb.get_one(db_filename, args.did)
 	
-	mtgdb.add_card_to_deck(db_filename, card['id'], deck['id'], args.amount)
+	deckdb.add_card(db_filename, card['id'], deck['id'], args.amount)
 
 	print("Added {:d}x {:s} to {:s}".format(args.amount, cardutil.to_str(card), deck['name']))
 
