@@ -54,7 +54,7 @@ def get_one(db_filename, did):
 	return rows[0]
 
 
-def find_one_by_name(db_filename, name):
+def find_one(db_filename, name):
 	con = util.connect(db_filename)
 	cur = con.cursor()
 	data = []
@@ -86,9 +86,6 @@ def find_one_by_name(db_filename, name):
 	return data[0]
 	
 	
-def find_one_card
-	
-
 def add_card(db_filename, cid, did, amount=1):
 	con = util.connect(db_filename)
 	cur = con.cursor()

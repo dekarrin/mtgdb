@@ -15,9 +15,8 @@ def main():
 	args = parser.parse_args()
 	
 	db_filename = args.db_filename
-	filter_clause, filter_params = carddb.build_filters(db_filename, args.name, args.card_num, args.edition)
 	
-	cards = carddb.find_by_filter(db_filename, filter_clause, filter_params)
+	cards = carddb.find(db_filename, args.card, args.card_num, args.edition)
 	
 	for c in cards:
 		print("{:d}: {:s}".format(c['id'], cardutil.to_str(c)))

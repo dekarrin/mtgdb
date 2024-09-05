@@ -38,13 +38,13 @@ def main():
 	
 	# okay the user has SOMEHOW given the card and deck. Find the card.
 	if args.card is not None or args.card_num is not None:
-		card = carddb.find_one_by_filter(db_filename, args.card, args.card_num)
+		card = carddb.find_one(db_filename, args.card, args.card_num)
 	else:
 		card = carddb.get_one(db_filename, args.cid)
 		
 	# Find the deck
 	if args.deck is not None:
-		deck = deckdb.find_one_by_name(db_filename, args.deck)
+		deck = deckdb.find_one(db_filename, args.deck)
 	else:
 		deck = deckdb.get_one(db_filename, args.did)
 	

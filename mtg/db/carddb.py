@@ -12,8 +12,7 @@ def get_all(db_filename):
 	data = list()
 	
 	for r in cur.execute(sql_get_all_cards):
-		data_dict = 
-		
+		data_dict = _card_row_to_dict(r) 
 		data.append(data_dict)
 		
 	con.close()
@@ -44,47 +43,13 @@ def get_one(db_filename, cid):
 	
 
 # TODO: do not put prompt into this, split prompting into own func.
-# TODO: unify interface with find_by_filter and editionsdb.find.
-def find_one_by_filter(db_filename, name, card_num):
+def find_one(db_filename, name, card_num):
 	con = util.connect(db_filename)
 	where_clause = ''
 	params = []
 	num_exprs = 0
 	
-	if name is not None or card_num is not None:
-		where_clause = " WHERE"
-	
-	if name is not None:
-		where_clause += ' c.name LIKE "%" || ? || "%"'
-		num_exprs += 1
-		params.append(name)
-		
-	if card_num is not None:
-		ed = None
-		tcg_num = None
-		
-		splits = card_num.split('-', maxsplit=1)
-		if len(splits) == 2:
-			ed = splits[0]
-			
-			if splits[1] != '':
-				tcg_num = splits[1]
-		elif len(splits) == 1:
-			ed = splits[0]
-			
-		if ed is not None:
-			if num_exprs > 0:
-				where_clause += " AND"
-			where_clause += " c.edition = ?"
-			num_exprs += 1
-			params.append(ed)
-			
-		if tcg_num is not None:
-			if num_exprs > 0:
-				where_clause += " AND"
-			where_clause += " c.tcg_num = ?"
-			num_exprs += 1
-			params.append(tcg_num)
+	where_clause, params = build_filters(db_filename, name, card_num)
 	
 	cur = con.cursor()
 	
@@ -117,7 +82,7 @@ def find_one_by_filter(db_filename, name, card_num):
 	return data[0]
 	
 
-def find_by_filter(db_filename, filter_clause, filter_params):
+def find(db_filename, name, card_num, edition):
 	try:
 		con = sqlite3.connect("file:" + db_filename + "?mode=rw", uri=True)
 	except sqlite3.OperationalError as e:
@@ -134,6 +99,8 @@ def find_by_filter(db_filename, filter_clause, filter_params):
 	query = sql_select_cards
 	
 	params = list()
+	
+	filter_clause, filter_params = build_filters(db_filename, name, card_num, edition)
 	if filter_clause != '':
 		query += filter_clause
 		params += filter_params
