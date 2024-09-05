@@ -48,9 +48,9 @@ def main():
 	else:
 		card = deckdb.get_one_card(db_filename, deck['id'], args.cid)
 	
-	deckdb.add_card(db_filename, card['id'], deck['id'], args.amount)
+	deckdb.remove_card(db_filename, deck['id'], card['id'], args.amount)
 
-	print("Added {:d}x {:s} to {:s}".format(args.amount, cardutil.to_str(card), deck['name']))
+	print("Removed {:d}x {:s} from {:s}".format(args.amount, cardutil.to_str(card), deck['name']))
 
 
 if __name__ == '__main__':

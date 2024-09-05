@@ -181,6 +181,43 @@ def add_card(db_filename, did, cid, amount=1):
 	
 	con.close()
 	
+	
+def remove_card(db_filename, did, cid, amount=1):
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	
+	# first, need to get the card to compare amount
+	existing = None
+	
+	for r in cur.execute(sql_get_existing_deck_card, (cid, did)):
+		existing = {'id': r[0], 'card': r[1], 'deck': r[2], 'count': r[3]}
+		
+	if not existing:
+		print("ERROR: card is not in the deck", file=sys.stderr)
+		
+	# are we being asked to remove more than are there? if so, confirm
+	
+	new_amt = existing['count'] - amount
+	if new_amt < 0:
+		print("Only {:d}x of that card is in the deck.".format(existing['count']), file=sys.stderr)
+		if not cio.confirm("Remove all existing copies from deck?"):
+			sys.exit(0)
+			
+		new_amt = 0
+		
+	if new_amt = 0:
+		cur.execute(sql_delete_deck_card, (cid, did))
+	else:
+		cur.execute(sql_update_deck_card_count, (new_amt, cid, did))
+		
+	con.commit()
+	
+	if con.total_changes < 1:
+		print("ERROR: Tried to apply, but no changes ocurred".format(name), file=sys.stderr)
+		sys.exit(3)
+	
+	con.close()
+	
 
 def create(db_filename, name):
 	con = util.connect(db_filename)
@@ -239,6 +276,12 @@ SELECT id, card, deck, count
 FROM deck_cards
 WHERE card = ? AND deck = ?
 LIMIT 1;
+'''
+
+
+sql_delete_deck_card = '''
+DELETE FROM deck_cards
+WHERE card = ? AND deck = ?
 '''
 
 
