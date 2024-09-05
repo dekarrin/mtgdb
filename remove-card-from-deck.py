@@ -7,14 +7,14 @@ from mtg.db import deckdb, carddb
 
 
 def main():
-	parser = argparse.ArgumentParser(prog='add-card-to-deck.py', description='Add a card to deck')
+	parser = argparse.ArgumentParser(prog='remove-card-from-deck.py', description='Remove a card from deck')
 	parser.add_argument('db_filename', help="path to sqlite3 holding cards")
 	parser.add_argument('-c', '--card', help="Filter on the name; partial matching will be applied. If multiple match, you must select one")
 	parser.add_argument('-n', '--card-num', help="Filter on a TCG number in format EDC-123; must be exact. If multiple match, you must select one.")
 	parser.add_argument('--cid', help="Specify card by ID. If given, cannot also give -c or -n")
 	parser.add_argument('-d', '--deck', help="Give name of the deck; prefix matching is used. If multiple match, you must select one")
 	parser.add_argument('--did', help="Specify deck by ID. If given, cannot also give -d")
-	parser.add_argument('-a', '--amount', default=1, type=int, help="specify amount of that card to add")
+	parser.add_argument('-a', '--amount', default=1, type=int, help="specify amount of that card to remove")
 	args = parser.parse_args()
 	
 	if args.deck is not None and args.did is not None:

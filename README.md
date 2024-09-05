@@ -22,7 +22,6 @@ sqlite3-enabled browser.
 Supported Command Plans:
 ------------------------
 
-* Add card to deck
 * Remove card from deck
 * Print list of deck cards
 * List how many free of a card <-- ultimate goal.
