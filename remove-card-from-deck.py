@@ -44,9 +44,9 @@ def main():
 	
 	# Find the card
 	if args.card is not None or args.card_num is not None:
-		card = deckdb.find_one_card(db_filename, deck, args.card, args.card_num)
+		card = deckdb.find_one_card(db_filename, deck['id'], args.card, args.card_num)
 	else:
-		card = deckdb.get_one_card(db_filename, deck, args.cid)
+		card = deckdb.get_one_card(db_filename, deck['id'], args.cid)
 	
 	deckdb.add_card(db_filename, card['id'], deck['id'], args.amount)
 

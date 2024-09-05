@@ -48,7 +48,7 @@ def main():
 	else:
 		deck = deckdb.get_one(db_filename, args.did)
 	
-	deckdb.add_card(db_filename, card['id'], deck['id'], args.amount)
+	deckdb.add_card(db_filename, deck['id'], card['id'], args.amount)
 
 	print("Added {:d}x {:s} to {:s}".format(args.amount, cardutil.to_str(card), deck['name']))
 

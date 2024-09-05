@@ -12,7 +12,7 @@ def get_all(db_filename):
 	data = list()
 	
 	for r in cur.execute(sql_get_all_cards):
-		data_dict = _card_row_to_dict(r) 
+		data_dict = util.card_row_to_dict(r) 
 		data.append(data_dict)
 		
 	con.close()
@@ -26,8 +26,9 @@ def get_one(db_filename, cid):
 	
 	rows = []
 	for r in cur.execute(sql_find_card_by_id, (cid,)):
-		data_dict = _card_row_to_dict(r)
+		data_dict = util.card_row_to_dict(r)
 		rows.append(data_dict)
+	con.close()
 
 	count = len(rows)		
 	if count < 1:
@@ -49,7 +50,7 @@ def find_one(db_filename, name, card_num):
 	params = []
 	num_exprs = 0
 	
-	where_clause, params = filters.card(db_filename, name, card_num)
+	where_clause, params = filters.card(name, card_num)
 	
 	cur = con.cursor()
 	
@@ -58,7 +59,7 @@ def find_one(db_filename, name, card_num):
 	query = sql_select_cards + where_clause
 	
 	for r in cur.execute(query, params):
-		data_dict = _card_row_to_dict(r)
+		data_dict = util.card_row_to_dict(r)
 		data.append(data_dict)
 	
 	con.close()
@@ -69,7 +70,7 @@ def find_one(db_filename, name, card_num):
 		
 	if len(data) > 1:
 		if len(data) > 10:
-			print("ERROR: There are more than 10 matches for that card. Be more specific or use card ID", file=sys.stderr)
+			print("ERROR: More than 10 matches for that card. Be more specific or use card ID", file=sys.stderr)
 			sys.exit(2)
 		
 		card_list = []
@@ -111,13 +112,13 @@ def find(db_filename, name, card_num, edition):
 		for ed in matching_editions:
 			ed_codes.append(ed['code'])
 	
-	filter_clause, filter_params = filters.card(db_filename, name, card_num, ed_codes)
+	filter_clause, filter_params = filters.card(name, card_num, ed_codes)
 	if filter_clause != '':
 		query += filter_clause
 		params += filter_params
 	
 	for r in cur.execute(query, params):
-		data_dict = _card_row_to_dict(r)
+		data_dict = util.card_row_to_dict(r)
 		data.append(data_dict)
 		
 	con.close()
@@ -151,27 +152,6 @@ def update_counts(db_filename, cards):
 	cur.executemany(sql_update_count, update_data)
 	con.commit()
 	con.close()
-	
-
-def _card_row_to_dict(r):
-	return {
-		'id': r[0],
-		'count': r[1],
-		'name': r[2],
-		'edition': r[3],
-		'tcg_num': r[4],
-		'condition': r[5],
-		'language': r[6],
-		'foil': util.int_to_bool(r[7]),
-		'signed': util.int_to_bool(r[8]),
-		'artist_proof': util.int_to_bool(r[9]),
-		'altered_art': util.int_to_bool(r[10]),
-		'misprint': util.int_to_bool(r[11]),
-		'promo': util.int_to_bool(r[12]),
-		'textless': util.int_to_bool(r[13]),
-		'printing_id': r[14],
-		'printing_note': util.none_to_empty_str(r[15]),
-	}
 
 
 sql_find_card_by_id = '''

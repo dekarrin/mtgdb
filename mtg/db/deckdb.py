@@ -2,7 +2,7 @@ import sqlite3
 import sys
 
 from . import util
-from .. import cio
+from .. import cio, cardutil
 
 
 def update_state(db_filename, name, state):
@@ -86,7 +86,71 @@ def find_one(db_filename, name):
 	return data[0]
 	
 	
-def add_card(db_filename, cid, did, amount=1):
+def get_one_card(db_filename, did, cid):
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	rows = []
+	for r in cur.execute(sql_select_deck_card, (cid, did)):
+		data_dict = util.card_row_to_dict(r[4:])
+		data_dict['deck_card_id'] = r[0]
+		data_dict['deck_id'] = r[2]
+		data_dict['deck_count'] = r[3]
+		rows.append(data_dict)
+	con.close()
+
+	count = len(rows)		
+	if count < 1:
+		print("ERROR: no card with that ID exists in deck", file=sys.stderr)
+		sys.exit(2)
+		
+	if count > 1:
+		# should never happen
+		print("ERROR: multiple cards with that ID exist in deck", file=sys.stderr)
+		sys.exit(2)
+		
+	return rows[0]
+	
+
+def find_one_card(db_filename, did, card_name, card_num):
+	filter_clause, filter_params = filters.card(card_name, card_num, include_where=False)
+	query = sql_find_deck_card
+	params = [did,]
+	if filter_clause != '':
+		query += filter_clause
+		params += filter_params
+		
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	data = []
+	for r in cur.execute(query, params):
+		data_dict = util.card_row_to_dict(r)
+		# add some more as well
+		data_dict['deck_card_id'] = r[16] # dc.id
+		data_dict['deck_id'] = r[18] # dc.deck
+		data_dict['deck_count'] = r[19] # dc.count
+		data.append(data_dict)
+	con.close()
+	
+	if len(data) < 1:
+		print("ERROR: no card in deck matches the given flags", file=sys.stderr)
+		sys.exit(1)
+		
+	if len(data) > 1:
+		if len(data) > 10:
+			print("ERROR: More than 10 matches in deck for that card. Be more specific or use card ID", file=sys.stderr)
+			sys.exit(2)
+		
+		card_list = []
+		for c in data:
+			opt = (c, cardutil.to_str(c))
+			card_list.append(opt)
+		
+		return cio.select("Multiple cards match; which one should be added?", card_list)
+	
+	return data[0]
+	
+	
+def add_card(db_filename, did, cid, amount=1):
 	con = util.connect(db_filename)
 	cur = con.cursor()
 	
@@ -168,12 +232,28 @@ sql_select_deck_id = '''
 SELECT id, name FROM decks WHERE name LIKE ? || '%';
 '''
 
+
 # TODO: pk could honestly just be (card, deck).
 sql_get_existing_deck_card = '''
 SELECT id, card, deck, count
 FROM deck_cards
 WHERE card = ? AND deck = ?
 LIMIT 1;
+'''
+
+
+sql_add_deck_card = '''
+INSERT INTO deck_cards
+(card, deck, count)
+VALUES
+(?, ?, ?);
+'''
+
+
+sql_find_deck_card = '''
+SELECT * FROM inventory AS c
+INNER JOIN deck_cards AS dc ON dc.card = c.id
+WHERE dc.deck = ?
 '''
 
 
@@ -184,12 +264,12 @@ WHERE card = ? AND deck = ?;
 '''
 
 
-sql_add_deck_card = '''
-INSERT INTO deck_cards
-(card, deck, count)
-VALUES
-(?, ?, ?);
+sql_select_deck_card = '''
+SELECT * FROM deck_cards AS dc
+INNER JOIN inventory AS c ON c.id = dc.card
+WHERE card = ? AND deck = ?
 '''
+
 
 sql_update_state = '''
 UPDATE decks

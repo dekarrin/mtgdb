@@ -1,10 +1,13 @@
 
 
-def card(db_filename, name=None, card_num=None, edition_codes=None):
+def card(name=None, card_num=None, edition_codes=None, include_where=True):
 	if name is None and card_num is None and edition_codes is None:
 		return "", []
 		
-	clause = ' WHERE'
+	clause = ''
+	
+	if include_where:
+		clause = ' WHERE'
 	
 	num_exprs = 0
 	data_params = list()
