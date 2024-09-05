@@ -179,7 +179,7 @@ def add_card(db_filename, did, cid, amount=1):
 	con.commit()
 	
 	if con.total_changes < 1:
-		print("ERROR: Tried to apply, but no changes ocurred".format(name), file=sys.stderr)
+		print("ERROR: Tried to apply, but no changes ocurred", file=sys.stderr)
 		sys.exit(3)
 	
 	con.close()
