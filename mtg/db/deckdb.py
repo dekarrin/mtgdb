@@ -1,7 +1,7 @@
 import sqlite3
 import sys
 
-from . import util, filters
+from . import util, filters, editiondb
 from .. import cio, cardutil
 
 
@@ -52,7 +52,7 @@ def get_one(db_filename, did):
 	
 	rows = []
 	for r in cur.execute(sql_find_deck_by_id, (did,)):
-		row = {'id': r[0], 'name': r[1]}
+		row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3]}
 		rows.append(row)
 	
 	count = len(rows)
@@ -191,8 +191,40 @@ def find_one_card(db_filename, did, card_name, card_num):
 	return data[0]
 	
 
-def find_cards(db_filename, did, card_name, card_num, editions):
-	
+def find_cards(db_filename, did, card_name, card_num, edition):
+	query = sql_find_deck_card
+	params = [did]
+
+	ed_codes = None
+	if edition is not None:
+		# we need to look up editions first or we are going to need to do a dynamically built
+		# join and i dont want to
+		matching_editions = editiondb.find(db_filename, edition)
+		
+		# match on any partial matches and get the codes
+		ed_codes = []
+		for ed in matching_editions:
+			ed_codes.append(ed['code'])
+
+	filter_clause, filter_params = filters.card(card_name, card_num, ed_codes, include_where=False)
+	if filter_clause != '':
+		query += ' AND' + filter_clause
+		params += filter_params
+
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	data = []
+
+	for r in cur.execute(query, params):
+		data_dict = util.card_row_to_dict(r)
+		# add some more as well
+		data_dict['deck_card_id'] = r[16] # dc.id
+		data_dict['deck_id'] = r[18] # dc.deck
+		data_dict['deck_count'] = r[19] # dc.count
+		data.append(data_dict)
+	con.close()
+
+	return data
 
 	
 def add_card(db_filename, did, cid, amount=1):
@@ -286,8 +318,13 @@ LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
 GROUP BY d.id
 '''
 
-sql_select_decks_by_exact_name = sql_select_decks + '''
+sql_select_decks_by_exact_name = '''
+SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards
+FROM decks AS d
+INNER JOIN deck_states AS s ON d.state = s.id
+LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
 WHERE d.name = ?
+GROUP BY d.id
 '''
 
 
@@ -301,7 +338,12 @@ VALUES
 
 
 sql_find_deck_by_id = '''
-SELECT id, name FROM decks WHERE id = ?;
+SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards
+FROM decks AS d
+INNER JOIN deck_states AS s ON d.state = s.id
+LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
+WHERE d.id = ?
+GROUP BY d.id
 '''
 
 

@@ -31,10 +31,17 @@ def main():
 	else:
 		deck = deckdb.get_one_by_name(db_filename, args.deck)
 
-	deck_cards = deckdb.find(db_filename, args.card, args.card_num, args.edition)
+	cards = deckdb.find_cards(db_filename, deck['id'], args.card, args.card_num, args.edition)
 	
-	for c in cards:
-		print("{:d}: {:s}".format(c['id'], cardutil.to_str(c)))
+	s_card = 's' if deck['cards'] != 1 else ''
+	print("{!r} (ID {:d}) - {:s} - {:d} card{:s} total".format(deck['name'], deck['id'], deck['state'], deck['cards'], s_card))
+	print("===========================================")
+
+	if len(cards) > 0:
+		for c in cards:
+			print("{:d}x {:s}".format(c['deck_count'], cardutil.to_str(c)))
+	else:
+		print("(no cards in deck)")
 	
 
 if __name__ == '__main__':

@@ -97,7 +97,7 @@ def find(db_filename, name, card_num, edition):
 	if edition is not None:
 		# we need to look up editions first or we are going to need to do a dynamically built
 		# join and i dont want to
-		matching_editions = editionsdb.find(db_filename, edition)
+		matching_editions = editiondb.find(db_filename, edition)
 		
 		# match on any partial matches and get the codes
 		ed_codes = []
