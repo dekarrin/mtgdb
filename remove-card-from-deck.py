@@ -48,9 +48,13 @@ def main():
 	else:
 		card = deckdb.get_one_card(db_filename, deck['id'], args.cid)
 	
-	deckdb.remove_card(db_filename, deck['id'], card['id'], args.amount)
-
+	new_amt = deckdb.remove_card(db_filename, deck['id'], card['id'], args.amount)
+	
 	print("Removed {:d}x {:s} from {:s}".format(args.amount, cardutil.to_str(card), deck['name']))
+	if new_amt > 0:
+		print("{:d}x remains in deck".format(new_amt))
+	else:
+		print("No more copies remain in deck")
 
 
 if __name__ == '__main__':

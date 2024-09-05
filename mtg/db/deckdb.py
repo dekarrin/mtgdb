@@ -1,7 +1,7 @@
 import sqlite3
 import sys
 
-from . import util
+from . import util, filters
 from .. import cio, cardutil
 
 
@@ -114,14 +114,15 @@ def get_one_card(db_filename, did, cid):
 def find_one_card(db_filename, did, card_name, card_num):
 	filter_clause, filter_params = filters.card(card_name, card_num, include_where=False)
 	query = sql_find_deck_card
-	params = [did,]
+	params = [did]
 	if filter_clause != '':
-		query += filter_clause
+		query += ' AND' + filter_clause
 		params += filter_params
 		
 	con = util.connect(db_filename)
 	cur = con.cursor()
 	data = []
+
 	for r in cur.execute(query, params):
 		data_dict = util.card_row_to_dict(r)
 		# add some more as well
@@ -161,6 +162,7 @@ def add_card(db_filename, did, cid, amount=1):
 		# we should only hit this once
 		existing_card = {'id': r[0], 'card': r[1], 'deck': r[2], 'count': r[3]}
 		
+	new_amt = 0
 	if existing_card:
 		# ask if the user would like to continue
 		
@@ -171,6 +173,7 @@ def add_card(db_filename, did, cid, amount=1):
 		new_amt = amount + existing_card['count']
 		cur.execute(sql_update_deck_card_count, (new_amt, cid, did))
 	else:
+		new_amt = amount
 		cur.execute(sql_add_deck_card, (cid, did, amount))
 	
 	con.commit()
@@ -180,6 +183,8 @@ def add_card(db_filename, did, cid, amount=1):
 		sys.exit(3)
 	
 	con.close()
+
+	return new_amt
 	
 	
 def remove_card(db_filename, did, cid, amount=1):
@@ -205,7 +210,7 @@ def remove_card(db_filename, did, cid, amount=1):
 			
 		new_amt = 0
 		
-	if new_amt = 0:
+	if new_amt == 0:
 		cur.execute(sql_delete_deck_card, (cid, did))
 	else:
 		cur.execute(sql_update_deck_card_count, (new_amt, cid, did))
@@ -213,10 +218,12 @@ def remove_card(db_filename, did, cid, amount=1):
 	con.commit()
 	
 	if con.total_changes < 1:
-		print("ERROR: Tried to apply, but no changes ocurred".format(name), file=sys.stderr)
+		print("ERROR: Tried to apply, but no changes ocurred", file=sys.stderr)
 		sys.exit(3)
 	
 	con.close()
+
+	return new_amt
 	
 
 def create(db_filename, name):

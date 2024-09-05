@@ -48,10 +48,10 @@ def main():
 	else:
 		deck = deckdb.get_one(db_filename, args.did)
 	
-	deckdb.add_card(db_filename, deck['id'], card['id'], args.amount)
+	new_amt = deckdb.add_card(db_filename, deck['id'], card['id'], args.amount)
 
 	print("Added {:d}x {:s} to {:s}".format(args.amount, cardutil.to_str(card), deck['name']))
-
+	print("{:d}x of that card is now in deck".format(new_amt))
 
 if __name__ == '__main__':
 	try:

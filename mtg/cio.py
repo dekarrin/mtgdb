@@ -16,13 +16,18 @@ def select(prompt, options):
 		try:
 			parsed = int(unparsed.strip())
 		except ValueError:
-			print("Please enter a number 0-{:d}".format(len(options)-1), file=sys.stderr)
+			print("Please enter one of the numbers above", file=sys.stderr)
 		
+		if parsed == 0:
+			parsed = 9
+		else:
+			parsed -= 1
+
 		if parsed is not None:
 			if 0 <= parsed < len(options):
 				selected_idx = parsed
 			else:
-				print("Please enter a number 0-{:d}".format(len(options)-1), file=sys.stderr)
+				print("Please enter one of the numbers above", file=sys.stderr)
 				
 	selected_option = options[selected_idx]
 	return selected_option[0]
