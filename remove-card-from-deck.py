@@ -36,17 +36,17 @@ def main():
 		
 	db_filename = args.db_filename
 	
-	# okay the user has SOMEHOW given the card and deck. Find the card.
-	if args.card is not None or args.card_num is not None:
-		card = carddb.find_one_by_filter(db_filename, args.card, args.card_num)
-	else:
-		card = carddb.get_one(db_filename, args.cid)
-		
-	# Find the deck
+	# Find the deck first so we can limit the card matching to that deck.
 	if args.deck is not None:
 		deck = deckdb.find_one_by_name(db_filename, args.deck)
 	else:
 		deck = deckdb.get_one(db_filename, args.did)
+	
+	# Find the card
+	if args.card is not None or args.card_num is not None:
+		card = deckdb.find_one_card(db_filename, deck, args.card, args.card_num)
+	else:
+		card = deckdb.get_one_card(db_filename, deck, args.cid)
 	
 	deckdb.add_card(db_filename, card['id'], deck['id'], args.amount)
 

@@ -85,6 +85,9 @@ def find_one_by_name(db_filename, name):
 	
 	return data[0]
 	
+	
+def find_one_card
+	
 
 def add_card(db_filename, cid, did, amount=1):
 	con = util.connect(db_filename)
