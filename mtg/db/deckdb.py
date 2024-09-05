@@ -29,6 +29,21 @@ def update_name(db_filename, name, new_name):
 		sys.exit(3)
 		
 	con.close()
+	
+
+def get_all(db_filename):
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	
+	data = []
+	
+	for r in cur.execute(sql_select_decks):
+		row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3]}
+		data.append(row)
+	
+	con.close()
+	
+	return data
 
 
 def get_one(db_filename, did):
@@ -54,6 +69,31 @@ def get_one(db_filename, did):
 	return rows[0]
 
 
+def get_one_by_name(db_filename, name):
+	con = util.connect(db_filename)
+	cur = con.cursor()
+	
+	rows = []
+	for r in cur.execute(sql_select_decks_by_exact_name, (name,)):
+		row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3]}
+		rows.append(row)
+	
+	count = len(rows)
+		
+	if count < 1:
+		print("ERROR: no deck with that name exists", file=sys.stderr)
+		sys.exit(2)
+		
+	if count > 1:
+		# should never happen
+		print("ERROR: multiple decks with that name exist", file=sys.stderr)
+		sys.exit(2)
+	
+	return rows[0]
+
+
+# diff between find_one and get_one_by_name is that find_one will do prefix
+# matching, while get_one_by_name will do exact matching
 def find_one(db_filename, name):
 	con = util.connect(db_filename)
 	cur = con.cursor()
@@ -150,6 +190,10 @@ def find_one_card(db_filename, did, card_name, card_num):
 	
 	return data[0]
 	
+
+def find_cards(db_filename, did, card_name, card_num, editions):
+	
+
 	
 def add_card(db_filename, did, cid, amount=1):
 	con = util.connect(db_filename)
@@ -232,21 +276,6 @@ def create(db_filename, name):
 	cur.execute(sql_insert_new, (name,))
 	con.commit()
 	con.close()
-	
-
-def get_all(db_filename):
-	con = util.connect(db_filename)
-	cur = con.cursor()
-	
-	data = []
-	
-	for r in cur.execute(sql_select_decks):
-		row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3]}
-		data.append(row)
-	
-	con.close()
-	
-	return data
 
 
 sql_select_decks = '''
@@ -254,7 +283,11 @@ SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS 
 FROM decks AS d
 INNER JOIN deck_states AS s ON d.state = s.id
 LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
-GROUP BY d.id;
+GROUP BY d.id
+'''
+
+sql_select_decks_by_exact_name = sql_select_decks + '''
+WHERE d.name = ?
 '''
 
 
