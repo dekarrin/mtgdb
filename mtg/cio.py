@@ -4,7 +4,9 @@ import sys
 def select(prompt, options):
 	print(prompt)
 	for idx, x in enumerate(options):
-		print("{:d}) {:s}".format(idx, x[1]), file=sys.stderr)
+		if idx == 9:
+			idx = -1
+		print("{:d}) {:s}".format(idx+1, x[1]), file=sys.stderr)
 		
 	selected_idx = None
 	

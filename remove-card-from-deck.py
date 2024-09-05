@@ -38,7 +38,7 @@ def main():
 	
 	# Find the deck first so we can limit the card matching to that deck.
 	if args.deck is not None:
-		deck = deckdb.find_one_by_name(db_filename, args.deck)
+		deck = deckdb.find_one(db_filename, args.deck)
 	else:
 		deck = deckdb.get_one(db_filename, args.did)
 	
