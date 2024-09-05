@@ -17,6 +17,7 @@ for cases where that is the only thing that difers.
 * `list-cards.py` - Show all cards in inventory, with filters via cli flags
 * `add-card-to-deck.py` - Add a card from inventory to a deck
 * `remove-card-from-deck.py` - Remove a card from deck
+* `show-deck.py` - Show all cards in a particular deck, with filters available
 
 Beyond that, deck creation, viewing, etc, needs to be handled manually using a
 sqlite3-enabled browser.
@@ -24,5 +25,4 @@ sqlite3-enabled browser.
 Supported Command Plans:
 ------------------------
 
-* Print list of deck cards
 * List how many free of a card <-- ultimate goal.
