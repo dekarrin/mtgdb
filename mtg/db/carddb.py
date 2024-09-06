@@ -81,7 +81,62 @@ def find_one(db_filename, name, card_num):
 		return cio.select("Multiple cards match; which one should be added?", card_list)
 	
 	return data[0]
+
+
+def find_with_usage(db_filename, name, card_num, edition):
+	query = sql_select_in_use
+	params = list()
+	ed_codes = None
+	if edition is not None:
+		# we need to look up editions first or we are going to need to do a dynamically built
+		# join and i dont want to
+		matching_editions = editiondb.find(db_filename, edition)
+		
+		# match on any partial matches and get the codes
+		ed_codes = []
+		for ed in matching_editions:
+			ed_codes.append(ed['code'])
 	
+	filter_clause, filter_params = filters.card(name, card_num, ed_codes)
+	if filter_clause != '':
+		query += filter_clause
+		params += filter_params
+	
+	con = util.connect(db_filename)
+	cur = con.cursor()
+
+	unique_cards = {}
+
+	order = 0
+	for r in cur.execute(query, params):
+		if r[0] not in unique_cards:
+			new_entry = util.card_row_to_dict(r)
+			unique_cards[new_entry['id']] = new_entry
+			unique_cards[new_entry['id']]['usage'] = []
+			unique_cards[new_entry['id']]['order'] = order
+			order += 1
+
+		if r[17] is not None:
+			entry = unique_cards[r[0]]		
+
+			usage_entry = {
+				'count': r[16],
+				'deck': {
+					'id': r[17],
+					'name': r[18],
+					'state': r[19]
+				},
+			}
+
+			entry['usage'].append(usage_entry)
+			unique_cards[entry['id']] = entry
+
+	# sort on order.
+	data_set = [x for x in unique_cards.values()]
+	data_set.sort(key=lambda x: x['order'])
+
+	return data_set
+
 
 def find(db_filename, name, card_num, edition):
 	con = util.connect(db_filename)
@@ -188,6 +243,38 @@ SELECT
 	printing_note
 FROM
 	inventory AS c
+'''
+
+# THINGS +  COALESCE(SUM(dc.count),0) AS in_decks inventory as c
+# LJ deck_card as dc on dc.card = c.id
+
+# note: REQUIRES formatting with {filter:s} due to it being mid-query.
+sql_select_in_use = '''
+SELECT
+	c.id,
+	c.count,
+	c.name,
+	c.edition,
+	c.tcg_num,
+	c.condition,
+	c.language,
+	c.foil,
+	c.signed,
+	c.artist_proof,
+	c.altered_art,
+	c.misprint,
+	c.promo,
+	c.textless,
+	c.printing_id,
+	c.printing_note,
+	dc.count AS count_in_deck,
+	d.id AS deck_id,
+	d.name AS deck_name,
+	d.state AS deck_state
+FROM
+	inventory as c
+LEFT OUTER JOIN deck_cards as dc ON dc.card = c.id
+LEFT OUTER JOIN decks as d ON dc.deck = d.id
 '''
 
 	

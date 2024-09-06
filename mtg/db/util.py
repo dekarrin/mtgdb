@@ -1,4 +1,5 @@
 import sqlite3
+import sys
 
 
 def none_to_empty_str(data):
