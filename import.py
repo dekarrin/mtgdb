@@ -5,16 +5,17 @@ import argparse
 from mtg import cardutil, cio
 from mtg.db import carddb
 
-confirm_changes = True
 
 def main():
 	parser = argparse.ArgumentParser(prog='import.py', description='Import cards from a deckbox csv file')
 	parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
 	parser.add_argument('csv_filename', help="path to csv file to import")
+	parser.add_argument('-y', '--yes', action='store_true', help="Skip confirmation prompt")
 	args = parser.parse_args()
 		
 	db_filename = args.db_filename
 	csv_filename = args.csv_filename
+	confirm_changes = not args.yes
 	
 	new_cards = parse_deckbox_csv(csv_filename)
 	drop_unused_fields(new_cards)
