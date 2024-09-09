@@ -1,14 +1,13 @@
 import sys
-import sqlite3
 import argparse
 
 from mtg import cardutil
-from mtg.db import deckdb, carddb
+from mtg.db import deckdb
 
 
 def main():
 	parser = argparse.ArgumentParser(prog='remove-card-from-deck.py', description='Remove a card from deck')
-	parser.add_argument('db_filename', help="path to sqlite3 holding cards")
+	parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
 	parser.add_argument('-c', '--card', help="Filter on the name; partial matching will be applied. If multiple match, you must select one")
 	parser.add_argument('-n', '--card-num', help="Filter on a TCG number in format EDC-123; must be exact. If multiple match, you must select one.")
 	parser.add_argument('--cid', help="Specify card by ID. If given, cannot also give -c or -n")

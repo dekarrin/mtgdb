@@ -20,15 +20,49 @@ def get_all(db_filename):
 	return data
 
 
-def get_one(db_filename, cid):
+def get_one(db_filename, cid, with_usage=False):
 	con = util.connect(db_filename)
 	cur = con.cursor()
 	
+	query = sql_find_card_by_id
+	if with_usage:
+		query = sql_find_card_by_id_in_use
+		unique_cards = {}
+		order = 0
+	
 	rows = []
-	for r in cur.execute(sql_find_card_by_id, (cid,)):
-		data_dict = util.card_row_to_dict(r)
-		rows.append(data_dict)
+	for r in cur.execute(query, (cid,)):
+		if with_usage:
+			if r[0] not in unique_cards:
+				new_entry = util.card_row_to_dict(r)
+				unique_cards[new_entry['id']] = new_entry
+				unique_cards[new_entry['id']]['usage'] = []
+				unique_cards[new_entry['id']]['order'] = order
+				order += 1
+
+			if r[17] is not None:
+				entry = unique_cards[r[0]]		
+
+				usage_entry = {
+					'count': r[16],
+					'deck': {
+						'id': r[17],
+						'name': r[18],
+						'state': r[19]
+					},
+				}
+
+				entry['usage'].append(usage_entry)
+				unique_cards[entry['id']] = entry
+		else:
+			data_dict = util.card_row_to_dict(r)
+			rows.append(data_dict)
 	con.close()
+
+	if with_usage:
+		# sort on order.
+		rows = [x for x in unique_cards.values()]
+		rows.sort(key=lambda x: x['order'])
 
 	count = len(rows)		
 	if count < 1:
@@ -44,25 +78,58 @@ def get_one(db_filename, cid):
 	
 
 # TODO: do not put prompt into this, split prompting into own func.
-def find_one(db_filename, name, card_num):
+def find_one(db_filename, name, card_num, with_usage=False):
 	con = util.connect(db_filename)
 	where_clause = ''
 	params = []
-	num_exprs = 0
 	
 	where_clause, params = filters.card(name, card_num)
 	
 	cur = con.cursor()
 	
 	data = []
-	
-	query = sql_select_cards + where_clause
+
+	query = sql_select_cards
+	if with_usage:
+		query = sql_select_in_use
+		unique_cards = {}
+		order = 0
+
+	query += where_clause
 	
 	for r in cur.execute(query, params):
-		data_dict = util.card_row_to_dict(r)
-		data.append(data_dict)
+		if with_usage:
+			if r[0] not in unique_cards:
+				new_entry = util.card_row_to_dict(r)
+				unique_cards[new_entry['id']] = new_entry
+				unique_cards[new_entry['id']]['usage'] = []
+				unique_cards[new_entry['id']]['order'] = order
+				order += 1
+
+			if r[17] is not None:
+				entry = unique_cards[r[0]]		
+
+				usage_entry = {
+					'count': r[16],
+					'deck': {
+						'id': r[17],
+						'name': r[18],
+						'state': r[19]
+					},
+				}
+
+				entry['usage'].append(usage_entry)
+				unique_cards[entry['id']] = entry
+		else:
+			data_dict = util.card_row_to_dict(r)
+			data.append(data_dict)
 	
 	con.close()
+
+	if with_usage:
+		# sort on order.
+		data = [x for x in unique_cards.values()]
+		data.sort(key=lambda x: x['order'])
 	
 	if len(data) < 1:
 		print("ERROR: no card matches the given flags", file=sys.stderr)
@@ -130,6 +197,8 @@ def find_with_usage(db_filename, name, card_num, edition):
 
 			entry['usage'].append(usage_entry)
 			unique_cards[entry['id']] = entry
+
+	con.close()
 
 	# sort on order.
 	data_set = [x for x in unique_cards.values()]
@@ -222,6 +291,35 @@ SELECT
 FROM inventory WHERE id = ?;
 '''
 
+sql_find_card_by_id_in_use = '''
+SELECT
+	c.id,
+	c.count,
+	c.name,
+	c.edition,
+	c.tcg_num,
+	c.condition,
+	c.language,
+	c.foil,
+	c.signed,
+	c.artist_proof,
+	c.altered_art,
+	c.misprint,
+	c.promo,
+	c.textless,
+	c.printing_id,
+	c.printing_note,
+	dc.count AS count_in_deck,
+	d.id AS deck_id,
+	d.name AS deck_name,
+	d.state AS deck_state
+FROM 
+	inventory as c
+LEFT OUTER JOIN deck_cards as dc ON dc.card = c.id
+LEFT OUTER JOIN decks as d ON dc.deck = d.id
+WHERE c.id = ?
+'''
+
 
 sql_select_cards = '''
 SELECT
@@ -245,10 +343,7 @@ FROM
 	inventory AS c
 '''
 
-# THINGS +  COALESCE(SUM(dc.count),0) AS in_decks inventory as c
-# LJ deck_card as dc on dc.card = c.id
 
-# note: REQUIRES formatting with {filter:s} due to it being mid-query.
 sql_select_in_use = '''
 SELECT
 	c.id,

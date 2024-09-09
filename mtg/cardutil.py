@@ -1,7 +1,7 @@
 
 
 def to_str(card):
-	card_str = "{:s}-{:d} {!r}".format(card['edition'], card['tcg_num'], card['name'])
+	card_str = "{:s}-{:03d} {!r}".format(card['edition'], card['tcg_num'], card['name'])
 	
 	special_print_items = list()
 	if card['foil']:

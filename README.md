@@ -25,4 +25,4 @@ sqlite3-enabled browser.
 Supported Command Plans:
 ------------------------
 
-* List how many free of a card <-- ultimate goal.
+* join everyfin together into one command with subs

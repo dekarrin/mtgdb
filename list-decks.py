@@ -1,16 +1,15 @@
-import csv
+import argparse
 import sys
-import sqlite3
 
 from mtg.db import deckdb
 
 
 def main():
-	if len(sys.argv) < 2:
-		print("ERROR: need name of DB as arg", file=sys.stderr)
-		sys.exit(1)
+	parser = argparse.ArgumentParser(prog='list-decks.py', description='Create a new deck')
+	parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
+	args = parser.parse_args()
 		
-	db_filename = sys.argv[1]
+	db_filename = args.db_filename
 	
 	decks = deckdb.get_all(db_filename)
 	

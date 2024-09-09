@@ -1,20 +1,19 @@
-import csv
 import sys
 import sqlite3
+import argparse
 
 from mtg.db import deckdb
 
 
 def main():
-	if len(sys.argv) < 2:
-		print("ERROR: need name of DB and name of deck as args", file=sys.stderr)
-		sys.exit(1)
-	if len(sys.argv) < 3:
-		print("ERROR: need name of deck as arg", file=sys.stderr)
-		sys.exit(1)
+	parser = argparse.ArgumentParser(prog='create-deck.py', description='Create a new deck')
+	parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
+	parser.add_argument('name', help="The unique name of the deck to create")
+	args = parser.parse_args()
 		
-	db_filename = sys.argv[1]
-	deck_name = sys.argv[2]
+	db_filename = args.db_filename
+	deck_name = args.name
+
 	if deck_name.strip() == '':
 		print("ERROR: Deck name must have at least one non-space character in it", file=sys.stderr)
 		sys.exit(4)

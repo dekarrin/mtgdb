@@ -1,6 +1,6 @@
 import csv
 import sys
-import sqlite3
+import argparse
 
 from mtg import cardutil, cio
 from mtg.db import carddb
@@ -8,15 +8,13 @@ from mtg.db import carddb
 confirm_changes = True
 
 def main():
-	if len(sys.argv) < 2:
-		print("need DB to import into and name of csv file as arguments", file=sys.stderr)
-		sys.exit(1)
-	if len(sys.argv) < 3:
-		print("need name of csv file to import as argument", file=sys.stderr)
-		sys.exit(1)
+	parser = argparse.ArgumentParser(prog='import.py', description='Import cards from a deckbox csv file')
+	parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
+	parser.add_argument('csv_filename', help="path to csv file to import")
+	args = parser.parse_args()
 		
-	db_filename = sys.argv[1]
-	csv_filename = sys.argv[2]
+	db_filename = args.db_filename
+	csv_filename = args.csv_filename
 	
 	new_cards = parse_deckbox_csv(csv_filename)
 	drop_unused_fields(new_cards)
