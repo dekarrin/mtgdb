@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sys
 import argparse
 import sqlite3
@@ -31,6 +33,12 @@ def main():
     remove_card_parser.add_argument('-a', '--amount', default=1, type=int, help="specify amount of that card to remove")
     remove_card_parser.set_defaults(func=cards.remove_from_deck, on_integrity_error='')
 
+    import_parser = subs.add_parser('import', help="Import a list of cards from deckbox CSV file")
+    import_parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
+    import_parser.add_argument('csv_filename', help="path to csv file to import")
+    import_parser.add_argument('-y', '--yes', action='store_true', help="Skip confirmation prompt")
+    import_parser.set_defaults(func=externaldata.import_deckbox, on_integrity_error='')
+
     init_parser = subs.add_parser('init-db', help="Initialize a new database")
     init_parser.add_argument('db_filename', help="path to sqlite3 inventory DB file to create; if one exists it will be overwritten")
     init_parser.set_defaults(func=schema.init, on_integrity_error='')
@@ -39,12 +47,6 @@ def main():
     create_deck_parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
     create_deck_parser.add_argument('name', help="The unique name of the deck to create")
     create_deck_parser.set_defaults(func=decks.create, on_integrity_error='A deck with that name already exists')
-
-    import_parser = subs.add_parser('import', help="Import a list of cards from deckbox CSV file")
-    import_parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
-    import_parser.add_argument('csv_filename', help="path to csv file to import")
-    import_parser.add_argument('-y', '--yes', action='store_true', help="Skip confirmation prompt")
-    import_parser.set_defaults(func=externaldata.import_deckbox, on_integrity_error='')
 
     list_cards_parser = subs.add_parser('list-cards', help='List and filter inventory')
     list_cards_parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
