@@ -47,6 +47,7 @@ def add_to_deck(args):
 
     # check if new_amt would be over the total in use
     free_amt = card['count'] - sum([u['count'] for u in card['usage'] if u['deck']['state'] in deck_used_states])
+
     if free_amt < args.amount:
         sub_error = "only {:d}x are not in use".format(free_amt) if free_amt > 0 else "all copies are in use"
         print("ERROR: Can't add {:d}x {:s}: {:s}".format(args.amount, cardutil.to_str(card), sub_error), file=sys.stderr)
@@ -135,7 +136,7 @@ def list(args):
             line += " -"
             if len(c['usage']) > 0:
                 for u in c['usage']:
-                    line += " {:d}x in {!r},".format(u['count'], u['deck']['name'])
+                    line += " {:d}x in {!r} ({:s}),".format(u['count'], u['deck']['name'], u['deck']['state'])
                 line = line[:-1]
             else:
                 line += " not in any decks"

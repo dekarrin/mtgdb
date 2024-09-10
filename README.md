@@ -4,6 +4,15 @@ mtgdb
 Python script for managing a sqlite3 db that imports from deckbox and tracks
 decks that cards are in as well as how many copies in main inventory are free.
 
+To use, `init-db` a DB. Then, export an inventory list from deckbox, and
+`import` it into the DB. `create-deck` to create a new one. By default, it will
+be in `broken` (`B`) state, and adding cards to it will not count against their
+free total. To fix that, `set-deck-state` to `P` (partial) or `C` (complete)
+state. Then, `add` and `remove` cards to decks as desired.
+
+To save elsewhere, use `export-decks` to get decklist CSVs that can be saved and
+viewed elsewhere. You can use `import-decks` to bring them back in.
+
 Subcommands:
 * `init-db` - Will create the new DB. If pointing at an existing one, it
 will be overwritten.
@@ -27,7 +36,7 @@ sheets or CSV.
 * `import-decks` - Import a deck list that was exported with `export-decks`
 * `add-inv` - Manually add a new card entry to the inventory. Warns that backing
 store such as deckbox will not be updated to match. Uses a table to track all
-non-imported modifications.
+non-imported modifications. Considered 'wishlisted' by default.
 * `delete-inv` - Manually remove a card entry from inventory. Warns that backing
 store such as deckbox will not be updated to match. Uses a table to track all
 non-imported modifications.
