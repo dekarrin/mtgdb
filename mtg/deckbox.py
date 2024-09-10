@@ -5,7 +5,7 @@ from . import cardutil, cio
 from .db import carddb
 
 
-def import_deckbox(args):
+def import_csv(args):
     db_filename = args.db_filename
     csv_filename = args.csv_filename
     confirm_changes = not args.yes
