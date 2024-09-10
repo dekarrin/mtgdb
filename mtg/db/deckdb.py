@@ -13,8 +13,7 @@ def update_state(db_filename, name, state):
     con.commit()
     
     if con.total_changes < 1:
-        print("ERROR: No deck called {!r} exists".format(name), file=sys.stderr)
-        sys.exit(3)
+        raise NotFoundError("no deck called {!r} exists".format(name))
     
     con.close()
     
