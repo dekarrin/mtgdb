@@ -48,6 +48,11 @@ def main():
     create_deck_parser.add_argument('name', help="The unique name of the deck to create")
     create_deck_parser.set_defaults(func=decks.create, on_integrity_error='A deck with that name already exists')
 
+    delete_deck_parser = subs.add_parser('delete-deck', help="Remove a deck. This will clear all cards from it as well.")
+    delete_deck_parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
+    delete_deck_parser.add_argument('name', help="The name of the deck to delete; must match exactly")
+    delete_deck_parser.set_defaults(func=decks.delete, on_integrity_error='')
+
     list_cards_parser = subs.add_parser('list-cards', help='List and filter inventory')
     list_cards_parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
     list_cards_parser.add_argument('-c', '--card', help="Filter on the name; partial matching will be applied")
