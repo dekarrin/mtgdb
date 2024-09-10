@@ -102,6 +102,46 @@ def set_state(args):
     print("Set state of {!r} to {:s}".format(deck_name, new_state))
 
 
+def import_csv(args):
+    db_filename = args.db_filename
+    csv_filenames = args.csv_filenames
+
+    if len(csv_filenames) == 0:
+        print("ERROR: no CSV files given to import", file=sys.stderr)
+        sys.exit(1)
+
+    for csv_filename in csv_filenames:
+        with open(csv_filename, 'r', newline='') as csvfile:
+            csvr = csv.reader(csvfile)
+            lineno = 0
+            cur_deck_id = None
+            for row in csvr:
+                lineno += 1
+                if lineno == 1:
+                    continue  # first header row
+                if lineno == 2:
+                    # deck data
+                    deck_name = row[0]
+                    if deck_name.strip() == '':
+                        print("ERROR: {:s}:{:d}, col {:d}: deck name must have at least one non-space character in it".format(csv_filename, lineno, 1), file=sys.stderr)
+                        sys.exit(2)
+
+                    deck_state = row[1].upper()
+                    if deck_state == 'BROKEN' or deck_state == 'BROKEN DOWN':
+                        deck_state = 'B'
+                    elif deck_state == 'PARTIAL':
+                        deck_state = 'P'
+                    elif deck_state == 'COMPLETE':
+                        deck_state = 'C'
+                    elif deck_state != 'B' and deck_state != 'P' and deck_state != 'C':
+                        print("ERROR: {:s}:{:d}, col {:d}: invalid deck state {!r}".format(csv_filename, lineno, 2, deck_state), file=sys.stderr)
+                        sys.exit(2)
+
+                    # check if deck already exists
+                    deck = deckdb.find_one(db_filename, deck_name)
+            # TODO: finish this after updating error handling
+
+
 def export_csv(args):
     db_filename = args.db_filename
     path = args.path

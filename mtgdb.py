@@ -26,6 +26,11 @@ def main():
     export_decks_parser.add_argument('-P', '--pattern', default='{DECK}-{DATE}.csv', help="Naming pattern for decklist output files. The following placeholders are available: {DECK}, {DATE}, {STATE}, referring to deck name, current date, and deck state, respectively. Placeholders are case-sensitive.")
     export_decks_parser.set_defaults(func=decks.export_csv, on_integrity_error='')
 
+    import_decks_parser = subs.add_parser('import-decks', help="Import deck lists from CSV files")
+    import_decks_parser.add_argument('csv_filenames', nargs='+', help="path to csv file(s) to import")
+    import_decks_parser.add_argument('-L', '--limitless', action='store_true', help="Do not fail if a deck has more cards than available in inventory")
+    import_decks_parser.set_defaults(func=decks.import_csv, on_integrity_error='')
+
     create_deck_parser = subs.add_parser('create-deck', help="Create a new deck")
     create_deck_parser.add_argument('name', help="The unique name of the deck to create")
     create_deck_parser.set_defaults(func=decks.create, on_integrity_error='A deck with that name already exists')
