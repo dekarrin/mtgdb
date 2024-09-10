@@ -92,6 +92,17 @@ def get_one_by_name(db_filename, name):
     return rows[0]
 
 
+def delete_by_name(db_filename, name):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute(sql_delete_deck_by_name, (name,))
+    con.commit()
+
+    if con.total_changes < 1:
+        print("ERROR: No deck called {!r} exists".format(name), file=sys.stderr)
+        sys.exit(3)
+
+
 # diff between find_one and get_one_by_name is that find_one will do prefix
 # matching, while get_one_by_name will do exact matching
 def find_one(db_filename, name):
@@ -315,6 +326,7 @@ LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
 GROUP BY d.id
 '''
 
+
 sql_select_decks_by_exact_name = '''
 SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards
 FROM decks AS d
@@ -322,6 +334,11 @@ INNER JOIN deck_states AS s ON d.state = s.id
 LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
 WHERE d.name = ?
 GROUP BY d.id
+'''
+
+
+sql_delete_deck_by_name = '''
+DELETE FROM decks WHERE name = ?;
 '''
 
 

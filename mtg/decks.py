@@ -31,7 +31,7 @@ def delete(args):
     db_filename = args.db_filename
     deck_name = args.name
     
-    deckdb.delete(db_filename, deck_name)
+    deckdb.delete_by_name(db_filename, deck_name)
     
     print("Deleted deck {!r}".format(deck_name))
 
