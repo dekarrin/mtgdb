@@ -22,11 +22,11 @@ def main():
     import_parser.add_argument('-y', '--yes', action='store_true', help="Skip confirmation prompt")
     import_parser.set_defaults(func=deckbox.import_csv, on_integrity_error='')
 
-    export_decks_parser = subs.add_parser('export-decks', help="Export deck lists to CSV. First row will contain headers, second row will contain name and state, third row will have card list headers, and all subsequent rows will be in deckbox exported CSV format listing the cards")
+    export_decks_parser = subs.add_parser('export-decks', help="Export deck lists to CSV. First row will contain headers, second row will contain name and state, third row will have card list headers, and all subsequent rows list the cards in the deck")
     export_decks_parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")
     export_decks_parser.add_argument('-p', '--path', help="path to directory to write decklist CSV files")
-    export_decks_parser.add_argument('-P', '--pattern', default='{DECK}-{DATE}.csv', help="Naming pattern for decklist output files. The following placeholders are available: {DECK}, {DATE}, {STATE}, referring to deck name, current date, and deck state, respectively.")
-    export_decks_parser.add_argument
+    export_decks_parser.add_argument('-P', '--pattern', default='{DECK}-{DATE}.csv', help="Naming pattern for decklist output files. The following placeholders are available: {DECK}, {DATE}, {STATE}, referring to deck name, current date, and deck state, respectively. Placeholders are case-sensitive.")
+    export_decks_parser.set_defaults(func=decks.export_csv, on_integrity_error='')
 
     create_deck_parser = subs.add_parser('create-deck', help="Create a new deck")
     create_deck_parser.add_argument('db_filename', help="path to sqlite3 inventory DB file")

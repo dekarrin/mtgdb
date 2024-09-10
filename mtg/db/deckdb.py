@@ -243,7 +243,7 @@ def add_card(db_filename, did, cid, amount=1):
     
     for r in cur.execute(sql_get_existing_deck_card, (cid, did)):
         # we should only hit this once
-        existing_card = {'id': r[0], 'card': r[1], 'deck': r[2], 'count': r[3]}
+        existing_card = {'card': r[0], 'deck': r[1], 'count': r[2]}
         
     new_amt = 0
     if existing_card:
@@ -278,7 +278,7 @@ def remove_card(db_filename, did, cid, amount=1):
     existing = None
     
     for r in cur.execute(sql_get_existing_deck_card, (cid, did)):
-        existing = {'id': r[0], 'card': r[1], 'deck': r[2], 'count': r[3]}
+        existing = {'card': r[0], 'deck': r[1], 'count': r[2]}
         
     if not existing:
         print("ERROR: card is not in the deck", file=sys.stderr)

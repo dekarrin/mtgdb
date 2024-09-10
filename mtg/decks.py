@@ -1,4 +1,7 @@
 import sys
+import datetime
+import csv
+import os.path
 
 from . import cardutil
 from .db import deckdb
@@ -97,3 +100,56 @@ def set_state(args):
     deckdb.update_state(db_filename, deck_name, new_state)
     
     print("Set state of {!r} to {:s}".format(deck_name, new_state))
+
+
+def export_csv(args):
+    db_filename = args.db_filename
+    path = args.path
+    filename_pattern = args.pattern
+
+    if path == '':
+        path = '.'
+    
+    decks = deckdb.get_all(db_filename)
+
+    deck_listings = list()
+
+    for deck in decks:
+        entry = deck
+        entry['card_count'] = entry['cards']
+        entry['cards'] = deckdb.find_cards(db_filename, deck['id'], None, None, None)
+        deck_listings.append(entry)
+    
+    for deck in deck_listings:
+        cur_date = datetime.datetime.now().strftime('%Y-%m-%d')
+        filename = filename_pattern.format(DECK=deck['name'], STATE=deck['state'], DATE=cur_date)
+        file_path = os.path.join(path, filename)
+
+        with open(file_path, 'w', newline='') as csvfile:
+            csvw = csv.writer(csvfile)
+            csvw.writerow(['Deck Name', 'Deck State'])
+            csvw.writerow([deck['name'], deck['state']])
+            csvw.writerow([
+                'Count', 'Name', 'Edition',
+                'Card Number', 'Condition', 'Language',
+                'Foil', 'Signed', 'Artist Proof',
+                'Altered Art', 'Misprint', 'Promo',
+                'Textless', 'Printing ID',
+                'Printing Notes'
+            ])
+            for card in deck['cards']:
+                csvw.writerow([
+                    card['deck_count'], card['name'], card['edition'],
+                    card['card_num'], card['condition'], card['language'],
+                    card['foil'], card['signed'], card['artist_proof'],
+                    card['altered_art'], card['misprint'], card['promo'],
+                    card['textless'], card['printing_id'],
+                    card['printing_notes']
+                ])
+
+    cumulative_decks = len(deck_listings)
+    cumulative_cards = sum([d['card_count'] for d in deck_listings])
+    s_deck = 's' if cumulative_decks != 1 else ''
+    s_card = 's' if cumulative_cards != 1 else ''
+
+    print("Exported {:d} deck{:s} with {:d} total card{:s} to {:s}".format(cumulative_decks, s_deck, cumulative_cards, s_card, path))
