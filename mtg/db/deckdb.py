@@ -131,10 +131,9 @@ def get_one_card(db_filename, did, cid):
     cur = con.cursor()
     rows = []
     for r in cur.execute(sql_select_deck_card, (cid, did)):
-        data_dict = util.card_row_to_dict(r[4:])
-        data_dict['deck_card_id'] = r[0]
-        data_dict['deck_id'] = r[2]
-        data_dict['deck_count'] = r[3]
+        data_dict = util.card_row_to_dict(r[3:])
+        data_dict['deck_id'] = r[1]
+        data_dict['deck_count'] = r[2]
         rows.append(data_dict)
     con.close()
 
@@ -153,7 +152,7 @@ def get_one_card(db_filename, did, cid):
 
 def find_one_card(db_filename, did, card_name, card_num):
     filter_clause, filter_params = filters.card(card_name, card_num, include_where=False)
-    query = sql_find_deck_card
+    query = sql_get_deck_cards
     params = [did]
     if filter_clause != '':
         query += ' AND' + filter_clause
@@ -166,9 +165,8 @@ def find_one_card(db_filename, did, card_name, card_num):
     for r in cur.execute(query, params):
         data_dict = util.card_row_to_dict(r)
         # add some more as well
-        data_dict['deck_card_id'] = r[16] # dc.id
-        data_dict['deck_id'] = r[18] # dc.deck
-        data_dict['deck_count'] = r[19] # dc.count
+        data_dict['deck_id'] = r[17] # dc.deck
+        data_dict['deck_count'] = r[18] # dc.count
         data.append(data_dict)
     con.close()
     
@@ -192,7 +190,7 @@ def find_one_card(db_filename, did, card_name, card_num):
     
 
 def find_cards(db_filename, did, card_name, card_num, edition):
-    query = sql_find_deck_card
+    query = sql_get_deck_cards
     params = [did]
 
     ed_codes = None
@@ -218,9 +216,8 @@ def find_cards(db_filename, did, card_name, card_num, edition):
     for r in cur.execute(query, params):
         data_dict = util.card_row_to_dict(r)
         # add some more as well
-        data_dict['deck_card_id'] = r[16] # dc.id
-        data_dict['deck_id'] = r[18] # dc.deck
-        data_dict['deck_count'] = r[19] # dc.count
+        data_dict['deck_id'] = r[17] # dc.deck
+        data_dict['deck_count'] = r[18] # dc.count
         data.append(data_dict)
     con.close()
 
@@ -354,7 +351,7 @@ SELECT id, name FROM decks WHERE name LIKE ? || '%';
 
 # TODO: pk could honestly just be (card, deck).
 sql_get_existing_deck_card = '''
-SELECT id, card, deck, count
+SELECT card, deck, count
 FROM deck_cards
 WHERE card = ? AND deck = ?
 LIMIT 1;
@@ -375,7 +372,7 @@ VALUES
 '''
 
 
-sql_find_deck_card = '''
+sql_get_deck_cards = '''
 SELECT * FROM inventory AS c
 INNER JOIN deck_cards AS dc ON dc.card = c.id
 WHERE dc.deck = ?
