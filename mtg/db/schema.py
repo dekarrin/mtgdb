@@ -73,7 +73,7 @@ CREATE TABLE "decks" (
     "id"    INTEGER NOT NULL,
     "name"    TEXT NOT NULL UNIQUE,
     "state"    TEXT NOT NULL DEFAULT 'B',
-    FOREIGN KEY("state") REFERENCES "deck_states"("id"),
+    FOREIGN KEY("state") REFERENCES "deck_states"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     PRIMARY KEY("id" AUTOINCREMENT)
 )
 '''
@@ -102,7 +102,7 @@ CREATE TABLE "inventory" (
     "name"    TEXT NOT NULL,
     "edition"    TEXT NOT NULL,
     "tcg_num"    INTEGER NOT NULL,
-    "condition"    TEXT NOT NULL DEFAULT 'NM',
+    "condition"    TEXT DEFAULT 'NM',
     "language"    TEXT NOT NULL DEFAULT 'English',
     "foil"    INTEGER NOT NULL DEFAULT 0,
     "signed"    INTEGER NOT NULL DEFAULT 0,
@@ -113,8 +113,8 @@ CREATE TABLE "inventory" (
     "textless"    INTEGER NOT NULL DEFAULT 0,
     "printing_id"    INTEGER NOT NULL,
     "printing_note"    TEXT,
-    FOREIGN KEY("condition") REFERENCES "conditions"("id"),
-    FOREIGN KEY("edition") REFERENCES "editions"("code"),
+    FOREIGN KEY("condition") REFERENCES "conditions"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
+    FOREIGN KEY("edition") REFERENCES "editions"("code") ON DELETE NO ACTION ON UPDATE CASCADE,
     PRIMARY KEY("id" AUTOINCREMENT)
 )
 '''
@@ -129,8 +129,8 @@ CREATE TABLE "deck_cards" (
     "card"  INTEGER NOT NULL,
     "deck"  INTEGER NOT NULL,
     "count" INTEGER NOT NULL DEFAULT 1,
-    FOREIGN KEY("card") REFERENCES "inventory"("id"),
-    FOREIGN KEY("deck") REFERENCES "decks"("id"),
+    FOREIGN KEY("card") REFERENCES "inventory"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY("deck") REFERENCES "decks"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     PRIMARY KEY("id" AUTOINCREMENT)
 );
 '''
