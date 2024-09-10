@@ -125,13 +125,12 @@ DROP TABLE IF EXISTS "deck_cards";
 
 sql_create_deck_cards = '''
 CREATE TABLE "deck_cards" (
-    "id"    INTEGER NOT NULL,
     "card"  INTEGER NOT NULL,
     "deck"  INTEGER NOT NULL,
     "count" INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY("card") REFERENCES "inventory"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY("deck") REFERENCES "decks"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    PRIMARY KEY("id" AUTOINCREMENT)
+    PRIMARY KEY("card", "deck")
 );
 '''
 
