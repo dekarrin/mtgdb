@@ -115,7 +115,6 @@ def list(args):
         cards = carddb.find_with_usage(db_filename, args.card, args.card_num, args.edition)
     else:
         cards = carddb.find(db_filename, args.card, args.card_num, args.edition)
-
     
     # pad out to max id length
     max_id = max([c['id'] for c in cards])

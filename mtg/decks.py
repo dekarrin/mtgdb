@@ -112,7 +112,7 @@ def export_csv(args):
     
     decks = deckdb.get_all(db_filename)
 
-    deck_listings = list()
+    deck_listings = []
 
     for deck in decks:
         entry = deck
@@ -135,16 +135,16 @@ def export_csv(args):
                 'Foil', 'Signed', 'Artist Proof',
                 'Altered Art', 'Misprint', 'Promo',
                 'Textless', 'Printing ID',
-                'Printing Notes'
+                'Printing Note'
             ])
             for card in deck['cards']:
                 csvw.writerow([
                     card['deck_count'], card['name'], card['edition'],
-                    card['card_num'], card['condition'], card['language'],
+                    card['tcg_num'], card['condition'], card['language'],
                     card['foil'], card['signed'], card['artist_proof'],
                     card['altered_art'], card['misprint'], card['promo'],
                     card['textless'], card['printing_id'],
-                    card['printing_notes']
+                    card['printing_note']
                 ])
 
     cumulative_decks = len(deck_listings)
