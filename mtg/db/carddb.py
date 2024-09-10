@@ -1,7 +1,5 @@
-import sqlite3
-import sys
-
 from . import util, editiondb, filters
+from .errors import MultipleFoundError, NotFoundError, TooManyMatchesError
 from .. import cio, cardutil
 
 
@@ -66,13 +64,11 @@ def get_one(db_filename, cid, with_usage=False):
 
     count = len(rows)        
     if count < 1:
-        print("ERROR: no card with that ID exists", file=sys.stderr)
-        sys.exit(2)
+        raise NotFoundError("no card with that ID exists")
         
     if count > 1:
         # should never happen
-        print("ERROR: multiple cards with that ID exist", file=sys.stderr)
-        sys.exit(2)
+        raise MultipleFoundError("multiple cards with that ID exist")
         
     return rows[0]
     
@@ -96,7 +92,7 @@ def find_one(db_filename, name, card_num, with_usage=False):
         order = 0
 
     query += where_clause
-    
+
     for r in cur.execute(query, params):
         if with_usage:
             print(r)
@@ -133,13 +129,11 @@ def find_one(db_filename, name, card_num, with_usage=False):
         data.sort(key=lambda x: x['order'])
     
     if len(data) < 1:
-        print("ERROR: no card matches the given flags", file=sys.stderr)
-        sys.exit(1)
+        raise NotFoundError("no card matches the given filters")
         
     if len(data) > 1:
         if len(data) > 10:
-            print("ERROR: More than 10 matches for that card. Be more specific or use card ID", file=sys.stderr)
-            sys.exit(2)
+            raise TooManyMatchesError("more than 10 matches for that card. Be more specific or use card ID")
         
         card_list = []
         for c in data:

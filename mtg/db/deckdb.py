@@ -1,5 +1,7 @@
 import sys
+import sqlite3
 
+from .errors import MultipleFoundError, NotFoundError, TooManyMatchesError, AlreadyExistsError
 from . import util, filters, editiondb
 from .. import cio, cardutil
 
@@ -20,12 +22,16 @@ def update_state(db_filename, name, state):
 def update_name(db_filename, name, new_name):
     con = util.connect(db_filename)
     cur = con.cursor()
-    cur.execute(sql_update_name, (new_name, name))
-    con.commit()
+
+    try:
+        cur.execute(sql_update_name, (new_name, name))
+        con.commit()
+    except sqlite3.IntegrityError:
+        con.close()
+        raise AlreadyExistsError("A deck with that name already exists")
     
     if con.total_changes < 1:
-        print("ERROR: No deck called {!r} exists".format(name), file=sys.stderr)
-        sys.exit(3)
+        raise NotFoundError("no deck called {!r} exists".format(name))
         
     con.close()
     
@@ -57,13 +63,11 @@ def get_one(db_filename, did):
     count = len(rows)
         
     if count < 1:
-        print("ERROR: no deck with that ID exists", file=sys.stderr)
-        sys.exit(2)
+        raise NotFoundError("no deck with that ID exists")
         
     if count > 1:
         # should never happen
-        print("ERROR: multiple decks with that ID exist", file=sys.stderr)
-        sys.exit(2)
+        raise MultipleFoundError("multiple decks with that ID exist")
     
     return rows[0]
 
@@ -80,13 +84,11 @@ def get_one_by_name(db_filename, name):
     count = len(rows)
         
     if count < 1:
-        print("ERROR: no deck with that name exists", file=sys.stderr)
-        sys.exit(2)
+        raise NotFoundError("no deck with that name exists")
         
     if count > 1:
         # should never happen
-        print("ERROR: multiple decks with that name exist", file=sys.stderr)
-        sys.exit(2)
+        raise MultipleFoundError("multiple decks with that name exist")
     
     return rows[0]
 
@@ -98,8 +100,7 @@ def delete_by_name(db_filename, name):
     con.commit()
 
     if con.total_changes < 1:
-        print("ERROR: No deck called {!r} exists".format(name), file=sys.stderr)
-        sys.exit(3)
+        raise NotFoundError("no deck called {!r} exists".format(name))
 
 
 # diff between find_one and get_one_by_name is that find_one will do prefix
@@ -118,13 +119,11 @@ def find_one(db_filename, name):
     con.close()
     
     if len(data) < 1:
-        print("ERROR: no deck matches name {!r}".format(name), file=sys.stderr)
-        sys.exit(1)
+        raise NotFoundError("no deck matches name {!r}".format(name))
         
     if len(data) > 1:
         if len(data) > 10:
-            print("ERROR: There are more than 10 matches for deck {!r}. Be more specific or use deck ID".format(name), file=sys.stderr)
-            sys.exit(2)
+            raise TooManyMatchesError("more than 10 matches for deck {!r}. Be more specific or use deck ID".format(name))
         
         deck_list = ()
         for d in data:
@@ -149,13 +148,11 @@ def get_one_card(db_filename, did, cid):
 
     count = len(rows)        
     if count < 1:
-        print("ERROR: no card with that ID exists in deck", file=sys.stderr)
-        sys.exit(2)
+        raise NotFoundError("no card with that ID exists in deck")
         
     if count > 1:
         # should never happen
-        print("ERROR: multiple cards with that ID exist in deck", file=sys.stderr)
-        sys.exit(2)
+        raise MultipleFoundError("multiple cards with that ID exist in deck")
         
     return rows[0]
     
@@ -181,13 +178,11 @@ def find_one_card(db_filename, did, card_name, card_num):
     con.close()
     
     if len(data) < 1:
-        print("ERROR: no card in deck matches the given flags", file=sys.stderr)
-        sys.exit(1)
+        raise NotFoundError("no card in deck matches the given flags")
         
     if len(data) > 1:
         if len(data) > 10:
-            print("ERROR: More than 10 matches in deck for that card. Be more specific or use card ID", file=sys.stderr)
-            sys.exit(2)
+            raise TooManyMatchesError("more than 10 matches in deck for that card. Be more specific or use card ID")
         
         card_list = []
         for c in data:
@@ -262,8 +257,7 @@ def add_card(db_filename, did, cid, amount=1):
     con.commit()
     
     if con.total_changes < 1:
-        print("ERROR: Tried to apply, but no changes ocurred", file=sys.stderr)
-        sys.exit(3)
+        raise NotFoundError("tried to apply, but no changes ocurred")
     
     con.close()
 
@@ -281,7 +275,7 @@ def remove_card(db_filename, did, cid, amount=1):
         existing = {'card': r[0], 'deck': r[1], 'count': r[2]}
         
     if not existing:
-        print("ERROR: card is not in the deck", file=sys.stderr)
+        raise NotFoundError("card is not in the deck")
         
     # are we being asked to remove more than are there? if so, confirm
     
@@ -301,8 +295,7 @@ def remove_card(db_filename, did, cid, amount=1):
     con.commit()
     
     if con.total_changes < 1:
-        print("ERROR: Tried to apply, but no changes ocurred", file=sys.stderr)
-        sys.exit(3)
+        raise NotFoundError("tried to apply, but no changes ocurred")
     
     con.close()
 
@@ -312,8 +305,14 @@ def remove_card(db_filename, did, cid, amount=1):
 def create(db_filename, name):
     con = util.connect(db_filename)
     cur = con.cursor()
-    cur.execute(sql_insert_new, (name,))
-    con.commit()
+
+    try:
+        cur.execute(sql_insert_new, (name,))
+        con.commit()
+    except sqlite3.IntegrityError:
+        con.close()
+        raise AlreadyExistsError("A deck with that name already exists")
+    
     con.close()
 
 
