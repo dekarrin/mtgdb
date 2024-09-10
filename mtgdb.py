@@ -2,7 +2,6 @@
 
 import sys
 import argparse
-import sqlite3
 
 import mtg.db
 
