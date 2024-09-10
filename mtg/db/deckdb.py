@@ -1,4 +1,3 @@
-import sqlite3
 import sys
 
 from . import util, filters, editiondb
