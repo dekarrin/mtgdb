@@ -102,7 +102,7 @@ CREATE TABLE "inventory" (
     "name"    TEXT NOT NULL,
     "edition"    TEXT NOT NULL,
     "tcg_num"    INTEGER NOT NULL,
-    "condition"    TEXT DEFAULT 'NM',
+    "condition"    TEXT NOT NULL DEFAULT 'NM',
     "language"    TEXT NOT NULL DEFAULT 'English',
     "foil"    INTEGER NOT NULL DEFAULT 0,
     "signed"    INTEGER NOT NULL DEFAULT 0,
