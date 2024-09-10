@@ -112,7 +112,6 @@ def find_one(db_filename, name, card_num, with_usage=False):
 
     for r in cur.execute(query, params):
         if with_usage:
-            print(r)
             if r[0] not in unique_cards:
                 new_entry = util.card_row_to_dict(r)
                 unique_cards[new_entry['id']] = new_entry
