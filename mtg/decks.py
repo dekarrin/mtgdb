@@ -3,8 +3,8 @@ import datetime
 import csv
 import os.path
 
-from . import cardutil
-from .db import deckdb
+from . import cardutil, db
+from .db import deckdb, carddb
 
 
 def create(args):
@@ -119,7 +119,7 @@ def import_csv(args):
                 lineno += 1
                 if lineno == 1:
                     continue  # first header row
-                if lineno == 2:
+                elif lineno == 2:
                     # deck data
                     deck_name = row[0]
                     if deck_name.strip() == '':
@@ -137,9 +137,59 @@ def import_csv(args):
                         print("ERROR: {:s}:{:d}, col {:d}: invalid deck state {!r}".format(csv_filename, lineno, 2, deck_state), file=sys.stderr)
                         sys.exit(2)
 
-                    # check if deck already exists
-                    deck = deckdb.find_one(db_filename, deck_name)
-            # TODO: finish this after updating error handling
+                    # check if deck already exists, or create it
+                    try:
+                        deck = deckdb.get_one_by_name(db_filename, deck_name)
+                    except db.NotFoundError:
+                        # deck needs to be created
+                        deckdb.create(db_filename, deck_name)
+
+                        try:
+                            deck = deckdb.get_one_by_name(db_filename, deck_name)
+                        except db.NotFoundError:
+                            # this should never happen
+                            raise db.DBError("Failed to create imported deck {!r}".format(deck_name))
+                    else:
+                        # clear the cards from the deck
+                        deckdb.remove_all_cards(db_filename, deck['id'])
+
+                    # see if the state needs to be updated
+                    if deck['state'] != deck_state:
+                        deckdb.update_state(db_filename, deck_name, deck_state)
+
+                    cur_deck_id = deck['id']
+                elif lineno == 3:
+                    continue  # second header row
+                else:
+                    # card data
+                    count_in_deck = int(row[0])
+                    name = row[1]
+                    edition = row[2]
+                    tcg_num = row[3]
+                    condition = row[4]
+                    language = row[5]
+                    foil = row[6] == 'True'
+                    signed = row[7] == 'True'
+                    artist_proof = row[8] == 'True'
+                    altered_art = row[9] == 'True'
+                    misprint = row[10] == 'True'
+                    promo = row[11] == 'True'
+                    textless = row[12] == 'True'
+                    printing_id = row[13]
+                    printing_note = row[14]
+
+                    # we need to get the card ID that matches the above data. If it doesn't exist, that's an error.
+                    card_id = None
+                    try:
+                        card_id = carddb.get_id_by_reverse_search(db_filename, name, edition, tcg_num, condition, language, foil, signed, artist_proof, altered_art, misprint, promo, textless, printing_id, printing_note)
+                    except db.NotFoundError:
+                        print("ERROR: {:s}:{:d}: card {!r} not found in inventory".format(csv_filename, lineno, name), file=sys.stderr)
+                        sys.exit(2)
+
+                    # we now have an ID and can add the card to the deck
+                    deckdb.add_card(db_filename, cur_deck_id, card_id, count_in_deck)
+                    
+        print("Successfully imported deck from {:s}".format(csv_filename))
 
 
 def export_csv(args):

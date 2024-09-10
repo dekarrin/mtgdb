@@ -18,6 +18,23 @@ def get_all(db_filename):
     return data
 
 
+def get_id_by_reverse_search(db_filename, name, edition, tcg_num, condition, language, foil, signed, artist_proof, altered_art, misprint, promo, textless, printing_id, printing_note):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    
+    matching_ids = list()
+    
+    for r in cur.execute(sql_reverse_search, (name, edition, tcg_num, condition, language, foil, signed, artist_proof, altered_art, misprint, promo, textless, printing_id, printing_note)):
+        matching_ids.append(r[0])
+
+    con.close()
+
+    if len(matching_ids) < 1:
+        raise NotFoundError("no card matches the given filters")
+    
+    return matching_ids[0]
+
+
 def get_one(db_filename, cid, with_usage=False):
     con = util.connect(db_filename)
     cur = con.cursor()
@@ -284,6 +301,27 @@ SELECT
     printing_id,
     printing_note
 FROM inventory WHERE id = ?;
+'''
+
+
+sql_reverse_search = '''
+SELECT
+    id
+FROM inventory WHERE
+    name LIKE '%' || ? || '%' AND
+    edition = ? AND
+    tcg_num = ? AND
+    condition = ? AND
+    language = ? AND
+    foil = ? AND
+    signed = ? AND
+    artist_proof = ? AND
+    altered_art = ? AND
+    misprint = ? AND
+    promo = ? AND
+    textless = ? AND
+    printing_id = ? AND
+    printing_note LIKE '%' || ? || '%';
 '''
 
 sql_find_card_by_id_in_use = '''

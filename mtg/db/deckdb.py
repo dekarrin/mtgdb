@@ -299,6 +299,14 @@ def remove_card(db_filename, did, cid, amount=1):
     con.close()
 
     return new_amt
+
+
+def remove_all_cards(db_filename, did):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute(sql_delete_all_cards_in_deck, (did,))
+    con.commit()
+    con.close()
     
 
 def create(db_filename, name):
@@ -375,6 +383,12 @@ LIMIT 1;
 sql_delete_deck_card = '''
 DELETE FROM deck_cards
 WHERE card = ? AND deck = ?
+'''
+
+
+sql_delete_all_cards_in_deck = '''
+DELETE FROM deck_cards
+WHERE deck = ?
 '''
 
 
