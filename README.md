@@ -31,9 +31,6 @@ for cases where that is the only thing that difers.
 Possible Enhancements:
 ------------------------
 
-* `export-decks` - Export a deck list that can be later imported for backup in
-sheets or CSV.
-* `import-decks` - Import a deck list that was exported with `export-decks`
 * `add-inv` - Manually add a new card entry to the inventory. Warns that backing
 store such as deckbox will not be updated to match. Uses a table to track all
 non-imported modifications. Considered 'wishlisted' by default.

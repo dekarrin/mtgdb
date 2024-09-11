@@ -245,6 +245,10 @@ def parse_deckbox_csv(filename, row_limit=0):
                         parser = deckbox_column_parsers[col_name]
                     row_data[col_name] = parser(cell)
                 cn += 1
+
+            if rn == 0 and len(headers) > 0 and headers[0] != 'count':
+                print("First column was expected to be 'count' but is {!r}; are you sure this is in deckbox format?".format(headers[0]), file=sys.stderr)
+                sys.exit(1)
                 
             if rn > 0 and len(row_data) > 0:
                 data.append(row_data)
