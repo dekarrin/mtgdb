@@ -139,9 +139,10 @@ def get_one_card(db_filename, did, cid):
     cur = con.cursor()
     rows = []
     for r in cur.execute(sql_select_deck_card, (cid, did)):
-        data_dict = util.card_row_to_dict(r[3:])
+        data_dict = util.card_row_to_dict(r[4:])
         data_dict['deck_id'] = r[1]
         data_dict['deck_count'] = r[2]
+        data_dict['deck_wishlist_count'] = r[3]
         rows.append(data_dict)
     con.close()
 
@@ -371,7 +372,6 @@ SELECT id, name FROM decks WHERE name LIKE ? || '%';
 '''
 
 
-# TODO: pk could honestly just be (card, deck).
 sql_get_existing_deck_card = '''
 SELECT card, deck, count
 FROM deck_cards
