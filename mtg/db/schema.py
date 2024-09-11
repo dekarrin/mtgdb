@@ -54,7 +54,7 @@ DROP TABLE IF EXISTS "conditions";
 
 sql_create_conditions = '''
 CREATE TABLE "conditions" (
-    "id"    TEXT NOT NULL,
+    "id"      TEXT NOT NULL,
     "name"    TEXT NOT NULL,
     PRIMARY KEY("id")
 )
@@ -66,7 +66,7 @@ DROP TABLE IF EXISTS "deck_states";
 
 sql_create_deck_states = '''
 CREATE TABLE "deck_states" (
-    "id"    TEXT NOT NULL,
+    "id"      TEXT NOT NULL,
     "name"    TEXT NOT NULL,
     PRIMARY KEY("id")
 )
@@ -78,8 +78,8 @@ DROP TABLE IF EXISTS "decks";
 
 sql_create_decks = '''
 CREATE TABLE "decks" (
-    "id"    INTEGER NOT NULL,
-    "name"    TEXT NOT NULL UNIQUE,
+    "id"       INTEGER NOT NULL,
+    "name"     TEXT NOT NULL UNIQUE,
     "state"    TEXT NOT NULL DEFAULT 'B',
     FOREIGN KEY("state") REFERENCES "deck_states"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     PRIMARY KEY("id" AUTOINCREMENT)
@@ -105,22 +105,22 @@ DROP TABLE IF EXISTS "inventory";
 
 sql_create_inventory = '''
 CREATE TABLE "inventory" (
-    "id"    INTEGER NOT NULL,
-    "count"    INTEGER NOT NULL DEFAULT 1,
-    "name"    TEXT NOT NULL,
-    "edition"    TEXT NOT NULL,
-    "tcg_num"    INTEGER NOT NULL,
-    "condition"    TEXT NOT NULL DEFAULT 'NM',
-    "language"    TEXT NOT NULL DEFAULT 'English',
-    "foil"    INTEGER NOT NULL DEFAULT 0,
-    "signed"    INTEGER NOT NULL DEFAULT 0,
+    "id"              INTEGER NOT NULL,
+    "count"           INTEGER NOT NULL DEFAULT 1,
+    "name"            TEXT NOT NULL,
+    "edition"         TEXT NOT NULL,
+    "tcg_num"         INTEGER NOT NULL,
+    "condition"       TEXT NOT NULL DEFAULT 'NM',
+    "language"        TEXT NOT NULL DEFAULT 'English',
+    "foil"            INTEGER NOT NULL DEFAULT 0,
+    "signed"          INTEGER NOT NULL DEFAULT 0,
     "artist_proof"    INTEGER NOT NULL DEFAULT 0,
-    "altered_art"    INTEGER NOT NULL DEFAULT 0,
-    "misprint"    INTEGER NOT NULL DEFAULT 0,
-    "promo"    INTEGER NOT NULL DEFAULT 0,
-    "textless"    INTEGER NOT NULL DEFAULT 0,
-    "printing_id"    INTEGER NOT NULL,
-    "printing_note"    TEXT,
+    "altered_art"     INTEGER NOT NULL DEFAULT 0,
+    "misprint"        INTEGER NOT NULL DEFAULT 0,
+    "promo"           INTEGER NOT NULL DEFAULT 0,
+    "textless"        INTEGER NOT NULL DEFAULT 0,
+    "printing_id"     INTEGER NOT NULL,
+    "printing_note"   TEXT,
     FOREIGN KEY("condition") REFERENCES "conditions"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     FOREIGN KEY("edition") REFERENCES "editions"("code") ON DELETE NO ACTION ON UPDATE CASCADE,
     PRIMARY KEY("id" AUTOINCREMENT)
@@ -133,9 +133,9 @@ DROP TABLE IF EXISTS "deck_cards";
 
 sql_create_deck_cards = '''
 CREATE TABLE "deck_cards" (
-    "card"  INTEGER NOT NULL,
-    "deck"  INTEGER NOT NULL,
-    "count" INTEGER NOT NULL DEFAULT 1,
+    "card"           INTEGER NOT NULL,
+    "deck"           INTEGER NOT NULL,
+    "count"          INTEGER NOT NULL DEFAULT 1,
     "wishlist_count" INTEGER NOT NULL,
     FOREIGN KEY("card") REFERENCES "inventory"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY("deck") REFERENCES "decks"("id") ON DELETE CASCADE ON UPDATE CASCADE,
