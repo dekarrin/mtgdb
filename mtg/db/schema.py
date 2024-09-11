@@ -6,6 +6,9 @@ def init(args):
     
     con = sqlite3.connect(filename)
     cur = con.cursor()
+
+    # enable foreign keys
+    cur.execute(sql_enable_fks)
     
     # drop old tables
     cur.execute(sql_drop_deck_cards)
@@ -16,7 +19,7 @@ def init(args):
     cur.execute(sql_drop_conditions)
     
     con.commit()
-    
+
     # create tables
     cur.execute(sql_create_conditions)
     cur.execute(sql_create_deck_states)
@@ -38,6 +41,11 @@ def init(args):
     con.close()
     
     print("Set up new mtgdb database in {:s}".format(filename))
+
+
+sql_enable_fks = '''
+PRAGMA foreign_keys = ON;
+'''
 
 
 sql_drop_conditions = '''

@@ -21,6 +21,8 @@ def connect(db_filename):
         else:
             print("ERROR: SQLITE returned an error opening DB: {:s}({:d})".format(e.sqlite_errorname, e.sqlite_errorcode), file=sys.stderr)
         sys.exit(2)
+
+    con.execute(sql_enable_foreign_keys)
         
     return con
 
@@ -44,3 +46,8 @@ def card_row_to_dict(r):
         'printing_id': r[14],
         'printing_note': none_to_empty_str(r[15]),
     }
+
+
+sql_enable_foreign_keys = '''
+PRAGMA foreign_keys = ON;
+'''

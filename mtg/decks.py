@@ -188,7 +188,7 @@ def import_csv(args):
 
                     # we now have an ID and can add the card to the deck
                     deckdb.add_card(db_filename, cur_deck_id, card_id, count_in_deck)
-                    
+
         print("Successfully imported deck from {:s}".format(csv_filename))
 
 
@@ -213,7 +213,7 @@ def export_csv(args):
     for deck in deck_listings:
         cur_date = datetime.datetime.now().strftime('%Y-%m-%d')
         filename = filename_pattern.format(DECK=deck['name'], STATE=deck['state'], DATE=cur_date)
-        file_path = os.path.join(path, filename)
+        file_path = os.path.join(path, filename.replace(' ', '_') + '.csv')
 
         with open(file_path, 'w', newline='') as csvfile:
             csvw = csv.writer(csvfile)
