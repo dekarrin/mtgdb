@@ -136,6 +136,7 @@ CREATE TABLE "deck_cards" (
     "card"  INTEGER NOT NULL,
     "deck"  INTEGER NOT NULL,
     "count" INTEGER NOT NULL DEFAULT 1,
+    "wishlist_count" INTEGER NOT NULL,
     FOREIGN KEY("card") REFERENCES "inventory"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY("deck") REFERENCES "decks"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     PRIMARY KEY("card", "deck")
