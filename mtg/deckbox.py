@@ -19,7 +19,7 @@ def import_csv(args):
     existing_cards = carddb.get_all(db_filename)
     
     # eliminate dupes that already exist
-    new_imports, count_updates = remove_duplicates(new_cards, existing_cards)
+    new_imports, count_updates = remove_duplicates(db_filename, new_cards, existing_cards)
     
     if len(new_imports) == 0 and len(count_updates) == 0:
         print("No new cards to import and no counts need updating", file=sys.stderr)
@@ -56,7 +56,9 @@ def import_csv(args):
     
 # returns the set of de-duped (brand-new) card listings and the set of those that difer only in
 # count.
-def remove_duplicates(importing, existing):
+# TODO: due to nested card check this is O(n^2) and could be improved to O(n) by just doing a lookup of each card
+# which is already implemented for purposes of deck importing.
+def remove_duplicates(db_filename, importing, existing):
     no_dupes = list()
     count_only = list()
     for card in importing:
@@ -100,8 +102,56 @@ def remove_duplicates(importing, existing):
             existing_count = check['count']
             # they are the same print and instance of card; is count different?
             if card['count'] != check['count']:
-                print("{:s} already exists (MTGDB ID {:d}), but count will be updated from {:d} to {:d}".format(cardutil.to_str(card), check['id'], check['count'], card['count']), file=sys.stderr)
-                update_count = True
+
+                # if the count is incremented, and existing is set to wishlisted, we need to ask if we want to just move wishlist to owned
+                if card['count'] > check['count'] and check['wishlist_count'] > 0:
+                    amount_inc = card['count'] - check['count']
+                    if cio.confirm("Card {:s} is currently wishlisted {:d}x, but import is increasing owned amount by {:d}x. Move from wishlist to owned?".format(cardutil.to_str(card), check['wishlist_count'], amount_inc)):
+                        if amount_inc > 1 and check['wishlist_count'] > 1:
+                            max_amt = min(amount_inc, check['wishlist_count'])
+                            move_count = cio.prompt_int("How many to move from wishlist to owned?".format(check['wishlist_count']), min=1, max=max_amt)
+                        else:
+                            move_count = 1
+
+                        # now we must make a list of decks and wishlist amounts to do the move by.
+                        wishlisted_decks = carddb.get_wishlist_counts(db_filename)
+                        moves_to_make = []
+                        if len(wishlisted_decks) == 1:
+                            moves_to_make = [
+                                {'deck_id': wishlisted_decks[0]['deck_id'], 'move_count': move_count}
+                            ]
+                        elif sum([x['wishlist_count'] for x in wishlisted_decks]) == move_count:  # we can exactly calculate the move amount if total wishlisted is equal to amount to move
+                            moves_to_make = [
+                                {'deck_id': x['deck_id'], 'move_count': x['wishlist_count']} for x in wishlisted_decks
+                            ]
+                        else:
+                            print("Multiple decks have card wishlisted and total does not add up to {:d}\nneed to select which to change and by how much".format(move_count), file=sys.stderr)
+                            while move_count > 0:
+                                candidates = [(x, x['deck_name']) for x in wishlisted_decks]
+                                selected_deck = cio.select("Select deck", candidates)
+
+                                if selected_deck['wishlist_count'] == 1:
+                                    move_amt = 1
+                                    print("Moving 1x wishlisted card to owned in deck {:s}".format(selected_deck['deck_name']))
+                                else:
+                                    max_amt = min(move_count, selected_deck['wishlist_count'])
+                                    move_amt = cio.prompt_int("How many to move from wishlist to owned?", min=1, max=max_amt)
+                                
+                                moves_to_make.append({'deck_id': selected_deck['deck_id'], 'move_count': move_amt})
+
+                                move_count -= move_amt
+                                wishlisted_decks = [d for d in wishlisted_decks if d['deck_id'] != selected_deck['deck_id']]
+
+                                if move_count > 0:
+                                    print("{:d}x new owned remaining".format(move_count))
+
+                        # now we have the moves to make, so make them
+                        # include the new moves in returned and make shore somefin handles it
+
+                    pass
+                else:
+                    print("{:s} already exists (MTGDB ID {:d}), but count will be updated from {:d} to {:d}".format(cardutil.to_str(card), check['id'], check['count'], card['count']), file=sys.stderr)
+                    update_count = True
             else:
                 print("{:s} already exists (MTGDB ID {:d}) with same count; skipping".format(cardutil.to_str(card), check['id']), file=sys.stderr)
                 

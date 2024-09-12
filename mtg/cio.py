@@ -1,7 +1,10 @@
 import sys
 
-# give options as tuple - returned value, displayed
 def select(prompt, options):
+    """
+    Give options as list of tuple - returned value, displayed
+    """
+    
     print(prompt)
     for idx, x in enumerate(options):
         if idx == 9:
@@ -31,6 +34,38 @@ def select(prompt, options):
                 
     selected_option = options[selected_idx]
     return selected_option[0]
+
+
+def prompt_int(prompt, min=None, max=None):
+    print(prompt)
+    err_msg = "Please enter an integer"
+
+    range_marker = ""
+    if min is not None and max is None:
+        err_msg += " >= {:d}".format(min)
+        range_marker = "[{:s},∞) ".format(str(min))
+    elif min is None and max is not None:
+        err_msg += " <= {:d}".format(max)
+        range_marker = "(-∞,{:s}] ".format(str(max))
+    elif min is not None and max is not None:
+        err_msg += " in range [{:d}, {:d}]".format(min, max)
+        range_marker = "[{:s},{:s}] ".format(str(min), str(max))
+
+    parsed = None
+    while parsed is None:
+        unparsed = input("{:s}==> ".format(range_marker))
+        try:
+            parsed = int(unparsed.strip())
+            if min is not None and parsed < min:
+                print(err_msg, file=sys.stderr)
+                parsed = None
+            elif max is not None and parsed > max:
+                print(err_msg, file=sys.stderr)
+                parsed = None
+        except ValueError:
+            print(err_msg, file=sys.stderr)
+
+    return parsed
 
 
 def confirm(preprompt):

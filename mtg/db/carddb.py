@@ -11,6 +11,7 @@ def get_all(db_filename):
     
     for r in cur.execute(sql_get_all_cards):
         data_dict = util.card_row_to_dict(r) 
+        data_dict['wishlist_total'] = r[16]
         data.append(data_dict)
         
     con.close()
@@ -145,6 +146,24 @@ def find_one(db_filename, name, card_num):
         return cio.select("Multiple cards match; which one should be added?", card_list)
     
     return data[0]
+
+
+def get_wishlist_counts(db_filename, card_id):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    
+    data = list()
+    
+    for r in cur.execute(sql_get_wishlist_counts, (card_id,)):
+        data.append({
+            'deck_name': r[0],
+            'deck_id': r[1],
+            'wishlist_count': r[2],
+        })
+    
+    con.close()
+    
+    return data
 
 
 def find_with_usage(db_filename, name, card_num, edition):
@@ -282,6 +301,19 @@ def update_counts(db_filename, cards):
     con.close()
 
 
+sql_get_wishlist_counts = '''
+SELECT
+    dc.deck,
+    dc.wishlist_count,
+    d.deck_name
+FROM
+    deck_cards AS dc
+INNER JOIN decks AS d ON dc.deck = d.id
+WHERE
+    dc.card = ?
+'''
+
+
 sql_reverse_search = '''
 SELECT
     id
@@ -391,24 +423,27 @@ LEFT OUTER JOIN decks as d ON dc.deck = d.id
     
 sql_get_all_cards = '''
 SELECT
-    id,
-    count,
-    name,
-    edition,
-    tcg_num,
-    condition,
-    language,
-    foil,
-    signed,
-    artist_proof,
-    altered_art,
-    misprint,
-    promo,
-    textless,
-    printing_id,
-    printing_note
+    c.id,
+    c.count,
+    c.name,
+    c.edition,
+    c.tcg_num,
+    c.condition,
+    c.language,
+    c.foil,
+    c.signed,
+    c.artist_proof,
+    c.altered_art,
+    c.misprint,
+    c.promo,
+    c.textless,
+    c.printing_id,
+    c.printing_note,
+    COALESCE(SUM(dc.wishlist_count),0) AS wishlist_count
 FROM
-    inventory;
+    inventory AS c
+LEFT OUTER JOIN deck_cards AS dc ON dc.card = c.id
+GROUP BY c.id
 '''
 
 

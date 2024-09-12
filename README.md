@@ -60,6 +60,8 @@ Possible Enhancements:
   - If wishlist count > 0, it is added as a wishlist item
 [ ] update remove -
   - Don't actually remove the inv entry if count hits 0 if it is wishlisted.
+[ ] update add -
+  - If card is currently wishlisted, ask if the intent is simply to replace a wishlisted one
 
 Interactive mode
 
