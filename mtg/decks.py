@@ -179,6 +179,11 @@ def import_csv(args):
                     printing_id = row[14]
                     printing_note = row[15]
 
+                    if owned_count_in_deck == 0 and wishlist_count_in_deck == 0:
+                        # if it's not owned and not wishlisted, we can just skip it
+                        print("WARN: {:s}:{:d}: card {!r} is not owned or wishlisted; skipping".format(csv_filename, lineno, name), file=sys.stderr)
+                        continue
+
                     # we need to get the card ID that matches the above data. If it doesn't exist and its owned, that's an error.
                     card_id = None
                     try:
@@ -207,8 +212,16 @@ def import_csv(args):
                             'printing_note': printing_note
                         }
 
-                    # we now have an ID and can add the card to the deck
-                    deckdb.add_card(db_filename, cur_deck_id, card_id, owned_count_in_deck)
+                        card_id = carddb.insert(db_filename, card_data)
+
+                        deckdb.add_wishlisted_card(db_filename, cur_deck_id, card_id, wishlist_count_in_deck)
+                    else:
+                        # we now have an ID and can add the card to the deck
+                        deckdb.add_card(db_filename, cur_deck_id, card_id, owned_count_in_deck)
+
+                        # Update wishlisted as well, if needed
+                        if wishlist_count_in_deck > 0:
+                            deckdb.add_wishlisted_card(db_filename, cur_deck_id, card_id, wishlist_count_in_deck)
 
         print("Successfully imported deck from {:s}".format(csv_filename))
 

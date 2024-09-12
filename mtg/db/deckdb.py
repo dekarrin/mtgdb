@@ -240,7 +240,7 @@ def add_card(db_filename, did, cid, amount=1):
     
     for r in cur.execute(sql_get_existing_deck_card, (cid, did)):
         # we should only hit this once
-        existing_card = {'card': r[0], 'deck': r[1], 'count': r[2]}
+        existing_card = {'card': r[0], 'deck': r[1], 'count': r[2], 'wishlist_count': r[3]}
         
     new_amt = 0
     if existing_card:
@@ -254,7 +254,42 @@ def add_card(db_filename, did, cid, amount=1):
         cur.execute(sql_update_deck_card_count, (new_amt, cid, did))
     else:
         new_amt = amount
-        cur.execute(sql_add_deck_card, (cid, did, amount))
+        cur.execute(sql_add_deck_card, (cid, did, amount, 0))
+    
+    con.commit()
+    
+    if con.total_changes < 1:
+        raise NotFoundError("tried to apply, but no changes ocurred")
+    
+    con.close()
+
+    return new_amt
+
+
+def add_wishlisted_card(db_filename, did, cid, amount=1):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    
+    # first, check if we already have that particular card in the deck
+    existing_card = None
+    
+    for r in cur.execute(sql_get_existing_deck_card, (cid, did)):
+        # we should only hit this once
+        existing_card = {'card': r[0], 'deck': r[1], 'count': r[2], 'wishlist_count': r[3]}
+        
+    new_amt = 0
+    if existing_card:
+        # ask if the user would like to continue
+        
+        print("{:d}x of that card is already wishlisted in the deck.".format(existing_card['wishlist_count']), file=sys.stderr)
+        if not cio.confirm("Increment wishlisted amount in deck by {:d}?".format(amount)):
+            sys.exit(0)
+            
+        new_amt = amount + existing_card['wishlist_count']
+        cur.execute(sql_update_deck_card_wishlist_count, (new_amt, cid, did))
+    else:
+        new_amt = amount
+        cur.execute(sql_add_deck_card, (cid, did, 0, amount))
     
     con.commit()
     
@@ -274,7 +309,7 @@ def remove_card(db_filename, did, cid, amount=1):
     existing = None
     
     for r in cur.execute(sql_get_existing_deck_card, (cid, did)):
-        existing = {'card': r[0], 'deck': r[1], 'count': r[2]}
+        existing = {'card': r[0], 'deck': r[1], 'count': r[2], 'wishlist_count': r[3]}
         
     if not existing:
         raise NotFoundError("card is not in the deck")
@@ -375,7 +410,7 @@ SELECT id, name FROM decks WHERE name LIKE ? || '%';
 
 
 sql_get_existing_deck_card = '''
-SELECT card, deck, count
+SELECT card, deck, count, wishlist_count
 FROM deck_cards
 WHERE card = ? AND deck = ?
 LIMIT 1;
@@ -396,9 +431,9 @@ WHERE deck = ?
 
 sql_add_deck_card = '''
 INSERT INTO deck_cards
-(card, deck, count)
+(card, deck, count, wishlist_count)
 VALUES
-(?, ?, ?);
+(?, ?, ?, ?);
 '''
 
 
@@ -412,6 +447,13 @@ WHERE dc.deck = ?
 sql_update_deck_card_count = '''
 UPDATE deck_cards
 SET count=?
+WHERE card = ? AND deck = ?;
+'''
+
+
+sql_update_deck_card_wishlist_count = '''
+UPDATE deck_cards
+SET wishlist_count=?
 WHERE card = ? AND deck = ?;
 '''
 
