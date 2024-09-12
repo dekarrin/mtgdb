@@ -35,49 +35,42 @@ def get_id_by_reverse_search(db_filename, name, edition, tcg_num, condition, lan
     return matching_ids[0]
 
 
-def get_one(db_filename, cid, with_usage=False):
+def get_one(db_filename, cid):
     con = util.connect(db_filename)
     cur = con.cursor()
     
-    query = sql_find_card_by_id
-    if with_usage:
-        query = sql_find_card_by_id_in_use
-        unique_cards = {}
-        order = 0
+    query = sql_find_card_by_id_in_use
+    unique_cards = {}
+    order = 0
     
     rows = []
     for r in cur.execute(query, (cid,)):
-        if with_usage:
-            if r[0] not in unique_cards:
-                new_entry = util.card_row_to_dict(r)
-                unique_cards[new_entry['id']] = new_entry
-                unique_cards[new_entry['id']]['usage'] = []
-                unique_cards[new_entry['id']]['order'] = order
-                order += 1
+        if r[0] not in unique_cards:
+            new_entry = util.card_row_to_dict(r)
+            unique_cards[new_entry['id']] = new_entry
+            unique_cards[new_entry['id']]['usage'] = []
+            unique_cards[new_entry['id']]['order'] = order
+            order += 1
 
-            if r[17] is not None:
-                entry = unique_cards[r[0]]        
+        if r[17] is not None:
+            entry = unique_cards[r[0]]        
 
-                usage_entry = {
-                    'count': r[16],
-                    'deck': {
-                        'id': r[17],
-                        'name': r[18],
-                        'state': r[19]
-                    },
-                }
+            usage_entry = {
+                'count': r[16],
+                'deck': {
+                    'id': r[17],
+                    'name': r[18],
+                    'state': r[19]
+                },
+            }
 
-                entry['usage'].append(usage_entry)
-                unique_cards[entry['id']] = entry
-        else:
-            data_dict = util.card_row_to_dict(r)
-            rows.append(data_dict)
+            entry['usage'].append(usage_entry)
+            unique_cards[entry['id']] = entry
     con.close()
 
-    if with_usage:
-        # sort on order.
-        rows = [x for x in unique_cards.values()]
-        rows.sort(key=lambda x: x['order'])
+    # sort on order.
+    rows = [x for x in unique_cards.values()]
+    rows.sort(key=lambda x: x['order'])
 
     count = len(rows)        
     if count < 1:
@@ -91,7 +84,7 @@ def get_one(db_filename, cid, with_usage=False):
     
 
 # TODO: do not put prompt into this, split prompting into own func.
-def find_one(db_filename, name, card_num, with_usage=False):
+def find_one(db_filename, name, card_num):
     con = util.connect(db_filename)
     where_clause = ''
     params = []
@@ -101,48 +94,40 @@ def find_one(db_filename, name, card_num, with_usage=False):
     cur = con.cursor()
     
     data = []
-
-    query = sql_select_cards
-    if with_usage:
-        query = sql_select_in_use
-        unique_cards = {}
-        order = 0
+    query = sql_select_in_use
+    unique_cards = {}
+    order = 0
 
     query += where_clause
 
     for r in cur.execute(query, params):
-        if with_usage:
-            if r[0] not in unique_cards:
-                new_entry = util.card_row_to_dict(r)
-                unique_cards[new_entry['id']] = new_entry
-                unique_cards[new_entry['id']]['usage'] = []
-                unique_cards[new_entry['id']]['order'] = order
-                order += 1
+        if r[0] not in unique_cards:
+            new_entry = util.card_row_to_dict(r)
+            unique_cards[new_entry['id']] = new_entry
+            unique_cards[new_entry['id']]['usage'] = []
+            unique_cards[new_entry['id']]['order'] = order
+            order += 1
 
-            if r[17] is not None:
-                entry = unique_cards[r[0]]
+        if r[17] is not None:
+            entry = unique_cards[r[0]]
 
-                usage_entry = {
-                    'count': r[16],
-                    'deck': {
-                        'id': r[17],
-                        'name': r[18],
-                        'state': r[19]
-                    },
-                }
+            usage_entry = {
+                'count': r[16],
+                'deck': {
+                    'id': r[17],
+                    'name': r[18],
+                    'state': r[19]
+                },
+            }
 
-                entry['usage'].append(usage_entry)
-                unique_cards[entry['id']] = entry
-        else:
-            data_dict = util.card_row_to_dict(r)
-            data.append(data_dict)
+            entry['usage'].append(usage_entry)
+            unique_cards[entry['id']] = entry
     
     con.close()
 
-    if with_usage:
-        # sort on order.
-        data = [x for x in unique_cards.values()]
-        data.sort(key=lambda x: x['order'])
+    # sort on order.
+    data = [x for x in unique_cards.values()]
+    data.sort(key=lambda x: x['order'])
     
     if len(data) < 1:
         raise NotFoundError("no card matches the given filters")
@@ -279,28 +264,6 @@ def update_counts(db_filename, cards):
     cur.executemany(sql_update_count, update_data)
     con.commit()
     con.close()
-
-
-sql_find_card_by_id = '''
-SELECT
-    id,
-    count,
-    name,
-    edition,
-    tcg_num,
-    condition,
-    language,
-    foil,
-    signed,
-    artist_proof,
-    altered_art,
-    misprint,
-    promo,
-    textless,
-    printing_id,
-    printing_note
-FROM inventory WHERE id = ?;
-'''
 
 
 sql_reverse_search = '''

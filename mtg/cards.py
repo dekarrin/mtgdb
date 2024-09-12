@@ -35,9 +35,9 @@ def add_to_deck(args):
     
     # okay the user has SOMEHOW given the card and deck. Find the card.
     if args.card is not None or args.card_num is not None:
-        card = carddb.find_one(db_filename, args.card, args.card_num, with_usage=True)
+        card = carddb.find_one(db_filename, args.card, args.card_num)
     else:
-        card = carddb.get_one(db_filename, args.cid, with_usage=True)  # UPDATE THIS WITH_USAGE
+        card = carddb.get_one(db_filename, args.cid)
         
     # Find the deck
     if args.deck is not None:
@@ -115,6 +115,9 @@ def list(args):
         cards = carddb.find_with_usage(db_filename, args.card, args.card_num, args.edition)
     else:
         cards = carddb.find(db_filename, args.card, args.card_num, args.edition)
+
+    # check for wishlist counts
+
     
     # pad out to max id length
     max_id = max([c['id'] for c in cards])
