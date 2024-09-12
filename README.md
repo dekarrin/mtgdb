@@ -52,9 +52,10 @@ Possible Enhancements:
 [ ] update list-decks -
   - It IS included in count with separate wishlist count unless -O/--owned is given
 [ ] update import -
-  - NOT a duplicate if it was only wishlisted before, but it will be a third operation, enable wishlist.
-[ ] affects export-decks -
+  - NOT a duplicate if it was only wishlisted before, but it will be a third operation, fill wishlist.
+[x] affects export-decks -
   - A new field indicating wishlist count is included in output
+  - Count is changed to 'owned count'
 [ ] affects import-decks -
   - If wishlist count > 0, it is added as a wishlist item
 

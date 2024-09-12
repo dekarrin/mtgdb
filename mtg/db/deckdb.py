@@ -174,6 +174,7 @@ def find_one_card(db_filename, did, card_name, card_num):
         # add some more as well
         data_dict['deck_id'] = r[17] # dc.deck
         data_dict['deck_count'] = r[18] # dc.count
+        data_dict['deck_wishlist_count'] = r[19]  # dc.wishlist_count
         data.append(data_dict)
     con.close()
     
@@ -223,6 +224,7 @@ def find_cards(db_filename, did, card_name, card_num, edition):
         # add some more as well
         data_dict['deck_id'] = r[17] # dc.deck
         data_dict['deck_count'] = r[18] # dc.count
+        data_dict['deck_wishlist_count'] = r[19]  # dc.wishlist_count
         data.append(data_dict)
     con.close()
 

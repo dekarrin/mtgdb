@@ -220,21 +220,21 @@ def export_csv(args):
             csvw.writerow(['Deck Name', 'Deck State'])
             csvw.writerow([deck['name'], deck['state']])
             csvw.writerow([
-                'Count', 'Name', 'Edition',
-                'Card Number', 'Condition', 'Language',
-                'Foil', 'Signed', 'Artist Proof',
-                'Altered Art', 'Misprint', 'Promo',
-                'Textless', 'Printing ID',
-                'Printing Note'
+                'Owned Count', 'Wishlist Count',
+                'Name', 'Edition', 'Card Number',
+                'Condition', 'Language', 'Foil',
+                'Signed', 'Artist Proof', 'Altered Art',
+                'Misprint', 'Promo', 'Textless',
+                'Printing ID', 'Printing Note'
             ])
             for card in deck['cards']:
                 csvw.writerow([
-                    card['deck_count'], card['name'], card['edition'],
-                    card['tcg_num'], card['condition'], card['language'],
-                    card['foil'], card['signed'], card['artist_proof'],
-                    card['altered_art'], card['misprint'], card['promo'],
-                    card['textless'], card['printing_id'],
-                    card['printing_note']
+                    card['deck_count'], card['deck_wishlist_count'],
+                    card['name'], card['edition'], card['tcg_num'],
+                    card['condition'], card['language'], card['foil'],
+                    card['signed'], card['artist_proof'], card['altered_art'],
+                    card['misprint'], card['promo'], card['textless'],
+                    card['printing_id'], card['printing_note']
                 ])
 
     cumulative_decks = len(deck_listings)
