@@ -113,10 +113,11 @@ def find_one(db_filename, name, card_num):
 
             usage_entry = {
                 'count': r[16],
+                'wishlist_count': r[17],
                 'deck': {
-                    'id': r[17],
-                    'name': r[18],
-                    'state': r[19]
+                    'id': r[18],
+                    'name': r[19],
+                    'state': r[20]
                 },
             }
 
@@ -184,10 +185,11 @@ def find_with_usage(db_filename, name, card_num, edition):
 
             usage_entry = {
                 'count': r[16],
+                'wishlist_count': r[17],
                 'deck': {
-                    'id': r[17],
-                    'name': r[18],
-                    'state': r[19]
+                    'id': r[18],
+                    'name': r[19],
+                    'state': r[20]
                 },
             }
 
@@ -209,7 +211,7 @@ def find(db_filename, name, card_num, edition):
     
     data = list()
     
-    query = sql_select_cards
+    query = sql_filterinject_select_cards
     
     params = list()
     
@@ -225,12 +227,13 @@ def find(db_filename, name, card_num, edition):
             ed_codes.append(ed['code'])
     
     filter_clause, filter_params = filters.card(name, card_num, ed_codes)
+    query = query.format(filter=filter_clause)
     if filter_clause != '':
-        query += filter_clause
         params += filter_params
     
     for r in cur.execute(query, params):
         data_dict = util.card_row_to_dict(r)
+        data_dict['wishlist_total'] = r[16]
         data.append(data_dict)
         
     con.close()
@@ -316,26 +319,30 @@ WHERE c.id = ?
 '''
 
 
-sql_select_cards = '''
+sql_filterinject_select_cards = '''
 SELECT
-    id,
-    count,
-    name,
-    edition,
-    tcg_num,
-    condition,
-    language,
-    foil,
-    signed,
-    artist_proof,
-    altered_art,
-    misprint,
-    promo,
-    textless,
-    printing_id,
-    printing_note
+    c.id,
+    c.count,
+    c.name,
+    c.edition,
+    c.tcg_num,
+    c.condition,
+    c.language,
+    c.foil,
+    c.signed,
+    c.artist_proof,
+    c.altered_art,
+    c.misprint,
+    c.promo,
+    c.textless,
+    c.printing_id,
+    c.printing_note,
+    COALESCE(SUM(dc.wishlist_count),0) AS wishlist_count
 FROM
     inventory AS c
+LEFT OUTER JOIN deck_cards AS dc ON dc.card = c.id
+{filter}
+GROUP BY c.id
 '''
 
 
@@ -358,6 +365,7 @@ SELECT
     c.printing_id,
     c.printing_note,
     dc.count AS count_in_deck,
+    dc.wishlist_count AS wishlist_count_in_deck,
     d.id AS deck_id,
     d.name AS deck_name,
     d.state AS deck_state

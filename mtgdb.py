@@ -68,6 +68,8 @@ def main():
     list_cards_parser.add_argument('-f', '--free', help="Print number of free cards (those not in complete or partial decks, by default)", action='store_true')
     list_cards_parser.add_argument('-s', '--deck-used-states', default='C,P', help="Comma-separated list of states of a deck (P, B, and/or C for partial, broken-down, or complete); a card instance being in a deck of this state is considered 'in-use' and decrements the amount shown free when -f is used.")
     list_cards_parser.add_argument('-u', '--usage', help="Show complete usage of cards in decks", action='store_true')
+    list_cards_parser.add_argument('-w', '--include-wishlist', help="Show wishlist counts and list wishlisted cards even if not owned", action='store_true')
+    list_cards_parser.add_argument('-W', '--wishlist', help="Exclusively show cards that are wishlisted and omit owned count", action='store_true')
     list_cards_parser.set_defaults(func=cards.list)
 
     add_card_parser = subs.add_parser('add', help='Add a card to deck')

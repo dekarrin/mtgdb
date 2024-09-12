@@ -102,6 +102,17 @@ def remove_from_deck(args):
 def list(args):
     db_filename = args.db_filename
 
+    wishlist_only = args.wishlist
+    include_wishlist = args.include_wishlist
+
+    if wishlist_only:
+        if include_wishlist:
+            print("ERROR: -w/--include-wishlist has no effect when -W/--wishlist is set", file=sys.stderr)
+            sys.exit(1)
+        if args.free:
+            print("ERROR: -f/--free has no effect when -W/--wishlist is set", file=sys.stderr)
+            sys.exit(1)
+
     deck_used_states = [du.upper() for du in args.deck_used_states.split(',')]
     if len(deck_used_states) == 1 and deck_used_states[0] == '':
         deck_used_states = []
@@ -124,23 +135,60 @@ def list(args):
     id_len = len(str(max_id))
 
     id_header = "ID".ljust(id_len)
-    print("{:s}: Cx SET-NUM 'CARD'".format(id_header))
+
+    count_abbrev = "W" if wishlist_only else "C"
+
+    print("{:s}: {:s}x SET-NUM 'CARD'".format(id_header, count_abbrev))
     print("==========================")
     for c in cards:
-        line = ("{:0" + str(id_len) + "d}: {:d}x {:s}").format(c['id'], c['count'], cardutil.to_str(c))
+        wishlist_total = None
+        if args.free or args.usage:
+            wishlist_total = sum([u['wishlist_count'] for u in c['usage']])
+        else:
+            wishlist_total = c['wishlist_total']
 
-        if args.free:
-            # subtract count all decks that have status C or P.
-            free = c['count'] - sum([u['count'] for u in c['usage'] if u['deck']['state'] in deck_used_states])
-            line += " ({:d}/{:d} free)".format(free, c['count'])
+        # if it's JUST count=0 with no wishlist.... that's weird. it should show
+        # up as normal.
 
-        if args.usage:
-            line += " -"
-            if len(c['usage']) > 0:
-                for u in c['usage']:
-                    line += " {:d}x in {!r} ({:s}),".format(u['count'], u['deck']['name'], u['deck']['state'])
-                line = line[:-1]
-            else:
-                line += " not in any decks"
-        
-        print(line)
+        on_wishlist_with_no_owned = wishlist_total > 0 and c['count'] == 0
+
+        if wishlist_only:
+            if wishlist_total < 1:
+                continue
+
+            line = ("{:0" + str(id_len) + "d}: {:d}x {:s}").format(c['id'], wishlist_total, cardutil.to_str(c))
+
+            if args.usage:
+                line += " -"
+                if len(c['usage']) > 0:
+                    for u in c['usage']:
+                        line += " {:d}x in {:s},".format(u['wishlist_count'], u['deck']['name'])
+                    line = line[:-1]
+                else:
+                    line += " not in any decks"
+
+            print(line)
+        else:
+            if on_wishlist_with_no_owned and not include_wishlist:
+                continue
+            
+            line = ("{:0" + str(id_len) + "d}: {:d}x {:s}").format(c['id'], c['count'], cardutil.to_str(c))
+
+            if include_wishlist:
+                line += " ({:d}x on wishlist)".format(wishlist_total)
+
+            if args.free:
+                # subtract count all decks that have status C or P.
+                free = c['count'] - sum([u['count'] for u in c['usage'] if u['deck']['state'] in deck_used_states])
+                line += " ({:d}/{:d} free)".format(free, c['count'])
+
+            if args.usage:
+                line += " -"
+                if len(c['usage']) > 0:
+                    for u in c['usage']:
+                        line += " {:d}x in {:s} ({:s}),".format(u['count'], u['deck']['name'], u['deck']['state'])
+                    line = line[:-1]
+                else:
+                    line += " not in any decks"
+            
+            print(line)

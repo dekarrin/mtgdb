@@ -43,7 +43,7 @@ Possible Enhancements:
   - If it does not exist in deck, error.
   - If it has a wishlist_count > amount, decrement wishlist_count only
   - If it has a wishlist_count <= amount, remove deck_card entry AND - iff in inven, it has count=0, delete from inven.
-[ ] update list-cards -
+[x] update list-cards -
   - Prevent data corruption - card is assumed to be wishlisted iff count=0 AND join on deck_cards indicates a wl count > 0.
   - It does not show up in card list unless new option '-w'/'--include-wishlist' is given
   - card list EXCLUSIVELY shows wishlisted cards if -W/--wishlist is given
