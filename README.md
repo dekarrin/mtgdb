@@ -58,6 +58,8 @@ Possible Enhancements:
   - Count is changed to 'owned count'
 [ ] affects import-decks -
   - If wishlist count > 0, it is added as a wishlist item
+[ ] update add -
+  - Don't actually remove the inv entry if count hits 0 if it is wishlisted.
 
 Interactive mode
 

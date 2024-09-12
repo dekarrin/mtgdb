@@ -162,32 +162,53 @@ def import_csv(args):
                     continue  # second header row
                 else:
                     # card data
-                    count_in_deck = int(row[0])
-                    name = row[1]
-                    edition = row[2]
-                    tcg_num = row[3]
-                    condition = row[4]
-                    language = row[5]
-                    foil = row[6] == 'True'
-                    signed = row[7] == 'True'
-                    artist_proof = row[8] == 'True'
-                    altered_art = row[9] == 'True'
-                    misprint = row[10] == 'True'
-                    promo = row[11] == 'True'
-                    textless = row[12] == 'True'
-                    printing_id = row[13]
-                    printing_note = row[14]
+                    owned_count_in_deck = int(row[0])
+                    wishlist_count_in_deck = int(row[1])
+                    name = row[2]
+                    edition = row[3]
+                    tcg_num = row[4]
+                    condition = row[5]
+                    language = row[6]
+                    foil = row[7] == 'True'
+                    signed = row[8] == 'True'
+                    artist_proof = row[9] == 'True'
+                    altered_art = row[10] == 'True'
+                    misprint = row[11] == 'True'
+                    promo = row[12] == 'True'
+                    textless = row[13] == 'True'
+                    printing_id = row[14]
+                    printing_note = row[15]
 
-                    # we need to get the card ID that matches the above data. If it doesn't exist, that's an error.
+                    # we need to get the card ID that matches the above data. If it doesn't exist and its owned, that's an error.
                     card_id = None
                     try:
                         card_id = carddb.get_id_by_reverse_search(db_filename, name, edition, tcg_num, condition, language, foil, signed, artist_proof, altered_art, misprint, promo, textless, printing_id, printing_note)
                     except db.NotFoundError:
-                        print("ERROR: {:s}:{:d}: card {!r} not found in inventory".format(csv_filename, lineno, name), file=sys.stderr)
-                        sys.exit(2)
+                        if owned_count_in_deck > 0:
+                            print("ERROR: {:s}:{:d}: owned card {!r} not found in inventory".format(csv_filename, lineno, name), file=sys.stderr)
+                            sys.exit(2)
+
+                        # otherwise, we need to create an entry to be wishlisted
+                        card_data = {
+                            'count': 0,
+                            'name': name,
+                            'edition': edition,
+                            'tcg_num': tcg_num,
+                            'condition': condition,
+                            'language': language,
+                            'foil': foil,
+                            'signed': signed,
+                            'artist_proof': artist_proof,
+                            'altered_art': altered_art,
+                            'misprint': misprint,
+                            'promo': promo,
+                            'textless': textless,
+                            'printing_id': printing_id,
+                            'printing_note': printing_note
+                        }
 
                     # we now have an ID and can add the card to the deck
-                    deckdb.add_card(db_filename, cur_deck_id, card_id, count_in_deck)
+                    deckdb.add_card(db_filename, cur_deck_id, card_id, owned_count_in_deck)
 
         print("Successfully imported deck from {:s}".format(csv_filename))
 

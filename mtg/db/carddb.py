@@ -254,6 +254,19 @@ def insert_multiple(db_filename, cards):
     con.commit()
     con.close()
 
+
+# insert returns an ID, the others do not.
+def insert(db_filename, card):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    last_id = None
+    for r in cur.execute(sql_insert_single, (card['count'], card['name'], card['edition'], card['tcg_num'], card['condition'], card['language'], card['foil'], card['signed'], card['artist_proof'], card['altered_art'], card['misprint'], card['promo'], card['textless'], card['printing_id'], card['printing_note'])):
+        last_id = r[0]
+    con.commit()
+    con.close()
+
+    return last_id
+
     
 def update_counts(db_filename, cards):
     update_data = list()
@@ -419,6 +432,29 @@ INSERT INTO inventory (
 )
 VALUES
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+'''
+
+sql_insert_single = '''
+INSERT INTO inventory (
+    count,
+    name,
+    edition,
+    tcg_num,
+    condition,
+    language,
+    foil,
+    signed,
+    artist_proof,
+    altered_art,
+    misprint,
+    promo,
+    textless,
+    printing_id,
+    printing_note
+)
+VALUES
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id;
 '''
 
     
