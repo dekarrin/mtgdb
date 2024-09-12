@@ -213,7 +213,6 @@ def import_csv(args):
                         }
 
                         card_id = carddb.insert(db_filename, card_data)
-
                         deckdb.add_wishlisted_card(db_filename, cur_deck_id, card_id, wishlist_count_in_deck)
                     else:
                         # we now have an ID and can add the card to the deck
@@ -247,7 +246,7 @@ def export_csv(args):
     for deck in deck_listings:
         cur_date = datetime.datetime.now().strftime('%Y-%m-%d')
         filename = filename_pattern.format(DECK=deck['name'], STATE=deck['state'], DATE=cur_date)
-        file_path = os.path.join(path, filename.replace(' ', '_') + '.csv')
+        file_path = os.path.join(path, filename.replace(' ', '_'))
 
         with open(file_path, 'w', newline='') as csvfile:
             csvw = csv.writer(csvfile)

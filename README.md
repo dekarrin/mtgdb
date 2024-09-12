@@ -53,10 +53,10 @@ Possible Enhancements:
   - It IS included in count with separate wishlist count unless -O/--owned is given
 [ ] update import -
   - NOT a duplicate if it was only wishlisted before, but it will be a third operation, fill wishlist.
-[x] affects export-decks -
+[x] update export-decks -
   - A new field indicating wishlist count is included in output
   - Count is changed to 'owned count'
-[ ] affects import-decks -
+[x] update import-decks -
   - If wishlist count > 0, it is added as a wishlist item
 [ ] update remove -
   - Don't actually remove the inv entry if count hits 0 if it is wishlisted.

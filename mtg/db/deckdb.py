@@ -246,9 +246,10 @@ def add_card(db_filename, did, cid, amount=1):
     if existing_card:
         # ask if the user would like to continue
         
-        print("{:d}x of that card is already in the deck.".format(existing_card['count']), file=sys.stderr)
-        if not cio.confirm("Increment amount in deck by {:d}?".format(amount)):
-            sys.exit(0)
+        if existing_card['count'] > 0:
+            print("{:d}x of that card is already in the deck.".format(existing_card['count']), file=sys.stderr)
+            if not cio.confirm("Increment amount in deck by {:d}?".format(amount)):
+                sys.exit(0)
             
         new_amt = amount + existing_card['count']
         cur.execute(sql_update_deck_card_count, (new_amt, cid, did))
@@ -281,9 +282,10 @@ def add_wishlisted_card(db_filename, did, cid, amount=1):
     if existing_card:
         # ask if the user would like to continue
         
-        print("{:d}x of that card is already wishlisted in the deck.".format(existing_card['wishlist_count']), file=sys.stderr)
-        if not cio.confirm("Increment wishlisted amount in deck by {:d}?".format(amount)):
-            sys.exit(0)
+        if existing_card['wishlist_count'] > 0:
+            print("{:d}x of that card is already wishlisted in the deck.".format(existing_card['wishlist_count']), file=sys.stderr)
+            if not cio.confirm("Increment wishlisted amount in deck by {:d}?".format(amount)):
+                sys.exit(0)
             
         new_amt = amount + existing_card['wishlist_count']
         cur.execute(sql_update_deck_card_wishlist_count, (new_amt, cid, did))
