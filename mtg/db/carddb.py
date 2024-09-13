@@ -148,17 +148,18 @@ def find_one(db_filename, name, card_num):
     return data[0]
 
 
-def get_wishlist_counts(db_filename, card_id):
+def get_deck_counts(db_filename, card_id):
     con = util.connect(db_filename)
     cur = con.cursor()
     
     data = list()
     
-    for r in cur.execute(sql_get_wishlist_counts, (card_id,)):
+    for r in cur.execute(sql_get_deck_counts, (card_id,)):
         data.append({
-            'deck_name': r[0],
-            'deck_id': r[1],
+            'deck_id': r[0],
+            'count': r[1],
             'wishlist_count': r[2],
+            'deck_name': r[3],
         })
     
     con.close()
@@ -301,9 +302,54 @@ def update_counts(db_filename, cards):
     con.close()
 
 
-sql_get_wishlist_counts = '''
+def remove_amount_from_decks(db_filename, removals):
+    update_data = list()
+
+    for r in removals:
+        row_values = (r['amount'], r['card'], r['deck'])
+        update_data.append(row_values)
+
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.executemany(sql_remove_from_decks, update_data)
+    cur.execute(sql_drop_empty_deck_memberships)
+    cur.execute(sql_drop_empty_wishlist_only_entries)
+    con.commit()
+    con.close()
+
+
+def move_amount_from_owned_to_wishlist_in_decks(db_filename, moves):
+    update_data = list()
+
+    for m in moves:
+        row_values = (m['amount'], m['amount'], m['card'], m['deck'])
+        update_data.append(row_values)
+
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.executemany(sql_move_deck_owned_to_wishlist, update_data)
+    con.commit()
+    con.close()
+
+
+def move_amount_from_wishlist_to_owned_in_decks(db_filename, moves):
+    update_data = list()
+
+    for m in moves:
+        row_values = (m['amount'], m['amount'], m['card'], m['deck'])
+        update_data.append(row_values)
+
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.executemany(sql_move_deck_wishlist_to_owned, update_data)
+    con.commit()
+    con.close()
+
+
+sql_get_deck_counts = '''
 SELECT
     dc.deck,
+    dc.count,
     dc.wishlist_count,
     d.deck_name
 FROM
@@ -503,3 +549,32 @@ WHERE
 '''
 
 
+sql_remove_from_decks = '''
+UPDATE deck_cards
+SET count = count - ?
+WHERE card = ? AND deck = ?;
+'''
+
+
+sql_move_deck_owned_to_wishlist = '''
+UPDATE deck_cards
+SET count = count - ?, wishlist_count = wishlist_count + ?
+WHERE card = ? AND deck = ?;
+'''
+
+
+sql_move_deck_wishlist_to_owned = '''
+UPDATE deck_cards
+SET wishlist_count = wishlist_count - ?, count = count + ?
+WHERE card = ? AND deck = ?;
+'''
+
+
+sql_drop_empty_deck_memberships = '''
+DELETE FROM deck_cards WHERE count <= 0 AND wishlist_count <= 0;
+'''
+
+
+sql_drop_empty_wishlist_only_entries = '''
+DELETE FROM inventory WHERE count <= 0 AND id NOT IN (SELECT card FROM deck_cards);
+'''

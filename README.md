@@ -51,7 +51,7 @@ Possible Enhancements:
   - It DOES show up in card list with marker by default unless -O/--owned is given
 [ ] update list-decks -
   - It IS included in count with separate wishlist count unless -O/--owned is given
-[ ] update import -
+[x] update import -
   - NOT a duplicate if it was only wishlisted before, but it will be a third operation, fill wishlist.
 [x] update export-decks -
   - A new field indicating wishlist count is included in output
@@ -62,6 +62,9 @@ Possible Enhancements:
   - Don't actually remove the inv entry if count hits 0 if it is wishlisted.
 [ ] update add -
   - If card is currently wishlisted, ask if the intent is simply to replace a wishlisted one
+
+
+- actually test import wishlist modification.
 
 Interactive mode
 
