@@ -22,6 +22,12 @@ def create(args):
 
 def list(args):
     db_filename = args.db_filename
+    owned_only = args.owned
+    wishlist_only = args.wishlist
+
+    if owned_only and wishlist_only:
+        print("ERROR: cannot give both -o/--owned and -W/--wishlist", file=sys.stderr)
+        sys.exit(1)
     
     decks = deckdb.get_all(db_filename)
     
@@ -49,6 +55,11 @@ def show(args):
         sys.exit(1)
 
     has_filter = args.card is not None or args.card_num is not None or args.edition is not None
+    owned_or_wl_msg = ""
+    if owned_only:
+        owned_or_wl_msg = " owned"
+    elif wishlist_only:
+        owned_or_wl_msg = " wishlisted"
 
     deck = None
 
@@ -66,8 +77,8 @@ def show(args):
     cards = deckdb.find_cards(db_filename, deck['id'], args.card, args.card_num, args.edition)
     
     s_card = 's' if deck['cards'] != 1 else ''
-    print("{!r} (ID {:d}) - {:s} - {:d} card{:s} total".format(deck['name'], deck['id'], deck['state'], deck['cards'], s_card))
-    print("===========================================")
+    print("{!r} (ID {:d}) - {:s} - {:d} card{:s} total, {:d} wishlisted total".format(deck['name'], deck['id'], deck['state'], deck['cards'], s_card, deck['wishlisted_cards']))
+    print("==================================================================")
 
     any_matched = False
     for c in cards:
@@ -80,14 +91,8 @@ def show(args):
             any_matched = True
     
     if not any_matched:
-        owned_or_wl = ""
-        if owned_only:
-            owned_or_wl = " owned"
-        elif wishlist_only:
-            owned_or_wl = " wishlisted"
-
         filter_msg = " match filters" if has_filter else ""
-        print("(no{:s} cards in deck{:s})".format(owned_or_wl, filter_msg))
+        print("(no{:s} cards in deck{:s})".format(owned_or_wl_msg, filter_msg))
     
 
 def set_name(args):

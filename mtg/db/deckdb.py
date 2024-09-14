@@ -42,7 +42,7 @@ def get_all(db_filename):
     data = []
     
     for r in cur.execute(sql_select_decks):
-        row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3]}
+        row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3], 'wishlisted_cards': r[4]}
         data.append(row)
     
     con.close()
@@ -56,7 +56,7 @@ def get_one(db_filename, did):
     
     rows = []
     for r in cur.execute(sql_find_deck_by_id, (did,)):
-        row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3]}
+        row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3], 'wishlisted_cards': r[4]}
         rows.append(row)
     
     count = len(rows)
@@ -77,7 +77,7 @@ def get_one_by_name(db_filename, name):
     
     rows = []
     for r in cur.execute(sql_select_decks_by_exact_name, (name,)):
-        row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3]}
+        row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3], 'wishlisted_cards': r[4]}
         rows.append(row)
     
     count = len(rows)
@@ -384,7 +384,7 @@ def create(db_filename, name):
 
 
 sql_select_decks = '''
-SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards
+SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards, COALESCE(SUM(c.wishlist_count),0) AS wishlisted_cards
 FROM decks AS d
 INNER JOIN deck_states AS s ON d.state = s.id
 LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
@@ -393,7 +393,7 @@ GROUP BY d.id
 
 
 sql_select_decks_by_exact_name = '''
-SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards
+SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards, COALESCE(SUM(c.wishlist_count),0) AS wishlisted_cards
 FROM decks AS d
 INNER JOIN deck_states AS s ON d.state = s.id
 LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
@@ -417,7 +417,7 @@ VALUES
 
 
 sql_find_deck_by_id = '''
-SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards
+SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards, COALESCE(SUM(c.wishlist_count),0) AS wishlisted_cards
 FROM decks AS d
 INNER JOIN deck_states AS s ON d.state = s.id
 LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
