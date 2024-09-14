@@ -61,8 +61,6 @@ def main():
     show_deck_parser.set_defaults(func=decks.show)
 
     list_decks_parser = subs.add_parser('list-decks', help='List decks')
-    list_decks_parser.add_argument('-o', '--owned', help="Include only cards that are owned in counts, excluding those that are wishlisted", action='store_true')
-    list_decks_parser.add_argument('-W', '--wishlist', help="Include only cards that are wishlisted in counts, excluding those that are owned", action='store_true')
     list_decks_parser.set_defaults(func=decks.list)
 
     list_cards_parser = subs.add_parser('list-cards', help='List and filter inventory')

@@ -49,8 +49,8 @@ Possible Enhancements:
   - card list EXCLUSIVELY shows wishlisted cards if -W/--wishlist is given
 [x] update show-deck -
   - It DOES show up in card list with marker by default unless -O/--owned is given
-[ ] update list-decks -
-  - It IS included in count with separate wishlist count unless -O/--owned is given
+[x] update list-decks -
+  - Include wishlist in total
 [x] update import -
   - NOT a duplicate if it was only wishlisted before, but it will be a third operation, fill wishlist.
 [x] update export-decks -

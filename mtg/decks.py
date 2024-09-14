@@ -22,18 +22,13 @@ def create(args):
 
 def list(args):
     db_filename = args.db_filename
-    owned_only = args.owned
-    wishlist_only = args.wishlist
-
-    if owned_only and wishlist_only:
-        print("ERROR: cannot give both -o/--owned and -W/--wishlist", file=sys.stderr)
-        sys.exit(1)
     
     decks = deckdb.get_all(db_filename)
     
     for d in decks:
-        s_card = 's' if d['cards'] != 1 else ''
-        print("{:d}: {!r} - {:s} - {:d} card{:s}".format(d['id'], d['name'], d['state'], d['cards'], s_card))
+        total = d['cards'] + d['wishlisted_cards']
+        s_total = 's' if total != 1 else ''
+        print("{:d}: {!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(d['id'], d['name'], d['state'], total, s_total, d['cards'], d['wishlisted_cards']))
         
 
 def delete(args):
@@ -76,8 +71,9 @@ def show(args):
 
     cards = deckdb.find_cards(db_filename, deck['id'], args.card, args.card_num, args.edition)
     
-    s_card = 's' if deck['cards'] != 1 else ''
-    print("{!r} (ID {:d}) - {:s} - {:d} card{:s} total, {:d} wishlisted total".format(deck['name'], deck['id'], deck['state'], deck['cards'], s_card, deck['wishlisted_cards']))
+    total = deck['cards'] + deck['wishlisted_cards']
+    s_total = 's' if total != 1 else ''
+    print("{!r} (ID {:d}) - {:s} - {:d} card{:s} ({:d} owned, {:d} WL)".format(deck['name'], deck['id'], deck['state'], total, s_total, deck['cards'], deck['wishlisted_cards']))
     print("==================================================================")
 
     any_matched = False
