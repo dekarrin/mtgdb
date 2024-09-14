@@ -53,6 +53,8 @@ def main():
     show_deck_parser = subs.add_parser('show-deck', help='List and filter cards in a deck')
     show_deck_parser.add_argument('deck', help="The name of the deck to show, or ID if --id is set. Exact matching is used")
     show_deck_parser.add_argument('--id', help="Interpret the deck as an ID instead of a name", action='store_true')
+    show_deck_parser.add_argument('-o', '--owned', help="Include only cards that are owned in listing, excluding those that are wishlisted", action='store_true')
+    show_deck_parser.add_argument('-W', '--wishlist', help="Include only cards that are wishlisted in listing, excluding those that are owned", action='store_true')
     show_deck_parser.add_argument('-c', '--card', help="Filter on the name; partial matching will be applied")
     show_deck_parser.add_argument('-n', '--card-num', help="Filter on a TCG number in format EDC-123; must be exact")
     show_deck_parser.add_argument('-e', '--edition', help="Filter on edition; partial matching will be applied")

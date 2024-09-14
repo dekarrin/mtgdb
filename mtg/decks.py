@@ -41,6 +41,14 @@ def delete(args):
 
 def show(args):
     db_filename = args.db_filename
+    owned_only = args.owned
+    wishlist_only = args.wishlist
+
+    if owned_only and wishlist_only:
+        print("ERROR: cannot give both -o/--owned and -W/--wishlist", file=sys.stderr)
+        sys.exit(1)
+
+    has_filter = args.card is not None or args.card_num is not None or args.edition is not None
 
     deck = None
 
@@ -61,11 +69,25 @@ def show(args):
     print("{!r} (ID {:d}) - {:s} - {:d} card{:s} total".format(deck['name'], deck['id'], deck['state'], deck['cards'], s_card))
     print("===========================================")
 
-    if len(cards) > 0:
-        for c in cards:
+    any_matched = False
+    for c in cards:
+        if not owned_only and c['deck_wishlist_count'] > 0:
+            wishlist_mark = " (WISHLISTED)" if not wishlist_only else ""
+            print("{:d}x {:s}{:s}".format(c['deck_wishlist_count'], cardutil.to_str(c)), wishlist_mark)
+            any_matched = True
+        if not wishlist_only and c['deck_count'] > 0:
             print("{:d}x {:s}".format(c['deck_count'], cardutil.to_str(c)))
-    else:
-        print("(no cards in deck)")
+            any_matched = True
+    
+    if not any_matched:
+        owned_or_wl = ""
+        if owned_only:
+            owned_or_wl = " owned"
+        elif wishlist_only:
+            owned_or_wl = " wishlisted"
+
+        filter_msg = " match filters" if has_filter else ""
+        print("(no{:s} cards in deck{:s})".format(owned_or_wl, filter_msg))
     
 
 def set_name(args):

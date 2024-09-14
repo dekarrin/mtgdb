@@ -47,7 +47,7 @@ Possible Enhancements:
   - Prevent data corruption - card is assumed to be wishlisted iff count=0 AND join on deck_cards indicates a wl count > 0.
   - It does not show up in card list unless new option '-w'/'--include-wishlist' is given
   - card list EXCLUSIVELY shows wishlisted cards if -W/--wishlist is given
-[ ] update show-deck -
+[x] update show-deck -
   - It DOES show up in card list with marker by default unless -O/--owned is given
 [ ] update list-decks -
   - It IS included in count with separate wishlist count unless -O/--owned is given
@@ -65,6 +65,8 @@ Possible Enhancements:
 
 
 - actually test import wishlist modification.
+- all functions except CLI invocation raise error rather than quit
+- all functions accept their exact args and an intermediate func translates the args object to actual args.
 
 Interactive mode
 

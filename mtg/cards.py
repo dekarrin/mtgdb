@@ -201,7 +201,7 @@ def list(args):
             line = ("{:0" + str(id_len) + "d}: {:d}x {:s}").format(c['id'], c['count'], cardutil.to_str(c))
 
             if include_wishlist:
-                line += " ({:d}x on wishlist)".format(wishlist_total)
+                line += " ({:d}x WISHLISTED)".format(wishlist_total)
 
             if args.free:
                 # subtract count all decks that have status C or P.
