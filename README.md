@@ -59,8 +59,8 @@ Possible Enhancements:
 [x] update import-decks -
   - If wishlist count > 0, it is added as a wishlist item
 [ ] update remove -
-  - Don't actually remove the inv entry if count hits 0 if it is wishlisted.
-[ ] update add -
+  - Don't actually remove the decklist entry if count hits 0 if it is wishlisted.
+[x] update add -
   - If card is currently wishlisted, ask if the intent is simply to replace a wishlisted one
 
 

@@ -1,6 +1,6 @@
 import sys
 
-from . import cardutil
+from . import cardutil, cio
 from .db import deckdb, carddb
 
 
@@ -52,10 +52,36 @@ def add_to_deck(args):
         sub_error = "only {:d}x are not in use".format(free_amt) if free_amt > 0 else "all copies are in use"
         print("ERROR: Can't add {:d}x {:s}: {:s}".format(args.amount, cardutil.to_str(card), sub_error), file=sys.stderr)
         sys.exit(1)
-    
-    new_amt = deckdb.add_card(db_filename, deck['id'], card['id'], args.amount)
 
-    print("Added {:d}x (total {:d}) {:s} to {:s}".format(args.amount, new_amt, cardutil.to_str(card), deck['name']))
+    # wishlist move check
+    card_counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
+    wl_move_amt = 0
+    if len(card_counts) > 0:
+        # given that the pk of deck_cards is (deck_id, card_id), there should only be one
+        counts = card_counts[0]
+        if counts['wishlist_count'] > 0:
+            print("{:d}x {:s} is wishlisted in deck".format(cardutil.to_str(card), counts['wishlist_count']))
+            inferred_amt = " some"
+            if args.amount == 1 or counts['wishlist_count'] == 1:
+                inferred_amt = " 1x"
+            
+            if cio.confirm("Move{:s} from wishlist to owned?".format(inferred_amt)):
+                # okay, if adding exactly one or WL is exactly one, we already know the amount
+                max_amt = min(args.amount, counts['wishlist_count'])
+                if max_amt == 1:
+                    wl_move_amt = 1
+                else:
+                    wl_move_amt = cio.get_int("How many to move?", 0, counts['wishlist_count'])
+
+    add_amt = args.amount - wl_move_amt
+
+    if wl_move_amt > 0:
+        carddb.move_amount_from_wishlist_to_owned_in_decks(db_filename, ({'amount': wl_move_amt, 'card': card['id'], 'deck': deck['id']},))
+        print("Moved {:d}x {:s} from wishlisted to owned in {:s}".format(wl_move_amt, cardutil.to_str(card), deck['name']))
+
+    if add_amt > 0:
+        new_amt = deckdb.add_card(db_filename, deck['id'], card['id'], add_amt)
+        print("Added {:d}x (total {:d}) {:s} to {:s}".format(args.amount, new_amt, cardutil.to_str(card), deck['name']))
 
 
 def remove_from_deck(args):

@@ -301,6 +301,26 @@ def add_wishlisted_card(db_filename, did, cid, amount=1):
     con.close()
 
     return new_amt
+
+
+def get_counts(db_filename, did, cid=None):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    
+    counts = {}
+    
+    query = sql_get_all_existing_deck_cards if cid is None else sql_get_existing_deck_card
+    params = (did,) if cid is None else (cid, did)
+    
+    for r in cur.execute(query, params):
+        counts['card'] = r[0]
+        counts['deck'] = r[1]
+        counts['count'] = r[2]
+        counts['wishlist_count'] = r[3]
+    
+    con.close()
+    
+    return counts
     
     
 def remove_card(db_filename, did, cid, amount=1):
@@ -415,6 +435,14 @@ sql_get_existing_deck_card = '''
 SELECT card, deck, count, wishlist_count
 FROM deck_cards
 WHERE card = ? AND deck = ?
+LIMIT 1;
+'''
+
+
+sql_get_all_existing_deck_cards = '''
+SELECT card, deck, count, wishlist_count
+FROM deck_cards
+WHERE deck = ?
 LIMIT 1;
 '''
 
