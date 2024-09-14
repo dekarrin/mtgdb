@@ -302,6 +302,7 @@ def update_counts(db_filename, cards):
     con.close()
 
 
+# TODO: this is a deck operation, it should be in deckdb
 def remove_amount_from_decks(db_filename, removals):
     update_data = list()
 
@@ -318,6 +319,7 @@ def remove_amount_from_decks(db_filename, removals):
     con.close()
 
 
+# TODO: this is a deck operation, it should be in deckdb
 def move_amount_from_owned_to_wishlist_in_decks(db_filename, moves):
     update_data = list()
 
@@ -332,6 +334,7 @@ def move_amount_from_owned_to_wishlist_in_decks(db_filename, moves):
     con.close()
 
 
+# TODO: this is a deck operation, it should be in deckdb
 def move_amount_from_wishlist_to_owned_in_decks(db_filename, moves):
     update_data = list()
 

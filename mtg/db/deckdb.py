@@ -341,12 +341,12 @@ def remove_card(db_filename, did, cid, amount=1):
     new_amt = existing['count'] - amount
     if new_amt < 0:
         print("Only {:d}x of that card is in the deck.".format(existing['count']), file=sys.stderr)
-        if not cio.confirm("Remove all existing copies from deck?"):
+        if not cio.confirm("Remove all owned copies from deck?"):
             sys.exit(0)
             
         new_amt = 0
         
-    if new_amt == 0:
+    if new_amt == 0 and existing['wishlist_count'] < 1:
         cur.execute(sql_delete_deck_card, (cid, did))
     else:
         cur.execute(sql_update_deck_card_count, (new_amt, cid, did))
