@@ -1,6 +1,6 @@
 import sys
 
-from . import cardutil, cio
+from . import cardutil, cio, db
 from .db import deckdb, carddb
 
 
@@ -125,6 +125,131 @@ def remove_from_deck(args):
         print("No more copies remain in deck")
 
 
+def add_inventory_card(args):
+    db_filename = args.db_filename
+
+    # first, check if we've been given a TCG num or an inven ID:
+    tcg_num = None
+    edition = None
+    cid = None
+    try:
+        edition, tcg_num = parse_cardnum(args.card_num)
+    except ValueError:
+        try:
+            cid = int(args.card_num)
+        except ValueError:
+            print("ERROR: card {!r} is not a TCG number or inventory ID".format(args.card_num), file=sys.stderr)
+            sys.exit(1)
+
+    if tcg_num is not None:
+        name = args.name if args.name is not None else ''
+        
+        # don't add a card name that is just whitespace, a tcg num, or all-numeric or that's confusing
+        if name == '':
+            print("ERROR: card name cannot be empty", file=sys.stderr)
+            sys.exit(1)
+        else:
+            try:
+                int(name)
+                print("ERROR: card name cannot be all-numeric", file=sys.stderr)
+                sys.exit(1)
+            except ValueError:
+                pass
+
+            try:
+                parse_cardnum(name)
+                print("ERROR: card name cannot be in EDC-123 format", file=sys.stderr)
+                sys.exit(1)
+            except ValueError:
+                pass
+
+        cond = args.cond if args.cond is not None else 'NM'
+        lang = args.lang if args.lang is not None else 'English'
+        foil = args.foil
+        signed = args.signed
+        proof = args.artist_proof
+        altered = args.altered_art
+        misprint = args.misprint
+        promo = args.promo
+        textless = args.textless
+        pid = args.printing_id if args.printing_id is not None else 0
+        note = args.printing_note if args.printing_note is not None else ''
+
+        cid = None
+        try:
+            cid = carddb.get_id_by_reverse_search(db_filename, name, edition, tcg_num, cond, lang, foil, signed, proof, altered, misprint, promo, textless, pid, note)
+        except db.NotFoundError:
+            pass
+
+        amount = args.amount
+        if amount is None:
+            amount = 1 if cid is not None else 0
+
+        if cid is not None:
+            # exists, do this flow
+            pass
+        else:
+            # doesn't exist, do that flow
+            pass
+            
+    elif cid is not None:
+        if args.name is not None:
+            print("ERROR: cannot give -N/--name when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.cond is not None:
+            print("ERROR: cannot give -C/--cond when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.lang is not None:
+            print("ERROR: cannot give -L/--lang when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.foil:
+            print("ERROR: cannot give -F/--foil when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.signed:
+            print("ERROR: cannot give -S/--signed when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.artist_proof:
+            print("ERROR: cannot give -R/--artist-proof when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.altered_art:
+            print("ERROR: cannot give -A/--altered-art when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.misprint:
+            print("ERROR: cannot give -M/--misprint when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.promo:
+            print("ERROR: cannot give -P/--promo when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.textless:
+            print("ERROR: cannot give -T/--textless when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.printing_id is not None:
+            print("ERROR: cannot give -I/--printing-id when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+        elif args.printing_note is not None:
+            print("ERROR: cannot give -N/--printing-note when inventory ID is given", file=sys.stderr)
+            sys.exit(1)
+
+        amount = args.amount if args.amount is not None else 1
+
+        if amount < 1:
+            print("ERROR: amount must be at least 1 for existing card", file=sys.stderr)
+            sys.exit(1)
+
+    else:
+        print("ERROR: condition should never happen", file=sys.stderr)
+        sys.exit(1)
+
+    # we cannot interpret amount with a default until we discover whether we are
+    # adding a new card or printing one.
+
+    
+
+    
+    card = carddb.find_one(db_filename, args.card, args.card_num)
+    new_amt = carddb.add_inventory_card(db_filename, card['id'], args.amount)
+
+
 def list(args):
     db_filename = args.db_filename
 
@@ -218,3 +343,15 @@ def list(args):
                     line += " not in any decks"
             
             print(line)
+
+
+def parse_cardnum(cardnum):
+    splits = cardnum.split('-', maxsplit=1)
+    if len(splits) == 2:
+        if len(splits[0]) != 3:
+            raise ValueError("TCG number {!r} is not in EDC-123 format".format(cardnum))
+        try:
+            num = int(splits[1])
+        except ValueError:
+            raise ValueError("TCG number {!r} is not in EDC-123 format".format(cardnum))
+        return splits[0], num

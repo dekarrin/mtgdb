@@ -93,6 +93,36 @@ def main():
     remove_card_parser.add_argument('-a', '--amount', default=1, type=int, help="specify amount of that card to remove")
     remove_card_parser.set_defaults(func=cards.remove_from_deck)
 
+    
+    # all incomplete below here:
+    add_inven_parser = subs.add_parser('add-inven', help="Manually create a new inventory entry, or increment owned count if it already exists. To match existing, you must give its inventory ID or all other properties MUST match exactly. (NOTE: there is no way to export owned inventory entries at this time, only wishlisted ones)")
+    add_inven_parser.add_argument('card-num', help="The TCG number of the card to add, in format EDC-123. Or all numeric = card ID")
+    add_inven_parser.add_argument('-a', '--amount', help="Specify the owned amount of the new card (or amount to increase by if it already exists); default is 0 if card is being created or 1 if it exists", type=int)
+    add_inven_parser.add_argument('-N', '--name', help="The name of the card to add")
+    add_inven_parser.add_argument('-C', '--cond', help="Give the condition of the new card. May be one of M, NM, LP, MP, HP, or P. Default is NM")
+    add_inven_parser.add_argument('-L', '--lang', help="Give language of card. Default is English.")
+    add_inven_parser.add_argument('-F', '--foil', help="Mark the new card as a foil.", action='store_true')
+    add_inven_parser.add_argument('-S', '--signed', help="Mark the new card as signed", action='store_true')
+    add_inven_parser.add_argument('-R', '--artist-proof', help="Mark the new card as an artist proof card", action='store_true')
+    add_inven_parser.add_argument('-A', '--altered-art', help="Mark the new card as altered art", action='store_true')
+    add_inven_parser.add_argument('-M', '--misprint', help="Mark the new card as a misprint", action='store_true')
+    add_inven_parser.add_argument('-P', '--promo', help="Mark the new card as a promo card", action='store_true')
+    add_inven_parser.add_argument('-T', '--textless', help="Mark the new card as textless", action='store_true')
+    add_inven_parser.add_argument('-I', '--printing-id', help="Give the printing ID of the new card", type=int)
+    add_inven_parser.add_argument('-N', '--printing-note', help="Give printing notes on the new card ('Showcase' is a common one, often used for full-art cards)")
+    add_inven_parser.set_defaults(func=cards.add_inventory_card)
+
+    remove_inven_parser = subs.add_parser('remove-inven', help="Remove an owned inventory card")
+    remove_inven_parser.add_argument('card', help="The inventory ID of the card to remove")
+    remove_inven_parser.add_argument('-a', '--amount', help="Specify the amount to remove", type=int, default=1)
+    remove_inven_parser.set_defaults(func=cards.remove_inventory_card)
+
+    add_wish_parser = subs.add_parser('add-wish', help="Add a card to a deck's wishlist. Use args to specify an existing one or to create a new one.")
+    add_wish_parser.add_argument('deck', help="The name of the deck to add to the wishlist of. If all numeric, interpreted as a deck ID; otherwise, interpreted as the exact name of the deck.")
+    add_wish_parser.add_argument('card', help="The card to add to the deck's wishlist. Interpreted based on its format and other args. If all numeric, interpreted as a card ID. If a card number in EDC-123 format, interpreted as a TCG number. Otherwise, interpreted as a card name; either a partial match if --new is not given, or an exact name if --new IS given.")
+    add_wish_parser.add_argument('--new', help="Allow creation of a new inventory entry if it does not already exist, interpreting CARD as the exact name of the new card, in which case the TCG number may be given with -n/--num the exception being if CARD is in EDC-123 format, in which case the name is given with -c/--name", action='store_true')
+    
+
     args = parser.parse_args()
 
     try:

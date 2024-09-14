@@ -67,6 +67,7 @@ Possible Enhancements:
 - actually test import wishlist modification.
 - all functions except CLI invocation raise error rather than quit
 - all functions accept their exact args and an intermediate func translates the args object to actual args.
+- force deck names to contain at least one non-numeric char to allow flexible interpretation of args.
 
 Interactive mode
 
