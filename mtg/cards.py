@@ -125,6 +125,32 @@ def remove_from_deck(args):
         print("No more copies remain in deck")
 
 
+def remove_inventory_entry(args):
+    db_filename = args.db_filename
+    if args.amount < 0:
+        print("ERROR: amount must be at least 1", file=sys.stderr)
+        sys.exit(1)
+
+    amount = args.amount
+
+    card = carddb.get_one(db_filename, args.cid)
+    counts = carddb.get_deck_counts(db_filename, card['id'])
+    total_wishlisted = sum([c['wishlist_count'] for c in counts])
+    total_in_decks = sum([c['count'] for c in counts])
+
+    new_card = card
+    new_card['count'] = max(0, card['count'] - amount)
+
+    # cases: count goes to 0 or less.
+    # - check if we have moves to make. if any are moved to wishlist, clearly the user does not want to delete the card at this time.
+
+    # count goes to > 0:
+    # - if there are any wishlisted, ask if they want to move them to owned.
+
+    # if amount is 1 and none are owned, just skip the confirmation
+
+
+
 def create_inventory_entry(args):
     db_filename = args.db_filename
     if args.amount < 0:
@@ -219,7 +245,7 @@ def create_inventory_entry(args):
             
             card['count'] = amount
             card['id'] = carddb.insert(db_filename, card)
-            print("Created new entry {:d}x {:s}".format(amount, cardutil.to_str(card)))
+            print("Created new entry {:d}x {:s} (ID: {:d})".format(amount, cardutil.to_str(card), card['id']))
             
     elif cid is not None:
         if args.name is not None:
