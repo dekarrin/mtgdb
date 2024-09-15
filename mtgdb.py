@@ -110,7 +110,7 @@ def main():
     add_inven_parser.add_argument('-T', '--textless', help="Mark the new card as textless", action='store_true')
     add_inven_parser.add_argument('-I', '--printing-id', help="Give the printing ID of the new card", type=int)
     add_inven_parser.add_argument('-N', '--printing-note', help="Give printing notes on the new card ('Showcase' is a common one, often used for full-art cards)")
-    add_inven_parser.set_defaults(func=cards.add_inventory_card)
+    add_inven_parser.set_defaults(func=cards.create_inventory_entry)
 
     remove_inven_parser = subs.add_parser('remove-inven', help="Remove an owned inventory card")
     remove_inven_parser.add_argument('card', help="The inventory ID of the card to remove")

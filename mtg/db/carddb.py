@@ -288,7 +288,7 @@ def insert(db_filename, card):
     return last_id
 
     
-def update_counts(db_filename, cards):
+def update_multiple_counts(db_filename, cards):
     update_data = list()
     
     for c in cards:
@@ -300,6 +300,29 @@ def update_counts(db_filename, cards):
     cur.executemany(sql_update_count, update_data)
     con.commit()
     con.close()
+
+
+# returns new count
+def update_count(db_filename, cid, count=None, by_amount=None):
+    if count is None and by_amount is None:
+        return ValueError("count or by_amount must be provided")
+    if count and by_amount:
+        return ValueError("count and by_amount cannot both be provided")
+
+    query = sql_update_count
+    params = (count, cid)
+    if by_amount:
+        query = sql_update_count_by
+        params = (by_amount, cid)
+
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    r = cur.execute(query, params)
+    new_count = r.fetchone()[0]
+    con.commit()
+    con.close()
+    return new_count
+
 
 
 # TODO: this is a deck operation, it should be in deckdb
@@ -548,7 +571,18 @@ UPDATE
 SET
     count=?
 WHERE
-    id=?;
+    id=?
+RETURNING count;
+'''
+
+sql_update_count_by = '''
+UPDATE
+    inventory
+SET
+    count=count+?
+WHERE
+    id=?
+RETURNING count;
 '''
 
 

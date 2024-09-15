@@ -125,8 +125,11 @@ def remove_from_deck(args):
         print("No more copies remain in deck")
 
 
-def add_inventory_card(args):
+def create_inventory_entry(args):
     db_filename = args.db_filename
+    if args.amount < 0:
+        print("ERROR: amount must be at least 0", file=sys.stderr)
+        sys.exit(1)
 
     # first, check if we've been given a TCG num or an inven ID:
     tcg_num = None
@@ -175,9 +178,27 @@ def add_inventory_card(args):
         pid = args.printing_id if args.printing_id is not None else 0
         note = args.printing_note if args.printing_note is not None else ''
 
+        card = {
+            'name': name,
+            'edition': edition,
+            'tcg_num': tcg_num,
+            'condition': cond,
+            'language': lang,
+            'foil': foil,
+            'signed': signed,
+            'artist_proof': proof,
+            'altered_art': altered,
+            'misprint': misprint,
+            'promo': promo,
+            'textless': textless,
+            'printing_id': pid,
+            'printing_note': note
+        }
+
         cid = None
         try:
             cid = carddb.get_id_by_reverse_search(db_filename, name, edition, tcg_num, cond, lang, foil, signed, proof, altered, misprint, promo, textless, pid, note)
+            card['id'] = cid
         except db.NotFoundError:
             pass
 
@@ -187,10 +208,18 @@ def add_inventory_card(args):
 
         if cid is not None:
             # exists, do this flow
-            pass
+
+            if amount < 1:
+                print("{:s} already exists and amount to create is set to 0; nothing to do")
+                sys.exit(0)
+            new_amt = carddb.update_count(db_filename, cid, by_amount=amount)
+            print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, cardutil.to_str(card), cid))
         else:
-            # doesn't exist, do that flow
-            pass
+            # doesn't exist, do creation flow
+            
+            card['count'] = amount
+            card['id'] = carddb.insert(db_filename, card)
+            print("Created new entry {:d}x {:s}".format(amount, cardutil.to_str(card)))
             
     elif cid is not None:
         if args.name is not None:
@@ -236,18 +265,13 @@ def add_inventory_card(args):
             print("ERROR: amount must be at least 1 for existing card", file=sys.stderr)
             sys.exit(1)
 
+        card = carddb.get_one(db_filename, cid)
+        new_amt = carddb.update_count(db_filename, cid, by_amount=amount)
+        print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, cardutil.to_str(card), cid))
+
     else:
         print("ERROR: condition should never happen", file=sys.stderr)
         sys.exit(1)
-
-    # we cannot interpret amount with a default until we discover whether we are
-    # adding a new card or printing one.
-
-    
-
-    
-    card = carddb.find_one(db_filename, args.card, args.card_num)
-    new_amt = carddb.add_inventory_card(db_filename, card['id'], args.amount)
 
 
 def list(args):

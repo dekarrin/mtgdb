@@ -78,7 +78,7 @@ def import_csv(args):
     # if the card is moved entirely to wishlist, the count update will probably go to 0. We don't remove
     # 0's at this time, but if we do, we need to make shore that any such are not there due to wishlist.
     carddb.insert_multiple(db_filename, new_imports)
-    carddb.update_counts(db_filename, count_updates)
+    carddb.update_multiple_counts(db_filename, count_updates)
     carddb.remove_amount_from_decks(db_filename, deck_removals)
     carddb.move_amount_from_owned_to_wishlist_in_decks(db_filename, deck_owned_to_wls)
     carddb.move_amount_from_wishlist_to_owned_in_decks(db_filename, deck_wl_to_owneds)
