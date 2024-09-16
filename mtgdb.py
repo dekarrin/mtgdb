@@ -115,13 +115,13 @@ def main():
     remove_inven_parser = subs.add_parser('remove-inven', help="Remove an owned inventory card")
     remove_inven_parser.add_argument('card', help="The inventory ID of the card to remove")
     remove_inven_parser.add_argument('-a', '--amount', help="Specify the amount to remove", type=int, default=1)
-    remove_inven_parser.set_defaults(func=cards.remove_inventory_card)
+    remove_inven_parser.set_defaults(func=cards.remove_inventory_entry)
 
     add_wish_parser = subs.add_parser('add-wish', help="Add a card to a deck's wishlist.")
     add_wish_parser.add_argument('deck', help="The name of the deck to add to the wishlist of. If all numeric, interpreted as a deck ID; otherwise, interpreted as the exact name of the deck.")
     add_wish_parser.add_argument('card', help="The card to add to the deck's wishlist. Interpreted based on its format and other args. If all numeric, interpreted as a card ID. If a card number in EDC-123 format, interpreted as a TCG number. Otherwise, interpreted as a card name with partial matching. Card must exist in the inventory; to create an inventory entry that doesn't yet exist, see add-inven.")
     add_wish_parser.add_argument('-a', '--amount', help="Specify the amount of the card to add to the wishlist. Default is 1.", type=int, default=1)
-    add_wish_parser.set_defaults(func=decks.add_wishlist)    
+    add_wish_parser.set_defaults(func=decks.add_to_wishlist)
 
     args = parser.parse_args()
 
