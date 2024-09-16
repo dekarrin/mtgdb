@@ -1,5 +1,16 @@
 
 
+def parse_cardnum(cardnum):
+    splits = cardnum.split('-', maxsplit=1)
+    if len(splits) == 2:
+        if len(splits[0]) != 3:
+            raise ValueError("TCG number {!r} is not in EDC-123 format".format(cardnum))
+        try:
+            num = int(splits[1])
+        except ValueError:
+            raise ValueError("TCG number {!r} is not in EDC-123 format".format(cardnum))
+        return splits[0], num
+
 # TODO: come back to this
 class Card:
     """Card is an entry in the inventory listing."""

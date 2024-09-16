@@ -325,6 +325,19 @@ def update_count(db_filename, cid, count=None, by_amount=None):
 
 
 
+def delete(db_filename, cid):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute('DELETE FROM inventory WHERE id = ?', (cid,))
+    con.commit()
+
+    if con.total_changes < 1:
+        raise NotFoundError("no card with ID {!r} exists".format(cid))
+    
+    con.close()
+
+
+
 # TODO: this is a deck operation, it should be in deckdb
 def remove_amount_from_decks(db_filename, removals):
     update_data = list()

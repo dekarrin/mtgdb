@@ -1,9 +1,10 @@
 import sys
 
-from . import cardutil, cio, db
+from . import cardutil, cio, db, types
 from .db import deckdb, carddb
 
 
+# TODO: this rly makes more sense elsewhere glub, in decks rather than cards.
 def add_to_deck(args):
     deck_used_states = [du.upper() for du in args.deck_used_states.split(',')]
     if len(deck_used_states) == 1 and deck_used_states[0] == '':
@@ -143,12 +144,28 @@ def remove_inventory_entry(args):
 
     # cases: count goes to 0 or less.
     # - check if we have moves to make. if any are moved to wishlist, clearly the user does not want to delete the card at this time.
-
-    # count goes to > 0:
-    # - if there are any wishlisted, ask if they want to move them to owned.
-
-    # if amount is 1 and none are owned, just skip the confirmation
-
+    # - if none are wishlisted, confirm deletion.
+    if new_card['count'] < 1:
+        removals, to_wishlist = cardutil.get_deck_owned_changes(db_filename, card, new_card)
+        if len(to_wishlist) < 1:
+            print("Removing {:d}x {:s} will delete {:d}x from decks and {:d}x from deck wishlists".format(amount, cardutil.to_str(card), total_in_decks, total_wishlisted))
+            if not cio.confirm("Delete {:s} from inventory?".format(cardutil.to_str(card))):
+                sys.exit(0)
+            carddb.delete(db_filename, card['id'])
+            print("Removed all copies of {:s} from inventory".format(cardutil.to_str(card)))
+        else:
+            carddb.remove_amount_from_decks(db_filename, removals)
+            carddb.move_amount_from_owned_to_wishlist_in_decks(db_filename, to_wishlist)
+            carddb.update_count(db_filename, card['id'], count=0)
+            print("Removed all owned copies of {:s} from inventory and decks; moved {:d}x to wishlists".format(cardutil.to_str(card), sum([x['amount'] for x in to_wishlist])))
+    else:
+        removals, to_wishlist = cardutil.get_deck_owned_changes(db_filename, card, new_card)
+        carddb.remove_amount_from_decks(db_filename, removals)
+        carddb.move_amount_from_owned_to_wishlist_in_decks(db_filename, to_wishlist)
+        carddb.update_count(db_filename, card['id'], count=new_card['count'])
+        total_removed = sum([x['amount'] for x in removals])
+        total_wishlisted = sum([x['amount'] for x in to_wishlist])
+        print("Removed {:d}x owned copies of {:s} from inventory; removed {:d}x from decks and moved {:d}x to wishlists".format(amount, cardutil.to_str(card), total_removed, total_wishlisted))
 
 
 def create_inventory_entry(args):
@@ -162,7 +179,7 @@ def create_inventory_entry(args):
     edition = None
     cid = None
     try:
-        edition, tcg_num = parse_cardnum(args.card_num)
+        edition, tcg_num = types.parse_cardnum(args.card_num)
     except ValueError:
         try:
             cid = int(args.card_num)
@@ -186,7 +203,7 @@ def create_inventory_entry(args):
                 pass
 
             try:
-                parse_cardnum(name)
+                types.parse_cardnum(name)
                 print("ERROR: card name cannot be in EDC-123 format", file=sys.stderr)
                 sys.exit(1)
             except ValueError:
@@ -238,6 +255,9 @@ def create_inventory_entry(args):
             if amount < 1:
                 print("{:s} already exists and amount to create is set to 0; nothing to do")
                 sys.exit(0)
+
+            # NOT doing wishlist update flow; add (to deck) already does this
+
             new_amt = carddb.update_count(db_filename, cid, by_amount=amount)
             print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, cardutil.to_str(card), cid))
         else:
@@ -293,6 +313,9 @@ def create_inventory_entry(args):
 
         card = carddb.get_one(db_filename, cid)
         new_amt = carddb.update_count(db_filename, cid, by_amount=amount)
+
+        # NOT doing wishlist update flow; add (to deck) already does this
+
         print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, cardutil.to_str(card), cid))
 
     else:
@@ -394,14 +417,3 @@ def list(args):
             
             print(line)
 
-
-def parse_cardnum(cardnum):
-    splits = cardnum.split('-', maxsplit=1)
-    if len(splits) == 2:
-        if len(splits[0]) != 3:
-            raise ValueError("TCG number {!r} is not in EDC-123 format".format(cardnum))
-        try:
-            num = int(splits[1])
-        except ValueError:
-            raise ValueError("TCG number {!r} is not in EDC-123 format".format(cardnum))
-        return splits[0], num

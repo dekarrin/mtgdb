@@ -33,9 +33,9 @@ Possible Enhancements:
 
 'Wishlist' concept -
 [x] New column on deck_cards indicating 'wishlist_count'.
-[ ] User may add a non-existing card to deck - `add-wish`
+[x] User may add a non-existing card to deck - `add-wish`
   - Specify the wished card by specifying properties of it
-  - If it does not exist in inven, it is created in inv with count=0. If it does exist, it is left alone.
+  - If it does not exist in inven, error. add-inven can be used to create new.
   - It is added to deck with wishlist_count of given count.
 [ ] Users may remove a wishlisted card from deck - `remove-wish`
   - Specify the unwished card by filter

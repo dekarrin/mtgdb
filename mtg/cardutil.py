@@ -93,6 +93,10 @@ def get_deck_wishlisted_changes(db_filename, card, check):
 
 
 def get_deck_owned_changes(db_filename, card, check):
+    """
+    Returns remove_from_deck, owned_to_wishlist
+    """
+    
     existing_id = check['id']
     remove_from_deck = []
     owned_to_wishlist = []
