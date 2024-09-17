@@ -21,8 +21,3 @@ class MultipleFoundError(DBError):
     def __init__(self, msg):
         super().__init__(msg)
 
-
-# TODO: remove this when usages in DB are converted to usages in main commands
-class TooManyMatchesError(DBError):
-    def __init__(self, msg):
-        super().__init__(msg)

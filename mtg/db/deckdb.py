@@ -1,8 +1,7 @@
 import sqlite3
 
-from .errors import MultipleFoundError, NotFoundError, TooManyMatchesError, AlreadyExistsError
+from .errors import MultipleFoundError, NotFoundError, AlreadyExistsError
 from . import util, filters, editiondb
-from .. import cio, cardutil
 
 
 def update_state(db_filename, name, state):
@@ -103,7 +102,7 @@ def delete_by_name(db_filename, name):
 
 # diff between find_one and get_one_by_name is that find_one will do prefix
 # matching, while get_one_by_name will do exact matching
-def find_one(db_filename, name):
+def find(db_filename, name):
     con = util.connect(db_filename)
     cur = con.cursor()
     data = []
@@ -116,21 +115,7 @@ def find_one(db_filename, name):
         data.append(data_dict)
     con.close()
     
-    if len(data) < 1:
-        raise NotFoundError("no deck matches name {!r}".format(name))
-        
-    if len(data) > 1:
-        if len(data) > 10:
-            raise TooManyMatchesError("more than 10 matches for deck {!r}. Be more specific or use deck ID".format(name))
-        
-        deck_list = ()
-        for d in data:
-            opt = (d, d['name'])
-            deck_list.append(opt)
-        
-        return cio.select("Multiple decks match; which one should be added to?", deck_list)
-    
-    return data[0]
+    return data
     
     
 def get_one_card(db_filename, did, cid):
@@ -154,44 +139,6 @@ def get_one_card(db_filename, did, cid):
         raise MultipleFoundError("multiple cards with that ID exist in deck")
         
     return rows[0]
-    
-
-def find_one_card(db_filename, did, card_name, card_num):
-    filter_clause, filter_params = filters.card(card_name, card_num, include_where=False)
-    query = sql_get_deck_cards
-    params = [did]
-    if filter_clause != '':
-        query += ' AND' + filter_clause
-        params += filter_params
-        
-    con = util.connect(db_filename)
-    cur = con.cursor()
-    data = []
-
-    for r in cur.execute(query, params):
-        data_dict = util.card_row_to_dict(r)
-        # add some more as well
-        data_dict['deck_id'] = r[17] # dc.deck
-        data_dict['deck_count'] = r[18] # dc.count
-        data_dict['deck_wishlist_count'] = r[19]  # dc.wishlist_count
-        data.append(data_dict)
-    con.close()
-    
-    if len(data) < 1:
-        raise NotFoundError("no card in deck matches the given flags")
-        
-    if len(data) > 1:
-        if len(data) > 10:
-            raise TooManyMatchesError("more than 10 matches in deck for that card. Be more specific or use card ID")
-        
-        card_list = []
-        for c in data:
-            opt = (c, cardutil.to_str(c))
-            card_list.append(opt)
-        
-        return cio.select("Multiple cards match; which one should be added?", card_list)
-    
-    return data[0]
     
 
 def find_cards(db_filename, did, card_name, card_num, edition):

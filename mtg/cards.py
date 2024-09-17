@@ -1,6 +1,6 @@
 import sys
 
-from . import cardutil, cio, db, types, select_one_card
+from . import cardutil, cio, db, types, select_card, select_deck, select_card_in_deck
 from .db import deckdb, carddb
 
 
@@ -36,13 +36,13 @@ def add_to_deck(args):
     
     # okay the user has SOMEHOW given the card and deck. Find the card.
     if args.card is not None or args.card_num is not None:
-        card = select_one_card(db_filename, args.card, args.card_num)
+        card = select_card(db_filename, args.card, args.card_num)
     else:
         card = carddb.get_one(db_filename, args.cid)
         
     # Find the deck
     if args.deck is not None:
-        deck = deckdb.find_one(db_filename, args.deck)
+        deck = select_deck(db_filename, args.deck)
     else:
         deck = deckdb.get_one(db_filename, args.did)
 
@@ -111,13 +111,13 @@ def remove_from_deck(args):
     
     # Find the deck first so we can limit the card matching to that deck.
     if args.deck is not None:
-        deck = deckdb.find_one(db_filename, args.deck)
+        deck = select_deck(db_filename, args.deck)
     else:
         deck = deckdb.get_one(db_filename, args.did)
     
     # Find the card
     if args.card is not None or args.card_num is not None:
-        card = deckdb.find_one_card(db_filename, deck['id'], args.card, args.card_num)
+        card = select_card_in_deck(db_filename, deck['id'], args.card, args.card_num)
     else:
         card = deckdb.get_one_card(db_filename, deck['id'], args.cid)
     
