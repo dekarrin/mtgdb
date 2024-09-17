@@ -3,7 +3,7 @@ import datetime
 import csv
 import os.path
 
-from . import cardutil, db, types
+from . import cardutil, db, cio
 from . import deck_from_cli_arg, card_from_cli_arg
 from .db import deckdb, carddb
 
@@ -18,7 +18,14 @@ def remove_from_wishlist(args):
     deck = deck_from_cli_arg(args.deck)
     card = card_from_cli_arg(args.card)
 
+
     # all args are checked and accounted for, perform the operation
+    counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
+    if len(counts) > 0 and counts[0]['wishlist_count'] - amount < 0:
+        print("Only {:d}x of that card is wishlisted in the deck.".format(counts[0]['wishlist_count']), file=sys.stderr)
+        if not cio.confirm("Remove all wishlisted copies from deck?"):
+            sys.exit(0)
+    
     new_amt = deckdb.remove_wishlisted_card(db_filename, deck['id'], card['id'], amount)
 
     print("Removed {:d}x {!s} from wishlist for {:s} ({:d}x remain on WL)".format(amount, cardutil.to_str(card), deck['name'], new_amt))
@@ -35,6 +42,12 @@ def add_to_wishlist(args):
     card = card_from_cli_arg(args.card)
 
     # all args are checked and accounted for, perform the operation
+    counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
+    if len(counts) > 0 and counts[0]['wishlist_count'] > 0:
+        print("{:d}x of that card is already wishlisted in the deck.".format(counts[0]['wishlist_count']), file=sys.stderr)
+        if not cio.confirm("Increment wishlisted amount in deck by {:d}?".format(amount)):
+            sys.exit(0)
+    
     new_amt = deckdb.add_wishlisted_card(db_filename, deck['id'], card['id'], amount)
 
     print("Added {:d}x {!s} to wishlist for {:s} (total {:d}x on WL)".format(amount, cardutil.to_str(card), deck['name'], new_amt))
@@ -270,15 +283,18 @@ def import_csv(args):
                         }
 
                         card_id = carddb.insert(db_filename, card_data)
+
+                        # do not confirm existing, we wish to add it no matter what.
                         deckdb.add_wishlisted_card(db_filename, cur_deck_id, card_id, wishlist_count_in_deck)
                     else:
                         # we now have an ID and can add the card to the deck
-                        
+
                         # do not confirm existing, we wish to add it no matter what.
                         deckdb.add_card(db_filename, cur_deck_id, card_id, owned_count_in_deck)
 
                         # Update wishlisted as well, if needed
                         if wishlist_count_in_deck > 0:
+                            # do not confirm existing, we wish to add it no matter what.
                             deckdb.add_wishlisted_card(db_filename, cur_deck_id, card_id, wishlist_count_in_deck)
 
         print("Successfully imported deck from {:s}".format(csv_filename))
