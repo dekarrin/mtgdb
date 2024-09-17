@@ -121,6 +121,12 @@ def remove_from_deck(args):
     else:
         card = deckdb.get_one_card(db_filename, deck['id'], args.cid)
     
+    counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
+    if len(counts) > 0 and counts[0]['count'] - args.amount < 0:
+        print("Only {:d}x of that card is in the deck.".format(counts[0]['count']), file=sys.stderr)
+        if not cio.confirm("Remove all owned copies from deck?"):
+            sys.exit(0)
+    
     new_amt = deckdb.remove_card(db_filename, deck['id'], card['id'], args.amount)
     
     print("Removed {:d}x {:s} from {:s}".format(args.amount, cardutil.to_str(card), deck['name']))
