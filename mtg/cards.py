@@ -73,6 +73,10 @@ def add_to_deck(args):
                     wl_move_amt = 1
                 else:
                     wl_move_amt = cio.get_int("How many to move?", 0, counts['wishlist_count'])
+        elif counts['count'] > 0:
+            print("{:d}x of that card is already in the deck.".format(counts['count']), file=sys.stderr)
+            if not cio.confirm("Increment amount in deck by {:d}?".format(args.amount)):
+                sys.exit(0)
 
     add_amt = args.amount - wl_move_amt
 

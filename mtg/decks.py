@@ -273,6 +273,8 @@ def import_csv(args):
                         deckdb.add_wishlisted_card(db_filename, cur_deck_id, card_id, wishlist_count_in_deck)
                     else:
                         # we now have an ID and can add the card to the deck
+                        
+                        # do not confirm existing, we wish to add it no matter what.
                         deckdb.add_card(db_filename, cur_deck_id, card_id, owned_count_in_deck)
 
                         # Update wishlisted as well, if needed
