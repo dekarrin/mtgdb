@@ -1,3 +1,5 @@
+import sys
+
 from . import cardutil, cio, db, types, select_card, select_deck, select_card_in_deck
 from .db import deckdb, carddb
 from .errors import ArgumentError, DataConflictError, UserCancelledError, CommandError
@@ -67,7 +69,7 @@ def add_to_deck(args):
                 else:
                     wl_move_amt = cio.get_int("How many to move?", 0, counts['wishlist_count'])
         elif counts['count'] > 0:
-            print("{:d}x of that card is already in the deck.".format(counts['count']))
+            print("{:d}x of that card is already in the deck.".format(counts['count']), file=sys.stderr)
             if not cio.confirm("Increment amount in deck by {:d}?".format(args.amount)):
                 raise UserCancelledError("user cancelled adding card to deck")
 
@@ -112,7 +114,7 @@ def remove_from_deck(args):
     
     counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
     if len(counts) > 0 and counts[0]['count'] - args.amount < 0:
-        print("Only {:d}x of that card is in the deck.".format(counts[0]['count']))
+        print("Only {:d}x of that card is in the deck.".format(counts[0]['count']), file=sys.stderr)
         if not cio.confirm("Remove all owned copies from deck?"):
             raise UserCancelledError("user cancelled removing card from deck")
     

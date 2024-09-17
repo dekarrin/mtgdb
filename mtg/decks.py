@@ -3,6 +3,7 @@ import datetime
 import csv
 import os.path
 
+from .errors import ArgumentError, DataConflictError, UserCancelledError, CommandError
 from . import cardutil, db, cio
 from . import deck_from_cli_arg, card_from_cli_arg
 from .db import deckdb, carddb
@@ -12,8 +13,7 @@ def remove_from_wishlist(args):
     db_filename = args.db_filename
     amount = args.amount
     if amount < 1:
-        print("ERROR: amount must be at least 1", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("amount must be at least 1")
 
     deck = deck_from_cli_arg(args.deck)
     card = card_from_cli_arg(args.card)
@@ -24,7 +24,7 @@ def remove_from_wishlist(args):
     if len(counts) > 0 and counts[0]['wishlist_count'] - amount < 0:
         print("Only {:d}x of that card is wishlisted in the deck.".format(counts[0]['wishlist_count']), file=sys.stderr)
         if not cio.confirm("Remove all wishlisted copies from deck?"):
-            sys.exit(0)
+            raise UserCancelledError("user cancelled operation")
     
     new_amt = deckdb.remove_wishlisted_card(db_filename, deck['id'], card['id'], amount)
 
@@ -35,8 +35,7 @@ def add_to_wishlist(args):
     db_filename = args.db_filename
     amount = args.amount
     if amount < 1:
-        print("ERROR: amount must be at least 1", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("amount must be at least 1")
 
     deck = deck_from_cli_arg(args.deck)
     card = card_from_cli_arg(args.card)
@@ -46,7 +45,7 @@ def add_to_wishlist(args):
     if len(counts) > 0 and counts[0]['wishlist_count'] > 0:
         print("{:d}x of that card is already wishlisted in the deck.".format(counts[0]['wishlist_count']), file=sys.stderr)
         if not cio.confirm("Increment wishlisted amount in deck by {:d}?".format(amount)):
-            sys.exit(0)
+            raise UserCancelledError("user cancelled operation")
     
     new_amt = deckdb.add_wishlisted_card(db_filename, deck['id'], card['id'], amount)
 
@@ -59,8 +58,7 @@ def create(args):
     deck_name = args.name
 
     if deck_name.strip() == '':
-        print("ERROR: Deck name must have at least one non-space character in it", file=sys.stderr)
-        sys.exit(4)
+        raise ArgumentError("deck name must have at least one non-space character in it")
     
     deckdb.create(db_filename, deck_name)
     
@@ -93,8 +91,7 @@ def show(args):
     wishlist_only = args.wishlist
 
     if owned_only and wishlist_only:
-        print("ERROR: cannot give both -o/--owned and -W/--wishlist", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("cannot give both -o/--owned and -W/--wishlist")
 
     has_filter = args.card is not None or args.card_num is not None or args.edition is not None
     owned_or_wl_msg = ""
@@ -109,8 +106,7 @@ def show(args):
         try:
             deck_id = int(args.deck)
         except ValueError:
-            print("ERROR: deck ID must be an integer", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("deck ID must be an integer")
 
         deck = deckdb.get_one(db_filename, deck_id)
     else:
@@ -144,8 +140,7 @@ def set_name(args):
     new_name = args.new_name
     
     if new_name.strip() == "":
-        print("ERROR: New name must have at least one non-space character in it", file=sys.stderr)
-        sys.exit(4)
+        raise ArgumentError("new name must have at least one non-space character in it")
     
     deckdb.update_name(db_filename, deck_name, new_name)
     
@@ -164,8 +159,7 @@ def set_state(args):
     elif new_state == 'COMPLETE':
         new_state = 'C'
     elif new_state != 'B' and new_state != 'P' and new_state != 'C':
-        print("ERROR: new state needs to be one of BROKEN, PARTIAL, COMPLETE, or abbreviations B, P, or C.", file=sys.stderror)
-        sys.exit(2)
+        raise ArgumentError("new state needs to be one of BROKEN, PARTIAL, COMPLETE, or abbreviations B, P, or C.")
     
     deckdb.update_state(db_filename, deck_name, new_state)
     
@@ -177,8 +171,7 @@ def import_csv(args):
     csv_filenames = args.csv_filenames
 
     if len(csv_filenames) == 0:
-        print("ERROR: no CSV files given to import", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("no CSV files given to import")
 
     for csv_filename in csv_filenames:
         with open(csv_filename, 'r', newline='') as csvfile:
@@ -193,8 +186,7 @@ def import_csv(args):
                     # deck data
                     deck_name = row[0]
                     if deck_name.strip() == '':
-                        print("ERROR: {:s}:{:d}, col {:d}: deck name must have at least one non-space character in it".format(csv_filename, lineno, 1), file=sys.stderr)
-                        sys.exit(2)
+                        raise DataConflictError("{:s}:{:d}, col {:d}: deck name must have at least one non-space character in it".format(csv_filename, lineno, 1))
 
                     deck_state = row[1].upper()
                     if deck_state == 'BROKEN' or deck_state == 'BROKEN DOWN':
@@ -204,8 +196,7 @@ def import_csv(args):
                     elif deck_state == 'COMPLETE':
                         deck_state = 'C'
                     elif deck_state != 'B' and deck_state != 'P' and deck_state != 'C':
-                        print("ERROR: {:s}:{:d}, col {:d}: invalid deck state {!r}".format(csv_filename, lineno, 2, deck_state), file=sys.stderr)
-                        sys.exit(2)
+                        raise DataConflictError("{:s}:{:d}, col {:d}: invalid deck state {!r}".format(csv_filename, lineno, 2, deck_state))
 
                     # check if deck already exists, or create it
                     try:
@@ -260,8 +251,7 @@ def import_csv(args):
                         card_id = carddb.get_id_by_reverse_search(db_filename, name, edition, tcg_num, condition, language, foil, signed, artist_proof, altered_art, misprint, promo, textless, printing_id, printing_note)
                     except db.NotFoundError:
                         if owned_count_in_deck > 0:
-                            print("ERROR: {:s}:{:d}: owned card {!r} not found in inventory".format(csv_filename, lineno, name), file=sys.stderr)
-                            sys.exit(2)
+                            raise DataConflictError("{:s}:{:d}: owned card {!r} not found in inventory".format(csv_filename, lineno, name))
 
                         # otherwise, we need to create an entry to be wishlisted
                         card_data = {
