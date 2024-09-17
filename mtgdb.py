@@ -123,6 +123,12 @@ def main():
     add_wish_parser.add_argument('-a', '--amount', help="Specify the amount of the card to add to the wishlist. Default is 1.", type=int, default=1)
     add_wish_parser.set_defaults(func=decks.add_to_wishlist)
 
+    remove_wish_parser = subs.add_parser('remove-wish', help="Remove a card from a deck's wishlist.")
+    remove_wish_parser.add_argument('deck', help="The name of the deck to remove from the wishlist of. If all numeric, interpreted as a deck ID; otherwise, interpreted as the exact name of the deck.")
+    remove_wish_parser.add_argument('card', help="The card to remove from the deck's wishlist. Interpreted based on its format and other args. If all numeric, interpreted as a card ID. If a card number in EDC-123 format, interpreted as a TCG number. Otherwise, interpreted as a card name with partial matching. Card must exist in the inventory.")
+    remove_wish_parser.add_argument('-a', '--amount', help="Specify the amount of the card to remove from the wishlist. Default is 1.", type=int, default=1)
+    remove_wish_parser.set_defaults(func=decks.remove_from_wishlist)
+
     args = parser.parse_args()
 
     try:

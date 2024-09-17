@@ -303,6 +303,44 @@ def add_wishlisted_card(db_filename, did, cid, amount=1):
     return new_amt
 
 
+def remove_wishlisted_card(db_filename, did, cid, amount=1):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    
+    # first, need to get the card to compare amount
+    existing = None
+    
+    for r in cur.execute(sql_get_existing_deck_card, (cid, did)):
+        existing = {'card': r[0], 'deck': r[1], 'count': r[2], 'wishlist_count': r[3]}
+        
+    if not existing:
+        raise NotFoundError("card is not in the deck")
+        
+    # are we being asked to remove more than are there? if so, confirm
+    
+    new_amt = existing['wishlist_count'] - amount
+    if new_amt < 0:
+        print("Only {:d}x of that card is wishlisted in the deck.".format(existing['wishlist_count']), file=sys.stderr)
+        if not cio.confirm("Remove all wishlisted copies from deck?"):
+            sys.exit(0)
+            
+        new_amt = 0
+        
+    if new_amt == 0 and existing['count'] < 1:
+        cur.execute(sql_delete_deck_card, (cid, did))
+    else:
+        cur.execute(sql_update_deck_card_wishlist_count, (new_amt, cid, did))
+        
+    con.commit()
+    
+    if con.total_changes < 1:
+        raise NotFoundError("tried to apply, but no changes ocurred")
+    
+    con.close()
+
+    return new_amt  
+
+
 def get_counts(db_filename, did, cid=None):
     con = util.connect(db_filename)
     cur = con.cursor()

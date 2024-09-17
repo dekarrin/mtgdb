@@ -4,7 +4,24 @@ import csv
 import os.path
 
 from . import cardutil, db, types
+from . import deck_from_cli_arg, card_from_cli_arg
 from .db import deckdb, carddb
+
+
+def remove_from_wishlist(args):
+    db_filename = args.db_filename
+    amount = args.amount
+    if amount < 1:
+        print("ERROR: amount must be at least 1", file=sys.stderr)
+        sys.exit(1)
+
+    deck = deck_from_cli_arg(args.deck)
+    card = card_from_cli_arg(args.card)
+
+    # all args are checked and accounted for, perform the operation
+    new_amt = deckdb.remove_wishlisted_card(db_filename, deck['id'], card['id'], amount)
+
+    print("Removed {:d}x {!s} from wishlist for {:s} ({:d}x remain on WL)".format(amount, cardutil.to_str(card), deck['name'], new_amt))
 
 
 def add_to_wishlist(args):
@@ -14,40 +31,13 @@ def add_to_wishlist(args):
         print("ERROR: amount must be at least 1", file=sys.stderr)
         sys.exit(1)
 
-    deck = None
-    card = None
-    
-    # okay, is it a deck name or deck ID? find out, then get the deck
-    try:
-        deck_id = int(args.deck)
-    except ValueError:
-        # deck name
-        deck = deckdb.get_one_by_name(db_filename, args.deck)
-    else:
-        # deck ID
-        deck = deckdb.get_one(db_filename, deck_id)
-
-    # next, is the card an ID, a card number, or a card name?
-    try:
-        card_id = int(args.card)
-    except ValueError:
-        try:
-            ed, tcg_num = types.parse_cardnum(args.card)
-        except ValueError:
-            # card name
-            card = carddb.find_one(db_filename, args.card)
-        else:
-            # card number
-            card = carddb.find_one(db_filename, name=None, card_num=args.card)
-    else:
-        # card ID
-        card = carddb.get_one(db_filename, args.card)
+    deck = deck_from_cli_arg(args.deck)
+    card = card_from_cli_arg(args.card)
 
     # all args are checked and accounted for, perform the operation
-    deckdb.add_wishlisted_card(db_filename, deck['id'], card['id'], amount)
-    counts = deckdb.get_counts(db_filename, deck['id'], card['id'])[0]
+    new_amt = deckdb.add_wishlisted_card(db_filename, deck['id'], card['id'], amount)
 
-    print("Added {:d} {!s} to wishlist for {:s} (total {:d}x)".format(amount, cardutil.to_str(card), deck['name'], counts['wishlist_count']))
+    print("Added {:d}x {!s} to wishlist for {:s} (total {:d}x on WL)".format(amount, cardutil.to_str(card), deck['name'], new_amt))
     
 
 
