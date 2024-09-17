@@ -1,6 +1,6 @@
 import sys
 
-from . import cardutil, cio, db, types
+from . import cardutil, cio, db, types, select_one_card
 from .db import deckdb, carddb
 
 
@@ -36,7 +36,7 @@ def add_to_deck(args):
     
     # okay the user has SOMEHOW given the card and deck. Find the card.
     if args.card is not None or args.card_num is not None:
-        card = carddb.find_one(db_filename, args.card, args.card_num)
+        card = select_one_card(db_filename, args.card, args.card_num)
     else:
         card = carddb.get_one(db_filename, args.cid)
         
@@ -356,10 +356,8 @@ def list(args):
             print("ERROR: invalid deck used state {!r}; must be one of P, B, or C".format(du), file=sys.stderr)
             sys.exit(1)
 
-    if args.free or args.usage:
-        cards = carddb.find_with_usage(db_filename, args.card, args.card_num, args.edition)
-    else:
-        cards = carddb.find(db_filename, args.card, args.card_num, args.edition)
+
+    cards = carddb.find(db_filename, args.card, args.card_num, args.edition)
 
     # check for wishlist counts
 
@@ -375,11 +373,7 @@ def list(args):
     print("{:s}: {:s}x SET-NUM 'CARD'".format(id_header, count_abbrev))
     print("==========================")
     for c in cards:
-        wishlist_total = None
-        if args.free or args.usage:
-            wishlist_total = sum([u['wishlist_count'] for u in c['usage']])
-        else:
-            wishlist_total = c['wishlist_total']
+        wishlist_total = sum([u['wishlist_count'] for u in c['usage']])
 
         # if it's JUST count=0 with no wishlist.... that's weird. it should show
         # up as normal.

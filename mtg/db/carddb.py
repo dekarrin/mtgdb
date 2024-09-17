@@ -82,70 +82,6 @@ def get_one(db_filename, cid):
         raise MultipleFoundError("multiple cards with that ID exist")
         
     return rows[0]
-    
-
-# TODO: do not put prompt into this, split prompting into own func.
-def find_one(db_filename, name, card_num):
-    con = util.connect(db_filename)
-    where_clause = ''
-    params = []
-    
-    where_clause, params = filters.card(name, card_num)
-    
-    cur = con.cursor()
-    
-    data = []
-    query = sql_select_in_use
-    unique_cards = {}
-    order = 0
-
-    query += where_clause
-
-    for r in cur.execute(query, params):
-        if r[0] not in unique_cards:
-            new_entry = util.card_row_to_dict(r)
-            unique_cards[new_entry['id']] = new_entry
-            unique_cards[new_entry['id']]['usage'] = []
-            unique_cards[new_entry['id']]['order'] = order
-            order += 1
-
-        if r[17] is not None:
-            entry = unique_cards[r[0]]
-
-            usage_entry = {
-                'count': r[16],
-                'wishlist_count': r[17],
-                'deck': {
-                    'id': r[18],
-                    'name': r[19],
-                    'state': r[20]
-                },
-            }
-
-            entry['usage'].append(usage_entry)
-            unique_cards[entry['id']] = entry
-    
-    con.close()
-
-    # sort on order.
-    data = [x for x in unique_cards.values()]
-    data.sort(key=lambda x: x['order'])
-    
-    if len(data) < 1:
-        raise NotFoundError("no card matches the given filters")
-        
-    if len(data) > 1:
-        if len(data) > 10:
-            raise TooManyMatchesError("more than 10 matches for that card. Be more specific or use card ID")
-        
-        card_list = []
-        for c in data:
-            opt = (c, cardutil.to_str(c))
-            card_list.append(opt)
-        
-        return cio.select("Multiple cards match; which one should be added?", card_list)
-    
-    return data[0]
 
 
 def get_deck_counts(db_filename, card_id):
@@ -167,7 +103,7 @@ def get_deck_counts(db_filename, card_id):
     return data
 
 
-def find_with_usage(db_filename, name, card_num, edition):
+def find(db_filename, name, card_num, edition):
     query = sql_select_in_use
     params = list()
     ed_codes = None
@@ -223,42 +159,6 @@ def find_with_usage(db_filename, name, card_num, edition):
     data_set.sort(key=lambda x: x['order'])
 
     return data_set
-
-
-def find(db_filename, name, card_num, edition):
-    con = util.connect(db_filename)
-    cur = con.cursor()
-    
-    data = list()
-    
-    query = sql_filterinject_select_cards
-    
-    params = list()
-    
-    ed_codes = None
-    if edition is not None:
-        # we need to look up editions first or we are going to need to do a dynamically built
-        # join and i dont want to
-        matching_editions = editiondb.find(db_filename, edition)
-        
-        # match on any partial matches and get the codes
-        ed_codes = []
-        for ed in matching_editions:
-            ed_codes.append(ed['code'])
-    
-    filter_clause, filter_params = filters.card(name, card_num, ed_codes)
-    query = query.format(filter=filter_clause)
-    if filter_clause != '':
-        params += filter_params
-    
-    for r in cur.execute(query, params):
-        data_dict = util.card_row_to_dict(r)
-        data_dict['wishlist_total'] = r[16]
-        data.append(data_dict)
-        
-    con.close()
-    
-    return data
 
 
 def insert_multiple(db_filename, cards):
@@ -446,33 +346,6 @@ FROM
 LEFT OUTER JOIN deck_cards as dc ON dc.card = c.id
 LEFT OUTER JOIN decks as d ON dc.deck = d.id
 WHERE c.id = ?
-'''
-
-
-sql_filterinject_select_cards = '''
-SELECT
-    c.id,
-    c.count,
-    c.name,
-    c.edition,
-    c.tcg_num,
-    c.condition,
-    c.language,
-    c.foil,
-    c.signed,
-    c.artist_proof,
-    c.altered_art,
-    c.misprint,
-    c.promo,
-    c.textless,
-    c.printing_id,
-    c.printing_note,
-    COALESCE(SUM(dc.wishlist_count),0) AS wishlist_count
-FROM
-    inventory AS c
-LEFT OUTER JOIN deck_cards AS dc ON dc.card = c.id
-{filter}
-GROUP BY c.id
 '''
 
 
