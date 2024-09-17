@@ -1,7 +1,6 @@
-import sys
-
 from . import cardutil, cio, db, types, select_card, select_deck, select_card_in_deck
 from .db import deckdb, carddb
+from .errors import ArgumentError, DataConflictError, UserCancelledError, CommandError
 
 
 # TODO: this rly makes more sense elsewhere glub, in decks rather than cards.
@@ -12,25 +11,20 @@ def add_to_deck(args):
 
     for du in deck_used_states:
         if du not in ['P', 'B', 'C']:
-            print("ERROR: invalid deck used state {!r}; must be one of P, B, or C".format(du), file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("invalid deck used state {!r}; must be one of P, B, or C".format(du))
     
     if args.deck is not None and args.did is not None:
-        print("ERROR: cannot give both --did and -d/--deck", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("cannot give both --did and -d/--deck")
     if args.deck is None and args.did is None:
-        print("ERROR: must select a deck with either --did or -d/--deck", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("must select a deck with either --did or -d/--deck")
         
     if (args.card is not None or args.card_num is not None) and args.cid is not None:
-        print("ERROR: cannot give -c/--card-num or -n/--card-name if --cid is given", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("cannot give -c/--card-num or -n/--card-name if --cid is given")
     if (args.card is None and args.card_num is None and args.cid is None):
-        print("ERROR: must specify card by --cid or -c/--card-num and/or -n/--name", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("must specify card by --cid or -c/--card-num and/or -n/--name")
         
     if args.amount < 1:
-        print("ERROR: -a/--amount must be at least 1")
+        raise ArgumentError("-a/--amount must be at least 1")
         
     db_filename = args.db_filename
     
@@ -51,8 +45,7 @@ def add_to_deck(args):
 
     if free_amt < args.amount:
         sub_error = "only {:d}x are not in use".format(free_amt) if free_amt > 0 else "all copies are in use"
-        print("ERROR: Can't add {:d}x {:s}: {:s}".format(args.amount, cardutil.to_str(card), sub_error), file=sys.stderr)
-        sys.exit(1)
+        raise DataConflictError("Can't add {:d}x {:s}: {:s}".format(args.amount, cardutil.to_str(card), sub_error))
 
     # wishlist move check
     card_counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
@@ -74,9 +67,9 @@ def add_to_deck(args):
                 else:
                     wl_move_amt = cio.get_int("How many to move?", 0, counts['wishlist_count'])
         elif counts['count'] > 0:
-            print("{:d}x of that card is already in the deck.".format(counts['count']), file=sys.stderr)
+            print("{:d}x of that card is already in the deck.".format(counts['count']))
             if not cio.confirm("Increment amount in deck by {:d}?".format(args.amount)):
-                sys.exit(0)
+                raise UserCancelledError("user cancelled adding card to deck")
 
     add_amt = args.amount - wl_move_amt
 
@@ -91,21 +84,17 @@ def add_to_deck(args):
 
 def remove_from_deck(args):
     if args.deck is not None and args.did is not None:
-        print("ERROR: cannot give both --did and -d/--deck", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("cannot give both --did and -d/--deck")
     if args.deck is None and args.did is None:
-        print("ERROR: must select a deck with either --did or -d/--deck", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("must select a deck with either --did or -d/--deck")
         
     if (args.card is not None or args.card_num is not None) and args.cid is not None:
-        print("ERROR: cannot give -c/--card-num or -n/--card-name if --cid is given", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("cannot give -c/--card-num or -n/--card-name if --cid is given")
     if (args.card is None and args.card_num is None and args.cid is None):
-        print("ERROR: must specify card by --cid or -c/--card-num and/or -n/--name", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("must specify card by --cid or -c/--card-num and/or -n/--name")
         
     if args.amount < 1:
-        print("ERROR: -a/--amount must be at least 1")
+        raise ArgumentError("-a/--amount must be at least 1")
         
     db_filename = args.db_filename
     
@@ -123,9 +112,9 @@ def remove_from_deck(args):
     
     counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
     if len(counts) > 0 and counts[0]['count'] - args.amount < 0:
-        print("Only {:d}x of that card is in the deck.".format(counts[0]['count']), file=sys.stderr)
+        print("Only {:d}x of that card is in the deck.".format(counts[0]['count']))
         if not cio.confirm("Remove all owned copies from deck?"):
-            sys.exit(0)
+            raise UserCancelledError("user cancelled removing card from deck")
     
     new_amt = deckdb.remove_card(db_filename, deck['id'], card['id'], args.amount)
     
@@ -139,8 +128,7 @@ def remove_from_deck(args):
 def remove_inventory_entry(args):
     db_filename = args.db_filename
     if args.amount < 0:
-        print("ERROR: amount must be at least 1", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("amount must be at least 0")
 
     amount = args.amount
 
@@ -160,7 +148,7 @@ def remove_inventory_entry(args):
         if len(to_wishlist) < 1:
             print("Removing {:d}x {:s} will delete {:d}x from decks and {:d}x from deck wishlists".format(amount, cardutil.to_str(card), total_in_decks, total_wishlisted))
             if not cio.confirm("Delete {:s} from inventory?".format(cardutil.to_str(card))):
-                sys.exit(0)
+                raise UserCancelledError("user cancelled removing card from inventory")
             carddb.delete(db_filename, card['id'])
             print("Removed all copies of {:s} from inventory".format(cardutil.to_str(card)))
         else:
@@ -181,8 +169,7 @@ def remove_inventory_entry(args):
 def create_inventory_entry(args):
     db_filename = args.db_filename
     if args.amount < 0:
-        print("ERROR: amount must be at least 0", file=sys.stderr)
-        sys.exit(1)
+        raise ArgumentError("amount must be at least 0")
 
     # first, check if we've been given a TCG num or an inven ID:
     tcg_num = None
@@ -194,28 +181,24 @@ def create_inventory_entry(args):
         try:
             cid = int(args.card_num)
         except ValueError:
-            print("ERROR: card {!r} is not a TCG number or inventory ID".format(args.card_num), file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("card {!r} is not a TCG number or inventory ID".format(args.card_num))
 
     if tcg_num is not None:
         name = args.name if args.name is not None else ''
         
         # don't add a card name that is just whitespace, a tcg num, or all-numeric or that's confusing
         if name == '':
-            print("ERROR: card name cannot be empty", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("card name cannot be empty")
         else:
             try:
                 int(name)
-                print("ERROR: card name cannot be all-numeric", file=sys.stderr)
-                sys.exit(1)
+                raise ArgumentError("card name cannot be all-numeric")
             except ValueError:
                 pass
 
             try:
                 types.parse_cardnum(name)
-                print("ERROR: card name cannot be in EDC-123 format", file=sys.stderr)
-                sys.exit(1)
+                raise ArgumentError("card name cannot be in EDC-123 format")
             except ValueError:
                 pass
 
@@ -264,7 +247,7 @@ def create_inventory_entry(args):
 
             if amount < 1:
                 print("{:s} already exists and amount to create is set to 0; nothing to do")
-                sys.exit(0)
+                return
 
             # NOT doing wishlist update flow; add (to deck) already does this
 
@@ -279,47 +262,34 @@ def create_inventory_entry(args):
             
     elif cid is not None:
         if args.name is not None:
-            print("ERROR: cannot give -N/--name when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -N/--name when inventory ID is given")
         elif args.cond is not None:
-            print("ERROR: cannot give -C/--cond when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -C/--cond when inventory ID is given")
         elif args.lang is not None:
-            print("ERROR: cannot give -L/--lang when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -L/--lang when inventory ID is given")
         elif args.foil:
-            print("ERROR: cannot give -F/--foil when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -F/--foil when inventory ID is given")
         elif args.signed:
-            print("ERROR: cannot give -S/--signed when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -S/--signed when inventory ID is given")
         elif args.artist_proof:
-            print("ERROR: cannot give -R/--artist-proof when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -R/--artist-proof when inventory ID is given")
         elif args.altered_art:
-            print("ERROR: cannot give -A/--altered-art when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -A/--altered-art when inventory ID is given")
         elif args.misprint:
-            print("ERROR: cannot give -M/--misprint when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -M/--misprint when inventory ID is given")
         elif args.promo:
-            print("ERROR: cannot give -P/--promo when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -P/--promo when inventory ID is given")
         elif args.textless:
-            print("ERROR: cannot give -T/--textless when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -T/--textless when inventory ID is given")
         elif args.printing_id is not None:
-            print("ERROR: cannot give -I/--printing-id when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -I/--printing-id when inventory ID is given")
         elif args.printing_note is not None:
-            print("ERROR: cannot give -N/--printing-note when inventory ID is given", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("cannot give -N/--printing-note when inventory ID is given")
 
         amount = args.amount if args.amount is not None else 1
 
         if amount < 1:
-            print("ERROR: amount must be at least 1 for existing card", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("amount must be at least 1 for existing card")
 
         card = carddb.get_one(db_filename, cid)
         new_amt = carddb.update_count(db_filename, cid, by_amount=amount)
@@ -329,8 +299,7 @@ def create_inventory_entry(args):
         print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, cardutil.to_str(card), cid))
 
     else:
-        print("ERROR: condition should never happen", file=sys.stderr)
-        sys.exit(1)
+        raise CommandError("condition should never happen")
 
 
 def list(args):
@@ -341,11 +310,9 @@ def list(args):
 
     if wishlist_only:
         if include_wishlist:
-            print("ERROR: -w/--include-wishlist has no effect when -W/--wishlist is set", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("-w/--include-wishlist has no effect when -W/--wishlist is set")
         if args.free:
-            print("ERROR: -f/--free has no effect when -W/--wishlist is set", file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("-f/--free has no effect when -W/--wishlist is set")
 
     deck_used_states = [du.upper() for du in args.deck_used_states.split(',')]
     if len(deck_used_states) == 1 and deck_used_states[0] == '':
@@ -353,8 +320,7 @@ def list(args):
 
     for du in deck_used_states:
         if du not in ['P', 'B', 'C']:
-            print("ERROR: invalid deck used state {!r}; must be one of P, B, or C".format(du), file=sys.stderr)
-            sys.exit(1)
+            raise ArgumentError("invalid deck used state {!r}; must be one of P, B, or C".format(du))
 
 
     cards = carddb.find(db_filename, args.card, args.card_num, args.edition)

@@ -136,6 +136,9 @@ def main():
     except mtg.db.DBError as e:
         print("ERROR: " + str(e), file=sys.stderr)
         sys.exit(1)
+    except mtg.CommandError as e:
+        print("ERROR: " + str(e), file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     try:
