@@ -3,6 +3,7 @@ import sys
 
 from . import cardutil, cio
 from .db import carddb
+from .errors import UserCancelledError, DataConflictError
 
 
 def import_csv(args):
@@ -23,7 +24,7 @@ def import_csv(args):
     
     if len(new_imports) == 0 and len(count_updates) == 0:
         print("No new cards to import and no counts need updating", file=sys.stderr)
-        sys.exit(0)
+        return
     
     # prep for db insertion by printing things out:
     if confirm_changes:
@@ -72,7 +73,7 @@ def import_csv(args):
         print(summary)
         
         if not cio.confirm("Write changes to {:s}?".format(db_filename)):
-            sys.exit(0)
+            raise UserCancelledError("user cancelled changes")
     
 
     # if the card is moved entirely to wishlist, the count update will probably go to 0. We don't remove
@@ -181,6 +182,7 @@ def update_deckbox_fieldnames_to_mtgdb(cards):
         
         rn += 1
 
+
 def update_deckbox_values_to_mtgdb(cards):
     ed_code_updates = {
         'IN': 'INV',
@@ -205,13 +207,11 @@ def update_deckbox_values_to_mtgdb(cards):
             if ed in ed_code_updates:
                 c['edition_code'] = ed_code_updates[ed]
             else:
-                print("Unaccounted-for non-3-len edition_code row {:d}: {!r}".format(rn, ed), file=sys.stderr)
-                sys.exit(2)
+                raise DataConflictError("unaccounted-for non-3-len edition code row {:d}: {!r}".format(rn, ed))
         
         cond = c['condition']
         if cond not in cond_codes:
-            print("Unaccounted-for condition row {:d}: {!r}".format(rn, cond), file=sys.stderr)
-            sys.exit(3)
+            raise DataConflictError("unaccounted-for condition row {:d}: {!r}".format(rn, cond))
         c['condition'] = cond_codes[cond]
         
         rn += 1
@@ -231,8 +231,7 @@ def drop_unused_fields(cards):
             for uf in unused_fields:
                 del c[uf]
         except KeyError:
-            print("Unexpected format row {:d}: {!r}".format(rn, c), file=sys.stderr)
-            sys.exit(2)
+            raise DataConflictError("Unexpected format row {:d}: {!r}".format(rn, c))
         rn += 1
 
     
@@ -295,8 +294,7 @@ def parse_deckbox_csv(filename, row_limit=0):
                 cn += 1
 
             if rn == 0 and len(headers) > 0 and headers[0] != 'count':
-                print("First column was expected to be 'count' but is {!r}; are you sure this is in deckbox format?".format(headers[0]), file=sys.stderr)
-                sys.exit(1)
+                raise DataConflictError("First column was expected to be 'count' but is {!r}; are you sure this is in deckbox format?".format(headers[0]))
                 
             if rn > 0 and len(row_data) > 0:
                 data.append(row_data)
