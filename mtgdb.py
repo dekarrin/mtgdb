@@ -5,7 +5,7 @@ import argparse
 
 import mtg.db
 
-from mtg import cards, deckbox, decks
+from mtg import cards, deckbox, decks, ArgumentError
 from mtg.db import schema
 
 
@@ -15,40 +15,40 @@ def main():
     subs = parser.add_subparsers(help='SUBCOMMANDS', required=True)
 
     init_parser = subs.add_parser('init-db', help="Initialize a new database")
-    init_parser.set_defaults(func=schema.init)
+    init_parser.set_defaults(func=invoke_init_db)
 
     import_parser = subs.add_parser('import', help="Import a list of cards from deckbox CSV file")
     import_parser.add_argument('csv_filename', help="path to csv file to import")
     import_parser.add_argument('-y', '--yes', action='store_true', help="Skip confirmation prompt")
-    import_parser.set_defaults(func=deckbox.import_csv)
+    import_parser.set_defaults(func=invoke_import)
 
     export_decks_parser = subs.add_parser('export-decks', help="Export deck lists to CSV. First row will contain headers, second row will contain name and state, third row will have card list headers, and all subsequent rows list the cards in the deck")
     export_decks_parser.add_argument('-p', '--path', default='.', help="path to directory to write decklist CSV files")
     export_decks_parser.add_argument('-P', '--pattern', default='{DECK}-{DATE}.csv', help="Naming pattern for decklist output files. The following placeholders are available: {DECK}, {DATE}, {STATE}, referring to deck name, current date, and deck state, respectively. Placeholders are case-sensitive.")
-    export_decks_parser.set_defaults(func=decks.export_csv)
+    export_decks_parser.set_defaults(func=invoke_export_decks)
 
     import_decks_parser = subs.add_parser('import-decks', help="Import deck lists from CSV files")
     import_decks_parser.add_argument('csv_filenames', nargs='+', help="path to csv file(s) to import")
     import_decks_parser.add_argument('-L', '--limitless', action='store_true', help="Do not fail if a deck has more cards than available in inventory")
-    import_decks_parser.set_defaults(func=decks.import_csv)
+    import_decks_parser.set_defaults(func=invoke_import_decks)
 
     create_deck_parser = subs.add_parser('create-deck', help="Create a new deck")
     create_deck_parser.add_argument('name', help="The unique name of the deck to create")
-    create_deck_parser.set_defaults(func=decks.create)
+    create_deck_parser.set_defaults(func=invoke_create_deck)
 
     delete_deck_parser = subs.add_parser('delete-deck', help="Remove a deck. This will clear all cards from it as well.")
     delete_deck_parser.add_argument('name', help="The name of the deck to delete; must match exactly")
-    delete_deck_parser.set_defaults(func=decks.delete)
+    delete_deck_parser.set_defaults(func=decks.invoke_delete)
 
     set_deck_name_parser = subs.add_parser('set-deck-name', help='Update the name of a deck')
     set_deck_name_parser.add_argument('deck', help="The current name of the deck to modify")
     set_deck_name_parser.add_argument('new_name', help="The name to set the deck to")
-    set_deck_name_parser.set_defaults(func=decks.set_name)
+    set_deck_name_parser.set_defaults(func=invoke_set_deck_name)
 
     set_deck_state_parser = subs.add_parser('set-deck-state', help='Update the completion state of a deck')
     set_deck_state_parser.add_argument('deck', help="The name of the deck to modify")
     set_deck_state_parser.add_argument('new_state', help="The state to set the deck to. Can be one of BROKEN, PARTIAL, COMPLETE, or abbreviations B, P, or C.")
-    set_deck_state_parser.set_defaults(func=decks.set_state)
+    set_deck_state_parser.set_defaults(func=invoke_set_deck_state)
 
     show_deck_parser = subs.add_parser('show-deck', help='List and filter cards in a deck')
     show_deck_parser.add_argument('deck', help="The name of the deck to show, or ID if --id is set. Exact matching is used")
@@ -58,7 +58,7 @@ def main():
     show_deck_parser.add_argument('-c', '--card', help="Filter on the name; partial matching will be applied")
     show_deck_parser.add_argument('-n', '--card-num', help="Filter on a TCG number in format EDC-123; must be exact")
     show_deck_parser.add_argument('-e', '--edition', help="Filter on edition; partial matching will be applied")
-    show_deck_parser.set_defaults(func=decks.show)
+    show_deck_parser.set_defaults(func=invoke_show_deck)
 
     list_decks_parser = subs.add_parser('list-decks', help='List decks')
     list_decks_parser.set_defaults(func=decks.list)
@@ -93,8 +93,6 @@ def main():
     remove_card_parser.add_argument('-a', '--amount', default=1, type=int, help="specify amount of that card to remove")
     remove_card_parser.set_defaults(func=cards.remove_from_deck)
 
-    
-    # all incomplete below here:
     add_inven_parser = subs.add_parser('add-inven', help="Manually create a new inventory entry, or increment owned count if it already exists. To match existing, you must give its inventory ID or all other properties MUST match exactly. (NOTE: there is no way to export owned inventory entries at this time, only wishlisted ones)")
     add_inven_parser.add_argument('card-num', help="The TCG number of the card to add, in format EDC-123. Or all numeric = card ID")
     add_inven_parser.add_argument('-a', '--amount', help="Specify the owned amount of the new card (or amount to increase by if it already exists); default is 0 if card is being created or 1 if it exists", type=int)
@@ -139,6 +137,95 @@ def main():
     except mtg.CommandError as e:
         print("ERROR: " + str(e), file=sys.stderr)
         sys.exit(1)
+
+
+def invoke_init_db(args):
+    db_filename = args.db_filename
+    return schema.init(db_filename)
+
+
+def invoke_import(args):
+    db_filename = args.db_filename
+    csv_filename = args.csv_filename
+    confirm_changes = not args.yes
+    return deckbox.import_csv(db_filename, csv_filename, confirm_changes)
+
+
+def invoke_export_decks(args):
+    db_filename = args.db_filename
+    path = args.path
+    filename_pattern = args.pattern
+    return decks.export_csv(db_filename, path, filename_pattern)
+
+
+def invoke_import_decks(args):
+    db_filename = args.db_filename
+    csv_filenames = args.csv_filenames
+
+    if len(csv_filenames) == 0:
+        raise ArgumentError("no CSV files given to import")
+    
+    return decks.import_csv(db_filename, csv_filenames)
+
+
+def invoke_create_deck(args):
+    db_filename = args.db_filename
+    deck_name = args.name
+
+    if deck_name.strip() == '':
+        raise ArgumentError("deck name must have at least one non-space character in it")
+    
+    return decks.create(db_filename, deck_name)
+
+
+def invoke_set_deck_name(args):
+    db_filename = args.db_filename
+    deck_name = args.deck
+    new_name = args.new_name
+    
+    if new_name.strip() == "":
+        raise ArgumentError("new name must have at least one non-space character in it")
+    
+    return decks.set_name(db_filename, deck_name, new_name)
+
+
+def invoke_set_deck_state(args):
+    db_filename = args.db_filename
+    deck_name = args.deck
+    new_state = args.new_state.upper()
+    
+    if new_state == 'BROKEN' or new_state == 'BROKEN DOWN':
+        new_state = 'B'
+    elif new_state == 'PARTIAL':
+        new_state = 'P'
+    elif new_state == 'COMPLETE':
+        new_state = 'C'
+    elif new_state != 'B' and new_state != 'P' and new_state != 'C':
+        raise ArgumentError("new state needs to be one of BROKEN, PARTIAL, COMPLETE, or abbreviations B, P, or C.")
+    
+    return decks.set_state(db_filename, deck_name, new_state)
+
+
+def invoke_show_deck(args):
+    db_filename = args.db_filename
+    owned_only = args.owned
+    wishlist_only = args.wishlist
+
+    if owned_only and wishlist_only:
+        raise ArgumentError("cannot give both -o/--owned and -W/--wishlist")
+    
+    deck_id=None
+    deck_name=None
+    if args.id:
+        try:
+            deck_id = int(args.deck)
+        except ValueError:
+            raise ArgumentError("deck ID must be an integer")
+    else:
+        deck_name = args.deck
+
+    return decks.show(db_filename, deck_name, deck_id, args.card, args.num, args.edition, owned_only, wishlist_only)
+
 
 if __name__ == "__main__":
     try:

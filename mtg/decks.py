@@ -50,16 +50,9 @@ def add_to_wishlist(args):
     new_amt = deckdb.add_wishlisted_card(db_filename, deck['id'], card['id'], amount)
 
     print("Added {:d}x {!s} to wishlist for {:s} (total {:d}x on WL)".format(amount, cardutil.to_str(card), deck['name'], new_amt))
-    
 
 
-def create(args):
-    db_filename = args.db_filename
-    deck_name = args.name
-
-    if deck_name.strip() == '':
-        raise ArgumentError("deck name must have at least one non-space character in it")
-    
+def create(db_filename, deck_name):
     deckdb.create(db_filename, deck_name)
     
     print("Created new deck {!r}".format(deck_name))
@@ -76,24 +69,27 @@ def list(args):
         print("{:d}: {!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(d['id'], d['name'], d['state'], total, s_total, d['cards'], d['wishlisted_cards']))
         
 
-def delete(args):
+def invoke_delete(args):
     db_filename = args.db_filename
     deck_name = args.name
-    
+    return delete(db_filename, deck_name)
+
+
+def delete(db_filename, deck_name):
     deckdb.delete_by_name(db_filename, deck_name)
     
     print("Deleted deck {!r}".format(deck_name))
 
 
-def show(args):
-    db_filename = args.db_filename
-    owned_only = args.owned
-    wishlist_only = args.wishlist
+def show(db_filename, deck_name=None, deck_id=None, card_name=None, card_num=None, card_edition=None, owned_only=False, wishlist_only=False):
+    """
+    Show contents of deck. One of deck_id or deck_name must be given.
+    """
 
-    if owned_only and wishlist_only:
-        raise ArgumentError("cannot give both -o/--owned and -W/--wishlist")
+    if deck_name is None and deck_id is None:
+        raise ValueError("one of deck name or deck ID must be given")
 
-    has_filter = args.card is not None or args.card_num is not None or args.edition is not None
+    has_filter = card_name is not None or card_num is not None or card_edition is not None
     owned_or_wl_msg = ""
     if owned_only:
         owned_or_wl_msg = " owned"
@@ -102,17 +98,12 @@ def show(args):
 
     deck = None
 
-    if args.id:
-        try:
-            deck_id = int(args.deck)
-        except ValueError:
-            raise ArgumentError("deck ID must be an integer")
-
+    if deck_id:
         deck = deckdb.get_one(db_filename, deck_id)
     else:
-        deck = deckdb.get_one_by_name(db_filename, args.deck)
+        deck = deckdb.get_one_by_name(db_filename, deck_name)
 
-    cards = deckdb.find_cards(db_filename, deck['id'], args.card, args.card_num, args.edition)
+    cards = deckdb.find_cards(db_filename, deck['id'], card_name, card_num, card_edition)
     
     total = deck['cards'] + deck['wishlisted_cards']
     s_total = 's' if total != 1 else ''
@@ -132,47 +123,21 @@ def show(args):
     if not any_matched:
         filter_msg = " match filters" if has_filter else ""
         print("(no{:s} cards in deck{:s})".format(owned_or_wl_msg, filter_msg))
-    
 
-def set_name(args):
-    db_filename = args.db_filename
-    deck_name = args.deck
-    new_name = args.new_name
-    
-    if new_name.strip() == "":
-        raise ArgumentError("new name must have at least one non-space character in it")
-    
+
+def set_name(db_filename, deck_name, new_name):
     deckdb.update_name(db_filename, deck_name, new_name)
     
     print("Updated deck {!r} to be named {!r}".format(deck_name, new_name))
 
 
-def set_state(args):
-    db_filename = args.db_filename
-    deck_name = args.deck
-    new_state = args.new_state.upper()
-    
-    if new_state == 'BROKEN' or new_state == 'BROKEN DOWN':
-        new_state = 'B'
-    elif new_state == 'PARTIAL':
-        new_state = 'P'
-    elif new_state == 'COMPLETE':
-        new_state = 'C'
-    elif new_state != 'B' and new_state != 'P' and new_state != 'C':
-        raise ArgumentError("new state needs to be one of BROKEN, PARTIAL, COMPLETE, or abbreviations B, P, or C.")
-    
+def set_state(db_filename, deck_name, new_state):
     deckdb.update_state(db_filename, deck_name, new_state)
     
     print("Set state of {!r} to {:s}".format(deck_name, new_state))
 
 
-def import_csv(args):
-    db_filename = args.db_filename
-    csv_filenames = args.csv_filenames
-
-    if len(csv_filenames) == 0:
-        raise ArgumentError("no CSV files given to import")
-
+def import_csv(db_filename, csv_filenames):
     for csv_filename in csv_filenames:
         with open(csv_filename, 'r', newline='') as csvfile:
             csvr = csv.reader(csvfile)
@@ -290,11 +255,7 @@ def import_csv(args):
         print("Successfully imported deck from {:s}".format(csv_filename))
 
 
-def export_csv(args):
-    db_filename = args.db_filename
-    path = args.path
-    filename_pattern = args.pattern
-
+def export_csv(db_filename, path, filename_pattern):
     if path == '':
         path = '.'
     

@@ -6,11 +6,7 @@ from .db import carddb
 from .errors import UserCancelledError, DataConflictError
 
 
-def import_csv(args):
-    db_filename = args.db_filename
-    csv_filename = args.csv_filename
-    confirm_changes = not args.yes
-    
+def import_csv(db_filename, csv_filename, confirm_changes=True):
     new_cards = parse_deckbox_csv(csv_filename)
     drop_unused_fields(new_cards)
     update_deckbox_values_to_mtgdb(new_cards)

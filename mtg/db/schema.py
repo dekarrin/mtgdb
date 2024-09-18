@@ -1,10 +1,8 @@
 import sqlite3
 
 
-def init(args):        
-    filename = args.db_filename
-    
-    con = sqlite3.connect(filename)
+def init(db_filename):
+    con = sqlite3.connect(db_filename)
     cur = con.cursor()
 
     # enable foreign keys
@@ -40,7 +38,7 @@ def init(args):
     con.commit()
     con.close()
     
-    print("Set up new mtgdb database in {:s}".format(filename))
+    print("Set up new mtgdb database in {:s}".format(db_filename))
 
 
 sql_enable_fks = '''
