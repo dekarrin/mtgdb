@@ -38,7 +38,7 @@ def main():
 
     delete_deck_parser = subs.add_parser('delete-deck', help="Remove a deck. This will clear all cards from it as well.")
     delete_deck_parser.add_argument('name', help="The name of the deck to delete; must match exactly")
-    delete_deck_parser.set_defaults(func=decks.invoke_delete)
+    delete_deck_parser.set_defaults(func=invoke_delete_deck)
 
     set_deck_name_parser = subs.add_parser('set-deck-name', help='Update the name of a deck')
     set_deck_name_parser.add_argument('deck', help="The current name of the deck to modify")
@@ -176,6 +176,12 @@ def invoke_create_deck(args):
         raise ArgumentError("deck name must have at least one non-space character in it")
     
     return decks.create(db_filename, deck_name)
+
+
+def invoke_delete_deck(args):
+    db_filename = args.db_filename
+    deck_name = args.name
+    return decks.delete(db_filename, deck_name)
 
 
 def invoke_set_deck_name(args):

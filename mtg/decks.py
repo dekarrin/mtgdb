@@ -67,12 +67,6 @@ def list(args):
         total = d['cards'] + d['wishlisted_cards']
         s_total = 's' if total != 1 else ''
         print("{:d}: {!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(d['id'], d['name'], d['state'], total, s_total, d['cards'], d['wishlisted_cards']))
-        
-
-def invoke_delete(args):
-    db_filename = args.db_filename
-    deck_name = args.name
-    return delete(db_filename, deck_name)
 
 
 def delete(db_filename, deck_name):
