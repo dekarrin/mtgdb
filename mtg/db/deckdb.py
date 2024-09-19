@@ -2,6 +2,7 @@ import sqlite3
 
 from .errors import MultipleFoundError, NotFoundError, AlreadyExistsError
 from . import util, filters, editiondb
+from ..types import Deck
 
 
 def update_state(db_filename, name, state):
@@ -33,15 +34,15 @@ def update_name(db_filename, name, new_name):
     con.close()
     
 
-def get_all(db_filename):
+def get_all(db_filename: str) -> list[Deck]:
     con = util.connect(db_filename)
     cur = con.cursor()
     
     data = []
     
     for r in cur.execute(sql_select_decks):
-        row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3], 'wishlisted_cards': r[4]}
-        data.append(row)
+        d = Deck(id=r[0], name=r[1], state=r[2], cards=r[3], wishlisted_cards=r[4])
+        data.append(d)
     
     con.close()
     

@@ -1,4 +1,4 @@
-
+from typing import Optional
 
 # TODO: move this to top-level
 def parse_cardnum(cardnum: str):
@@ -24,3 +24,20 @@ class Card:
         self.tcg_num = tcg_num
 
         self.condition = condition
+
+
+class Deck:
+    """Deck is an entry from the deck listing."""
+
+    def __init__(self, id: Optional[int]=None, name: str='', state='B', owned_count: int=0, wishlisted_count: int=0):
+        self.id = id
+        self.name = name
+        self.state = state
+        self.owned_count = owned_count
+        self.wishlisted_count = wishlisted_count
+
+    @property
+    def card_count(self):
+        return self.owned_count + self.wishlist_count
+    
+    

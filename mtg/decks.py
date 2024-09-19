@@ -58,9 +58,8 @@ def list(db_filename):
     decks = deckdb.get_all(db_filename)
     
     for d in decks:
-        total = d['cards'] + d['wishlisted_cards']
-        s_total = 's' if total != 1 else ''
-        print("{:d}: {!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(d['id'], d['name'], d['state'], total, s_total, d['cards'], d['wishlisted_cards']))
+        s_total = 's' if d.card_count != 1 else ''
+        print("{:d}: {!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(d.id, d.name, d.state, d.card_count, s_total, d.owned_count, d.wishlisted_count))
 
 
 def delete(db_filename, deck_name):
@@ -252,8 +251,11 @@ def export_csv(db_filename, path, filename_pattern):
     deck_listings = []
 
     for deck in decks:
-        entry = deck
-        entry['card_count'] = entry['cards']
+        entry = {
+            'name': deck.name,
+            'state': deck.state,
+            'card_count': deck.owned_count,
+        },
         entry['cards'] = deckdb.find_cards(db_filename, deck['id'], None, None, None)
         deck_listings.append(entry)
     
