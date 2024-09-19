@@ -21,10 +21,13 @@ def start(db_filename):
     print("MTGDB Interactive Mode")
     print("======================")
     print("Using database {:s}".format(s.db_filename))
+    print("----------------------")
+    cio.pause()
 
     try:
         main_menu(s)
     except KeyboardInterrupt:
+        print()
         pass
 
     print("Goodbye!")
@@ -35,26 +38,49 @@ def main_menu(s: Session):
         ['cards', 'View and manage inventory'],
         ['decks', 'View and manage decks'],
         ['change-db', 'Change the database file being used'],
+        ['show-db', 'Show the database file currently in use'],
         ['init', 'Initialize the database file'],
         ['exit', 'Exit the program'],
     ]
 
     while s.running:
-        print("----------------------")
+        cio.clear()
         item = cio.select("MAIN MENU", top_level_items)
+
+        if item != 'exit':
+            cio.clear()
 
         if item == 'cards':
             print("Not implemented yet")
+            cio.pause()
         elif item == 'decks':
-            print("Not implemented yet")
+            decks_master_menu(s)
         elif item == 'change-db':
-            s.db_filename = input("Enter new database filename: ")
-            print("Now using database {:s}".format(s.db_filename))
+            change_db(s)
+            cio.pause()
+        elif item == 'show-db':
+            print("Using database {:s}".format(s.db_filename))
             cio.pause()
         elif item == 'init':
             do_init(s)
+            cio.pause()
         elif item == 'exit':
             s.running = False
+        else:
+            # should never get here
+            print("Unknown option")
+            cio.pause()
+
+
+def change_db(s: Session):
+    new_name = input("Enter new database filename: ")
+    if new_name.strip() == '':
+        print("ERROR: new filename must have at least one non-space chararcter")
+        print("DB name not updated")
+        return
+
+    s.db_filename = new_name
+    print("Now using database file {:s}".format(s.db_filename))
 
 
 def do_init(s: Session):
@@ -64,8 +90,52 @@ def do_init(s: Session):
         print("WARNING: Initializing the DB will delete all data in file {:s}".format(s.db_filename))
         if not cio.confirm("Are you sure you want to continue?"):
             print("Database initialization cancelled")
-            cio.pause()
             return
     
     schema.init(s.db_filename)
-    cio.pause()
+
+
+def decks_master_menu(s: Session):
+
+    # print all decks, PAGINATED -
+    # N - next page
+    # P - prev page
+    # S - search
+    # M - manage a deck
+    # 
+    # allow selection of a deck
+    # allow creation of a new deck
+    # exit
+    # back
+    items = [
+        ('new', 'Create a new deck'),
+        ('select', 'View/manage an existing deck'),
+        ('back', 'Return to main menu'),
+        ('exit', 'Exit the program'),
+    ]
+
+    while True:
+        cio.clear()
+        item = cio.select("MANAGE DECKS", items)
+
+        if item != 'back':
+            cio.clear()
+
+        if item == 'list':
+            print("Not implemented yet")
+            cio.pause()
+        elif item == 'new':
+            print("Not implemented yet")
+            cio.pause()
+        elif item == 'select':
+            print("Not implemented yet")
+            cio.pause()
+        elif item == 'back':
+            break
+        elif item == 'exit':
+            s.running = False
+            break
+        else:
+            # should never get here
+            print("Unknown option")
+            cio.pause()

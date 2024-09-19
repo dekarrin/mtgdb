@@ -1,4 +1,9 @@
 import sys
+import os
+
+
+def clear():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 
 def pause(show_msg=True):
