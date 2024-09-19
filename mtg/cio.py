@@ -1,5 +1,13 @@
 import sys
 
+
+def pause(show_msg=True):
+    if show_msg:
+        input("(Press Enter to continue...)")
+    else:
+        input("")
+
+
 def select(prompt, options):
     """
     Give options as list of tuple - returned value, displayed

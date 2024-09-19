@@ -5,14 +5,15 @@ import argparse
 
 import mtg.db
 
-from mtg import cards, deckbox, decks, ArgumentError, types
+from mtg import cards, deckbox, decks, ArgumentError, types, interactive
 from mtg.db import schema
 
 
 def main():
     parser = argparse.ArgumentParser(prog='mtgdb.py', description='Import card lists and manage membership of cards within decks using export data from services that believe they have the right to charge me monthly for the same service for some reason.')
     parser.add_argument('-D', '--db-filename', default='inv.db', help="path to sqlite3 inventory DB file")
-    subs = parser.add_subparsers(help='SUBCOMMANDS', required=True)
+    parser.set_defaults(func=invoke_interactive_mode)
+    subs = parser.add_subparsers(title='SUBCOMMANDS', required=False, metavar='SUBCOMMAND')
 
     init_parser = subs.add_parser('init-db', help="Initialize a new database")
     init_parser.set_defaults(func=invoke_init_db)
@@ -96,7 +97,7 @@ def main():
     add_inven_parser = subs.add_parser('add-inven', help="Manually create a new inventory entry, or increment owned count if it already exists. To match existing, you must give its inventory ID or all other properties MUST match exactly. (NOTE: there is no way to export owned inventory entries at this time, only wishlisted ones)")
     add_inven_parser.add_argument('card-num', help="The TCG number of the card to add, in format EDC-123. Or all numeric = card ID")
     add_inven_parser.add_argument('-a', '--amount', help="Specify the owned amount of the new card (or amount to increase by if it already exists); default is 0 if card is being created or 1 if it exists", type=int)
-    add_inven_parser.add_argument('-N', '--name', help="The name of the card to add")
+    add_inven_parser.add_argument('-n', '--name', help="The name of the card to add")
     add_inven_parser.add_argument('-C', '--cond', help="Give the condition of the new card. May be one of M, NM, LP, MP, HP, or P. Default is NM")
     add_inven_parser.add_argument('-L', '--lang', help="Give language of card. Default is English.")
     add_inven_parser.add_argument('-F', '--foil', help="Mark the new card as a foil.", action='store_true')
@@ -137,6 +138,10 @@ def main():
     except mtg.CommandError as e:
         print("ERROR: " + str(e), file=sys.stderr)
         sys.exit(1)
+
+
+def invoke_interactive_mode(args):
+    mtg.interactive.start(args.db_filename)
 
 
 def invoke_init_db(args):
