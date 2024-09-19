@@ -5,7 +5,7 @@ import argparse
 
 import mtg.db
 
-from mtg import cards, deckbox, decks, ArgumentError
+from mtg import cards, deckbox, decks, ArgumentError, types
 from mtg.db import schema
 
 
@@ -61,7 +61,7 @@ def main():
     show_deck_parser.set_defaults(func=invoke_show_deck)
 
     list_decks_parser = subs.add_parser('list-decks', help='List decks')
-    list_decks_parser.set_defaults(func=decks.list)
+    list_decks_parser.set_defaults(func=invoke_list_decks)
 
     list_cards_parser = subs.add_parser('list-cards', help='List and filter inventory')
     list_cards_parser.add_argument('-c', '--card', help="Filter on the name; partial matching will be applied")
@@ -72,7 +72,7 @@ def main():
     list_cards_parser.add_argument('-u', '--usage', help="Show complete usage of cards in decks", action='store_true')
     list_cards_parser.add_argument('-w', '--include-wishlist', help="Show wishlist counts and list wishlisted cards even if not owned", action='store_true')
     list_cards_parser.add_argument('-W', '--wishlist', help="Exclusively show cards that are wishlisted and omit owned count", action='store_true')
-    list_cards_parser.set_defaults(func=cards.list)
+    list_cards_parser.set_defaults(func=invoke_list_cards)
 
     add_card_parser = subs.add_parser('add', help='Add a card to deck')
     add_card_parser.add_argument('-c', '--card', help="Filter on the name; partial matching will be applied. If multiple match, you must select one")
@@ -82,7 +82,7 @@ def main():
     add_card_parser.add_argument('--did', help="Specify deck by ID. If given, cannot also give -d")
     add_card_parser.add_argument('-a', '--amount', default=1, type=int, help="specify amount of that card to add")
     add_card_parser.add_argument('-s', '--deck-used-states', default='C,P', help="Comma-separated list of states of a deck (P, B, and/or C for partial, broken-down, or complete); a card instance being in a deck of this state is considered 'in-use' and cannot be added to more decks if there are no more free.")
-    add_card_parser.set_defaults(func=cards.add_to_deck)
+    add_card_parser.set_defaults(func=invoke_add)
 
     remove_card_parser = subs.add_parser('remove', help='Remove a card from deck')
     remove_card_parser.add_argument('-c', '--card', help="Filter on the name; partial matching will be applied. If multiple match, you must select one")
@@ -91,7 +91,7 @@ def main():
     remove_card_parser.add_argument('-d', '--deck', help="Give name of the deck; prefix matching is used. If multiple match, you must select one")
     remove_card_parser.add_argument('--did', help="Specify deck by ID. If given, cannot also give -d")
     remove_card_parser.add_argument('-a', '--amount', default=1, type=int, help="specify amount of that card to remove")
-    remove_card_parser.set_defaults(func=cards.remove_from_deck)
+    remove_card_parser.set_defaults(func=invoke_remove)
 
     add_inven_parser = subs.add_parser('add-inven', help="Manually create a new inventory entry, or increment owned count if it already exists. To match existing, you must give its inventory ID or all other properties MUST match exactly. (NOTE: there is no way to export owned inventory entries at this time, only wishlisted ones)")
     add_inven_parser.add_argument('card-num', help="The TCG number of the card to add, in format EDC-123. Or all numeric = card ID")
@@ -108,24 +108,24 @@ def main():
     add_inven_parser.add_argument('-T', '--textless', help="Mark the new card as textless", action='store_true')
     add_inven_parser.add_argument('-I', '--printing-id', help="Give the printing ID of the new card", type=int)
     add_inven_parser.add_argument('-N', '--printing-note', help="Give printing notes on the new card ('Showcase' is a common one, often used for full-art cards)")
-    add_inven_parser.set_defaults(func=cards.create_inventory_entry)
+    add_inven_parser.set_defaults(func=invoke_add_inven)
 
     remove_inven_parser = subs.add_parser('remove-inven', help="Remove an owned inventory card")
     remove_inven_parser.add_argument('card', help="The inventory ID of the card to remove")
     remove_inven_parser.add_argument('-a', '--amount', help="Specify the amount to remove", type=int, default=1)
-    remove_inven_parser.set_defaults(func=cards.remove_inventory_entry)
+    remove_inven_parser.set_defaults(func=invoke_remove_inven)
 
     add_wish_parser = subs.add_parser('add-wish', help="Add a card to a deck's wishlist.")
     add_wish_parser.add_argument('deck', help="The name of the deck to add to the wishlist of. If all numeric, interpreted as a deck ID; otherwise, interpreted as the exact name of the deck.")
     add_wish_parser.add_argument('card', help="The card to add to the deck's wishlist. Interpreted based on its format and other args. If all numeric, interpreted as a card ID. If a card number in EDC-123 format, interpreted as a TCG number. Otherwise, interpreted as a card name with partial matching. Card must exist in the inventory; to create an inventory entry that doesn't yet exist, see add-inven.")
     add_wish_parser.add_argument('-a', '--amount', help="Specify the amount of the card to add to the wishlist. Default is 1.", type=int, default=1)
-    add_wish_parser.set_defaults(func=decks.add_to_wishlist)
+    add_wish_parser.set_defaults(func=invoke_add_wish)
 
     remove_wish_parser = subs.add_parser('remove-wish', help="Remove a card from a deck's wishlist.")
     remove_wish_parser.add_argument('deck', help="The name of the deck to remove from the wishlist of. If all numeric, interpreted as a deck ID; otherwise, interpreted as the exact name of the deck.")
     remove_wish_parser.add_argument('card', help="The card to remove from the deck's wishlist. Interpreted based on its format and other args. If all numeric, interpreted as a card ID. If a card number in EDC-123 format, interpreted as a TCG number. Otherwise, interpreted as a card name with partial matching. Card must exist in the inventory.")
     remove_wish_parser.add_argument('-a', '--amount', help="Specify the amount of the card to remove from the wishlist. Default is 1.", type=int, default=1)
-    remove_wish_parser.set_defaults(func=decks.remove_from_wishlist)
+    remove_wish_parser.set_defaults(func=invoke_remove_wish)
 
     args = parser.parse_args()
 
@@ -231,6 +231,191 @@ def invoke_show_deck(args):
         deck_name = args.deck
 
     return decks.show(db_filename, deck_name, deck_id, args.card, args.num, args.edition, owned_only, wishlist_only)
+
+
+def invoke_list_decks(args):
+    db_filename = args.db_filename
+    return decks.list(db_filename)
+
+
+def invoke_list_cards(args):
+    db_filename = args.db_filename
+
+    wishlist_only = args.wishlist
+    include_wishlist = args.include_wishlist
+
+    if wishlist_only:
+        if include_wishlist:
+            raise ArgumentError("-w/--include-wishlist has no effect when -W/--wishlist is set")
+        if args.free:
+            raise ArgumentError("-f/--free has no effect when -W/--wishlist is set")
+
+    deck_used_states = [du.upper() for du in args.deck_used_states.split(',')]
+    if len(deck_used_states) == 1 and deck_used_states[0] == '':
+        deck_used_states = []
+
+    for du in deck_used_states:
+        if du not in ['P', 'B', 'C']:
+            raise ArgumentError("invalid deck used state {!r}; must be one of P, B, or C".format(du))
+        
+    return cards.list(db_filename, args.card_name, args.card_num, args.card_edition, args.free, args.usage, wishlist_only, include_wishlist, deck_used_states)
+
+
+def invoke_add(args):
+    deck_used_states = [du.upper() for du in args.deck_used_states.split(',')]
+    if len(deck_used_states) == 1 and deck_used_states[0] == '':
+        deck_used_states = []
+
+    for du in deck_used_states:
+        if du not in ['P', 'B', 'C']:
+            raise ArgumentError("invalid deck used state {!r}; must be one of P, B, or C".format(du))
+        
+    if args.deck is not None and args.did is not None:
+        raise ArgumentError("cannot give both --did and -d/--deck")
+    if args.deck is None and args.did is None:
+        raise ArgumentError("must select a deck with either --did or -d/--deck")
+        
+    if (args.card is not None or args.card_num is not None) and args.cid is not None:
+        raise ArgumentError("cannot give -c/--card-num or -n/--card-name if --cid is given")
+    if (args.card is None and args.card_num is None and args.cid is None):
+        raise ArgumentError("must specify card by --cid or -c/--card-num and/or -n/--name")
+        
+    if args.amount < 1:
+        raise ArgumentError("-a/--amount must be at least 1")
+        
+    db_filename = args.db_filename
+
+    return cards.add_to_deck(db_filename, args.card, args.card_num, args.cid, args.deck, args.did, args.amount, deck_used_states)
+
+
+def invoke_remove(args):
+    if args.deck is not None and args.did is not None:
+        raise ArgumentError("cannot give both --did and -d/--deck")
+    if args.deck is None and args.did is None:
+        raise ArgumentError("must select a deck with either --did or -d/--deck")
+        
+    if (args.card is not None or args.card_num is not None) and args.cid is not None:
+        raise ArgumentError("cannot give -c/--card-num or -n/--card-name if --cid is given")
+    if (args.card is None and args.card_num is None and args.cid is None):
+        raise ArgumentError("must specify card by --cid or -c/--card-num and/or -n/--name")
+        
+    if args.amount < 1:
+        raise ArgumentError("-a/--amount must be at least 1")
+        
+    db_filename = args.db_filename
+
+    return cards.remove_from_deck(db_filename, args.card, args.card_num, args.cid, args.deck, args.did, args.amount)
+
+
+def invoke_add_inven(args):
+    db_filename = args.db_filename
+    if args.amount is not None and args.amount < 0:
+        raise ArgumentError("amount must be at least 0")
+
+    # first, check if we've been given a TCG num or an inven ID:
+    tcg_num = None
+    edition = None
+    cid = None
+
+    # attempt to parse card_num as a card_num; it could also be a card ID. Both
+    # of these cases have different defaults for other fields.
+    try:
+        edition, tcg_num = types.parse_cardnum(args.card_num)
+    except ValueError:
+        try:
+            cid = int(args.card_num)
+        except ValueError:
+            raise ArgumentError("card {!r} is not a TCG number or inventory ID".format(args.card_num))
+    
+    if tcg_num is not None:
+        name = args.name if args.name is not None else ''
+        
+        # don't add a card name that is just whitespace, a tcg num, or all-numeric or that's confusing
+        if name == '':
+            raise ArgumentError("card name cannot be empty")
+        else:
+            try:
+                int(name)
+                raise ArgumentError("card name cannot be all-numeric")
+            except ValueError:
+                pass
+
+            try:
+                types.parse_cardnum(name)
+                raise ArgumentError("card name cannot be in EDC-123 format")
+            except ValueError:
+                pass
+
+        cond = args.cond if args.cond is not None else 'NM'
+        lang = args.lang if args.lang is not None else 'English'
+        foil = args.foil
+        signed = args.signed
+        proof = args.artist_proof
+        altered = args.altered_art
+        misprint = args.misprint
+        promo = args.promo
+        textless = args.textless
+        pid = args.printing_id if args.printing_id is not None else 0
+        note = args.printing_note if args.printing_note is not None else ''
+
+        amount = args.amount
+
+        # DO NOT DEFAULT AMOUNT; create_inventory_entry will based on whether the
+        # above 'new' card matches an existing one.
+
+        return cards.create_inventory_entry(db_filename, amount=amount, edition_code=edition, tcg_num=tcg_num, name=name, cond=cond, lang=lang, foil=foil, signed=signed, proof=proof, altered=altered, misprint=misprint, promo=promo, textless=textless, pid=pid, note=note)
+    else:
+        # above conditions ensure that if we are at this point, we have a card ID.
+        if args.name is not None:
+            raise ArgumentError("cannot give -N/--name when inventory ID is given")
+        elif args.cond is not None:
+            raise ArgumentError("cannot give -C/--cond when inventory ID is given")
+        elif args.lang is not None:
+            raise ArgumentError("cannot give -L/--lang when inventory ID is given")
+        elif args.foil:
+            raise ArgumentError("cannot give -F/--foil when inventory ID is given")
+        elif args.signed:
+            raise ArgumentError("cannot give -S/--signed when inventory ID is given")
+        elif args.artist_proof:
+            raise ArgumentError("cannot give -R/--artist-proof when inventory ID is given")
+        elif args.altered_art:
+            raise ArgumentError("cannot give -A/--altered-art when inventory ID is given")
+        elif args.misprint:
+            raise ArgumentError("cannot give -M/--misprint when inventory ID is given")
+        elif args.promo:
+            raise ArgumentError("cannot give -P/--promo when inventory ID is given")
+        elif args.textless:
+            raise ArgumentError("cannot give -T/--textless when inventory ID is given")
+        elif args.printing_id is not None:
+            raise ArgumentError("cannot give -I/--printing-id when inventory ID is given")
+        elif args.printing_note is not None:
+            raise ArgumentError("cannot give -N/--printing-note when inventory ID is given")
+
+        amount = args.amount if args.amount is not None else 1
+
+        if amount < 1:
+            raise ArgumentError("amount must be at least 1 for existing card")
+        
+        return cards.create_inventory_entry(db_filename, amount=amount, card_id=cid)
+    
+
+def invoke_remove_inven(args):
+    db_filename = args.db_filename
+    if args.amount < 0:
+        raise ArgumentError("amount must be at least 0")
+    return cards.remove_inventory_entry(db_filename, args.card, amount=args.amount)
+
+
+def invoke_add_wish(args):
+    if args.amount < 1:
+        raise ArgumentError("amount must be at least 1")
+    return decks.add_to_wishlist(args.db_filename, args.deck, args.card, args.amount)
+
+
+def invoke_remove_wish(args):
+    if args.amount < 1:
+        raise ArgumentError("amount must be at least 1")
+    return decks.remove_from_wishlist(args.db_filename, args.deck, args.card, args.amount)
 
 
 if __name__ == "__main__":

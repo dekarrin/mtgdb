@@ -1,7 +1,7 @@
 
 
 # TODO: move this to top-level
-def parse_cardnum(cardnum):
+def parse_cardnum(cardnum: str):
     splits = cardnum.split('-', maxsplit=1)
     if len(splits) == 2:
         if len(splits[0]) != 3:

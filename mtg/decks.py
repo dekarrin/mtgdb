@@ -3,21 +3,18 @@ import datetime
 import csv
 import os.path
 
-from .errors import ArgumentError, DataConflictError, UserCancelledError, CommandError
+from .errors import DataConflictError, UserCancelledError
 from . import cardutil, db, cio
 from . import deck_from_cli_arg, card_from_cli_arg
 from .db import deckdb, carddb
 
 
-def remove_from_wishlist(args):
-    db_filename = args.db_filename
-    amount = args.amount
+def remove_from_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
     if amount < 1:
-        raise ArgumentError("amount must be at least 1")
+        raise ValueError("amount must be at least 1")
 
-    deck = deck_from_cli_arg(args.deck)
-    card = card_from_cli_arg(args.card)
-
+    deck = deck_from_cli_arg(deck_specifier)
+    card = card_from_cli_arg(card_specifier)
 
     # all args are checked and accounted for, perform the operation
     counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
@@ -31,14 +28,13 @@ def remove_from_wishlist(args):
     print("Removed {:d}x {!s} from wishlist for {:s} ({:d}x remain on WL)".format(amount, cardutil.to_str(card), deck['name'], new_amt))
 
 
-def add_to_wishlist(args):
-    db_filename = args.db_filename
-    amount = args.amount
+def add_to_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
     if amount < 1:
-        raise ArgumentError("amount must be at least 1")
+        raise ValueError("amount must be at least 1")
 
-    deck = deck_from_cli_arg(args.deck)
-    card = card_from_cli_arg(args.card)
+    # TODO: move this to invoke and receive deck and card directly when they are actual complete objects
+    deck = deck_from_cli_arg(deck_specifier)
+    card = card_from_cli_arg(card_specifier)
 
     # all args are checked and accounted for, perform the operation
     counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
@@ -58,9 +54,7 @@ def create(db_filename, deck_name):
     print("Created new deck {!r}".format(deck_name))
 
 
-def list(args):
-    db_filename = args.db_filename
-    
+def list(db_filename):
     decks = deckdb.get_all(db_filename)
     
     for d in decks:
