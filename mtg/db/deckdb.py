@@ -34,6 +34,7 @@ def update_name(db_filename, name, new_name):
     con.close()
     
 
+# TODO: convert all funcs to return Deck where they currently return dict
 def get_all(db_filename: str) -> list[Deck]:
     con = util.connect(db_filename)
     cur = con.cursor()
@@ -41,7 +42,7 @@ def get_all(db_filename: str) -> list[Deck]:
     data = []
     
     for r in cur.execute(sql_select_decks):
-        d = Deck(id=r[0], name=r[1], state=r[2], cards=r[3], wishlisted_cards=r[4])
+        d = Deck(id=r[0], name=r[1], state=r[2], owned_count=r[3], wishlisted_count=r[4])
         data.append(d)
     
     con.close()
@@ -332,18 +333,22 @@ def remove_all_cards(db_filename, did):
     con.close()
     
 
-def create(db_filename, name):
+def create(db_filename, name) -> Deck:
     con = util.connect(db_filename)
     cur = con.cursor()
 
+    new_id, new_state = None, None
     try:
-        cur.execute(sql_insert_new, (name,))
+        new_row = cur.execute(sql_insert_new, (name,)).fetchone()
         con.commit()
     except sqlite3.IntegrityError:
         con.close()
         raise AlreadyExistsError("A deck with that name already exists")
-    
+    new_id, new_state = new_row[0], new_row[1]
     con.close()
+
+    new_deck = Deck(id=new_id, name=name, state=new_state)
+    return new_deck
 
 
 sql_select_decks = '''
@@ -375,7 +380,8 @@ INSERT INTO decks (
     name
 )
 VALUES
-    (?);
+    (?)
+RETURNING id, state;
 '''
 
 

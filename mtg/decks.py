@@ -58,8 +58,7 @@ def list(db_filename):
     decks = deckdb.get_all(db_filename)
     
     for d in decks:
-        s_total = 's' if d.card_count != 1 else ''
-        print("{:d}: {!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(d.id, d.name, d.state, d.card_count, s_total, d.owned_count, d.wishlisted_count))
+        print("{:d}: {:s}".format(d.id, str(d)))
 
 
 def delete(db_filename, deck_name):

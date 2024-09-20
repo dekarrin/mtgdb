@@ -38,6 +38,9 @@ class Deck:
 
     @property
     def card_count(self):
-        return self.owned_count + self.wishlist_count
+        return self.owned_count + self.wishlisted_count
     
+    def __str__(self):
+        s_total = 's' if self.card_count != 1 else ''
+        return "{!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(self.name, self.state, self.card_count, s_total, self.owned_count, self.wishlisted_count)
     

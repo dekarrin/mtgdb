@@ -49,6 +49,25 @@ def select(prompt, options):
     return selected_option[0]
 
 
+def prompt_choice(prompt, choices, transform=lambda x: x.strip().upper()) -> str:
+    """
+    Automatically strips input and converts it to upper case; modify transform
+    param to alter this behavior.
+    """
+    if prompt is not None:
+        print(prompt)
+
+    selected = None
+    while selected is None:
+        unparsed = transform(input("==> "))
+        if unparsed not in choices:
+            print("Please enter one of: {:s}".format(', '.join(['{!r}'.format(x) for x in choices])), file=sys.stderr)
+        else:
+            selected = unparsed
+
+    return selected
+
+
 def prompt_int(prompt, min=None, max=None):
     print(prompt)
     err_msg = "Please enter an integer"
