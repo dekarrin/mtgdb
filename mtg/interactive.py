@@ -218,10 +218,9 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
                 print("Unknown option")
                 cio.pause()
         elif choice == 'S':
-            opts = list(page)
-            opts.append(('<CANCEL>', 'CANCEL'))
-            selected = cio.select("Which one?", opts)
-            if selected == '<CANCEL>':
+            cio.clear()
+            selected = cio.select("Which one?\n" + ("-" * 22), page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')])
+            if isinstance(selected, str) and selected == '><*>CANCEL<*><':
                 continue
             return ('SELECT', selected)
         elif choice == 'C':
@@ -236,13 +235,12 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
 def decks_master_menu(s: Session):
     while True:
         decks = deckdb.get_all(s.db_filename)
-        cat_items = [(d, '{:d}: {:s}'.format(d.id, str(d))) for d in decks]
+        cat_items = [(d, str(d)) for d in decks]
         selection = catalog_select("MANAGE DECKS", items=cat_items)
         cio.clear()
         if selection[0] == 'SELECT':
-            deck = selection[1]
-            print("You selected: {!r}".format(deck['name']))
-            cio.pause()
+            deck: Deck = selection[1]
+            decks_detail_menu(s, deck)
         elif selection[0] == 'CREATE':
             # TODO: move to own function
             new_deck = decks_create(s)
@@ -250,6 +248,53 @@ def decks_master_menu(s: Session):
                 print("Created new deck {!r}".format(new_deck.name))
             cio.pause()
         elif selection[0] is None:
+            break
+
+
+def decks_detail_menu(s: Session, deck: Deck):
+    header = "{!r}\n".format(deck.name)
+    header += "State: {!s}\n".format(deck.state)
+    header += "Owned: {:d} cards\n".format(deck.owned_count)
+    header += "Wishlisted: {:d} cards".format(deck.wishlisted_count)
+
+    while True:
+        print(header)
+        print("----------------------")
+
+        actions = [
+            ('L', 'LIST', 'List cards in deck'),
+            ('A', 'ADD', 'Add card'),
+            ('R', 'REMOVE', 'Remove card from deck')
+            ('W', 'WISH', 'Add card to wishlist'),
+            ('U', 'UNWISH', 'Remove card from wishlist'),
+            ('S', 'STATE', 'Change deck state'),
+            ('D', 'DELETE', 'Delete deck'),
+            ('X', 'EXIT', 'Exit')
+        ]
+        action = cio.select("ACTIONS", direct_choices=actions)
+
+        if action == 'LIST':
+            print("listing selected")
+            cio.pause()
+        elif action == 'ADD':
+            print("adding selected")
+            cio.pause()
+        elif action == 'REMOVE':
+            print("removing selected")
+            cio.pause()
+        elif action == 'WISH':
+            print("wishlisting selected")
+            cio.pause()
+        elif action == 'UNWISH':
+            print("unwishlisting selected")
+            cio.pause()
+        elif action == 'STATE':
+            print("changing state selected")
+            cio.pause()
+        elif action == 'DELETE':
+            print("deleting selected")
+            cio.pause()
+        elif action == 'EXIT':
             break
 
 

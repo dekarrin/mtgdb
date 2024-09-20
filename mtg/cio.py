@@ -13,40 +13,79 @@ def pause(show_msg=True):
         input("")
 
 
-def select(prompt, options):
+def select(prompt, options=None, direct_choices=None):
+    # TODO: make this be tuple displayed, returned value.
     """
-    Give options as list of tuple - returned value, displayed
+    Give options as list of tuple - returned value, displayed.
+    Give direct_choices as list of tuple - entered value, returned value, displayed
     """
+
+    if (options is None or len(options) < 1) and (direct_choices is None or len(direct_choices) < 1):
+        raise ValueError("Nothing to select")
     
     print(prompt)
     for idx, x in enumerate(options):
         if idx == 9:
             idx = -1
         print("{:d}) {:s}".format(idx+1, x[1]), file=sys.stderr)
+    if direct_choices is not None:
+        for direct in direct_choices:
+            is_a_number = False
+            try:
+                int(direct[0])
+                is_a_number = True
+            except ValueError:
+                pass
+            if is_a_number:
+                raise ValueError("Direct choices cannot be numbers")
+            
+            print("{:s}) {:s}".format(direct[0], direct[2]), file=sys.stderr)
+
+    
         
     selected_idx = None
+    direct_idx = None
     
-    while selected_idx is None:
+    while selected_idx is None and direct_idx is None:
         unparsed = input("==> ")
         parsed = None
+        is_number = False
         try:
             parsed = int(unparsed.strip())
+            is_number = True
         except ValueError:
-            print("Please enter one of the numbers above", file=sys.stderr)
-        
-        if parsed == 0:
-            parsed = 9
-        else:
-            parsed -= 1
+            # this is fine as long as there are direct choices.
+            if direct_choices is None or len(direct_choices) < 1:
+               print("Please enter one of the items above", file=sys.stderr)
 
-        if parsed is not None:
-            if 0 <= parsed < len(options):
-                selected_idx = parsed
+        if is_number:
+            if parsed == 0:
+                parsed = 9
             else:
-                print("Please enter one of the numbers above", file=sys.stderr)
+                parsed -= 1
+
+            if parsed is not None:
+                if 0 <= parsed < len(options):
+                    selected_idx = parsed
+                else:
+                    print("Please enter one of the items above", file=sys.stderr)
+        else:
+            direct_select = unparsed.strip().upper()
+            for idx, x in enumerate(direct_choices):
+                if direct_select == x[0]:
+                    direct_idx = idx
+                    break
+            if direct_idx is None:
+                print("Please enter one of the items above", file=sys.stderr)
                 
-    selected_option = options[selected_idx]
-    return selected_option[0]
+    if selected_idx is not None:
+        selected_option = options[selected_idx]
+        return selected_option[0]
+    elif direct_idx is not None:
+        selected_option = direct_choices[direct_idx]
+        return selected_option[1]
+    else:
+        raise Exception("Should never happen")
 
 
 def prompt_choice(prompt, choices, transform=lambda x: x.strip().upper()) -> str:
