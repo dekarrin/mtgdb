@@ -117,7 +117,7 @@ def paginate(items: list[any], per_page=10) -> list[list[any]]:
     return pages
 
 
-def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_page=10, filter_by: dict[str, Callable[[any, str], bool]]=None, fill_empty=True, active_filters=None, page_num=None) -> tuple[str, Optional[any], dict, int]:
+def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_page=10, filter_by: dict[str, Callable[[any, str], bool]]=None, fill_empty=True, active_filters=None, page_num=None, include_create=True) -> tuple[str, Optional[any], dict, int]:
     """
     Select an item from a paginated catalog, or exit the catalog. Returns a
     tuple containing the action ((None), 'CREATE', 'SELECT'), and if an item selected, the item. Allows
@@ -197,8 +197,11 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
         if len(page) > 0:
             print("(S)elect,", end=' ')
             avail_choices.append('S')
-        print("(C)reate, E(X)it")
-        avail_choices.extend(['C', 'X'])
+        if include_create:
+            print("(C)reate,", end=' ')
+            avail_choices.append('C')
+        print("E(X)it")
+        avail_choices.append('X')
 
         choice = cio.prompt_choice(prompt=None, choices=avail_choices, transform=lambda x: x.strip().upper())
 
@@ -261,7 +264,7 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
             if isinstance(selected, str) and selected == '><*>CANCEL<*><':
                 continue
             return ('SELECT', selected, active_filters, page_num)
-        elif choice == 'C':
+        elif include_create and choice == 'C':
             return ('CREATE', None, active_filters, page_num)
         elif choice == 'X':
             return (None, None, active_filters, page_num)
@@ -303,14 +306,15 @@ def decks_master_menu(s: Session):
             break
 
 
-def deck_detail_header(deck: Deck) -> str:
+def deck_detail_header(deck: Deck, final_bar=True) -> str:
     hdr = "DECK\n"
     hdr += "-" * 22 + "\n"
     hdr += "{:s} (ID {:d})".format(deck.name, deck.id) + "\n"
     card_s = 's' if deck.owned_count != 1 else ''
     hdr += "{:d} owned card{:s}, {:d} on wishlist ({:d} total)".format(deck.owned_count, card_s, deck.wishlisted_count, deck.card_count()) + "\n"
-    hdr += deck.state_name() + "\n"
-    hdr += "-" * 22
+    hdr += deck.state_name()
+    if final_bar:
+        hdr += "\n" + "-" * 22
     return hdr
 
 
@@ -331,6 +335,7 @@ def deck_detail_menu(s: Session, deck: Deck):
 
         if action == 'CARDS':
             print("cards selected (Not implemented yet)")
+            deck_cards_menu(s, deck)
             cio.pause()
         elif action == 'NAME':
             deck = deck_set_name(s, deck)
