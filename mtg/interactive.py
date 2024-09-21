@@ -298,12 +298,16 @@ def deck_detail_menu(s: Session, deck: Deck):
 
 def deck_delete(s: Session, deck: Deck) -> bool:
     print(deck_detail_header(deck))
-    if not cio.confirm("Are you sure you want to delete this deck?"):
+    confirmed = cio.confirm("Are you sure you want to delete this deck?")
+    cio.clear()
+    print(deck_detail_header(deck))
+    
+    if not confirmed:
         print("Deck not deleted")
         return False
 
     try:
-        deckdb.delete(s.db_filename, deck.name)
+        deckdb.delete_by_name(s.db_filename, deck.name)
         print("Deck deleted")
         return True
     except DBError as e:
@@ -356,17 +360,21 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
 
     print(deck_detail_header(deck))
     new_state = cio.select("NEW STATE", direct_choices=actions)
+    cio.clear()
 
     if new_state == 'KEEP':
+        print(deck_detail_header(deck))
         print("State not changed")
         return deck
     else:
         try:
             deckdb.update_state(s.db_filename, deck.name, deck.state)
-            print("State updated to {:s}".format(deck.state_name))
             deck.state = new_state
+            print(deck_detail_header(deck))
+            print("State updated to {:s}".format(deck.state_name()))
             return deck
         except DBError as e:
+            print(deck_detail_header(deck))
             print("ERROR: {!s}".format(e))
             return deck
 
@@ -382,6 +390,10 @@ def decks_create(s: Session) -> Optional[Deck]:
         return None
     except ValueError:
         pass
+
+    # make sure this doesn't exist
+    name = name.strip()
+    deckdb.get_one_by_name
 
     # deck state?
     state = cio.prompt_choice("Deck state? (B)roken, (P)artially broken, (C)omplete:", ['B', 'P', 'C'])

@@ -6,7 +6,7 @@ from .db import deckdb, carddb
 from . import cardutil, cio
 
 
-def deck_from_cli_arg(db_filename: str, arg: str):
+def deck_from_cli_arg(db_filename: str, arg: str) -> Deck:
     """
     Interpret a CLI argument as a deck ID or name, and retrieve the deck object
     from the database.

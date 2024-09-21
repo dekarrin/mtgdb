@@ -50,14 +50,14 @@ def get_all(db_filename: str) -> list[Deck]:
     return data
 
 
-def get_one(db_filename, did):
+def get_one(db_filename, did) -> Deck:
     con = util.connect(db_filename)
     cur = con.cursor()
     
     rows = []
     for r in cur.execute(sql_find_deck_by_id, (did,)):
-        row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3], 'wishlisted_cards': r[4]}
-        rows.append(row)
+        d = Deck(id=r[0], name=r[1], state=r[2], owned_count=r[3], wishlisted_count=r[4])
+        rows.append(d)
     
     count = len(rows)
         
@@ -71,14 +71,14 @@ def get_one(db_filename, did):
     return rows[0]
 
 
-def get_one_by_name(db_filename, name):
+def get_one_by_name(db_filename: str, name: str) -> Deck:
     con = util.connect(db_filename)
     cur = con.cursor()
     
     rows = []
     for r in cur.execute(sql_select_decks_by_exact_name, (name,)):
-        row = {'id': r[0], 'name': r[1], 'state': r[2], 'cards': r[3], 'wishlisted_cards': r[4]}
-        rows.append(row)
+        d = Deck(id=r[0], name=r[1], state=r[2], owned_count=r[3], wishlisted_count=r[4])
+        rows.append(d)
     
     count = len(rows)
         
@@ -92,7 +92,7 @@ def get_one_by_name(db_filename, name):
     return rows[0]
 
 
-def delete_by_name(db_filename, name):
+def delete_by_name(db_filename: str, name: str):
     con = util.connect(db_filename)
     cur = con.cursor()
     cur.execute(sql_delete_deck_by_name, (name,))

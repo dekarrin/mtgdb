@@ -13,19 +13,19 @@ def remove_from_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
     if amount < 1:
         raise ValueError("amount must be at least 1")
 
-    deck = deck_from_cli_arg(deck_specifier)
-    card = card_from_cli_arg(card_specifier)
+    deck = deck_from_cli_arg(db_filename, deck_specifier)
+    card = card_from_cli_arg(db_filename, card_specifier)
 
     # all args are checked and accounted for, perform the operation
-    counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
+    counts = deckdb.get_counts(db_filename, deck.id, card['id'])
     if len(counts) > 0 and counts[0]['wishlist_count'] - amount < 0:
         print("Only {:d}x of that card is wishlisted in the deck.".format(counts[0]['wishlist_count']), file=sys.stderr)
         if not cio.confirm("Remove all wishlisted copies from deck?"):
             raise UserCancelledError("user cancelled operation")
     
-    new_amt = deckdb.remove_wishlisted_card(db_filename, deck['id'], card['id'], amount)
+    new_amt = deckdb.remove_wishlisted_card(db_filename, deck.id, card['id'], amount)
 
-    print("Removed {:d}x {!s} from wishlist for {:s} ({:d}x remain on WL)".format(amount, cardutil.to_str(card), deck['name'], new_amt))
+    print("Removed {:d}x {!s} from wishlist for {:s} ({:d}x remain on WL)".format(amount, cardutil.to_str(card), deck.name, new_amt))
 
 
 def add_to_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
@@ -33,19 +33,19 @@ def add_to_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
         raise ValueError("amount must be at least 1")
 
     # TODO: move this to invoke and receive deck and card directly when they are actual complete objects
-    deck = deck_from_cli_arg(deck_specifier)
-    card = card_from_cli_arg(card_specifier)
+    deck = deck_from_cli_arg(db_filename, deck_specifier)
+    card = card_from_cli_arg(db_filename, card_specifier)
 
     # all args are checked and accounted for, perform the operation
-    counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
+    counts = deckdb.get_counts(db_filename, deck.id, card['id'])
     if len(counts) > 0 and counts[0]['wishlist_count'] > 0:
         print("{:d}x of that card is already wishlisted in the deck.".format(counts[0]['wishlist_count']), file=sys.stderr)
         if not cio.confirm("Increment wishlisted amount in deck by {:d}?".format(amount)):
             raise UserCancelledError("user cancelled operation")
     
-    new_amt = deckdb.add_wishlisted_card(db_filename, deck['id'], card['id'], amount)
+    new_amt = deckdb.add_wishlisted_card(db_filename, deck.id, card['id'], amount)
 
-    print("Added {:d}x {!s} to wishlist for {:s} (total {:d}x on WL)".format(amount, cardutil.to_str(card), deck['name'], new_amt))
+    print("Added {:d}x {!s} to wishlist for {:s} (total {:d}x on WL)".format(amount, cardutil.to_str(card), deck.name, new_amt))
 
 
 def create(db_filename, deck_name):
@@ -89,11 +89,11 @@ def show(db_filename, deck_name=None, deck_id=None, card_name=None, card_num=Non
     else:
         deck = deckdb.get_one_by_name(db_filename, deck_name)
 
-    cards = deckdb.find_cards(db_filename, deck['id'], card_name, card_num, card_edition)
+    cards = deckdb.find_cards(db_filename, deck.id, card_name, card_num, card_edition)
     
-    total = deck['cards'] + deck['wishlisted_cards']
+    total = deck.card_count()
     s_total = 's' if total != 1 else ''
-    print("{!r} (ID {:d}) - {:s} - {:d} card{:s} ({:d} owned, {:d} WL)".format(deck['name'], deck['id'], deck['state'], total, s_total, deck['cards'], deck['wishlisted_cards']))
+    print("{!r} (ID {:d}) - {:s} - {:d} card{:s} ({:d} owned, {:d} WL)".format(deck.name, deck.id, deck.state_name(), total, s_total, deck.owned_count, deck.wishlisted_count))
     print("==================================================================")
 
     any_matched = False
@@ -154,22 +154,17 @@ def import_csv(db_filename, csv_filenames):
                         deck = deckdb.get_one_by_name(db_filename, deck_name)
                     except db.NotFoundError:
                         # deck needs to be created
-                        deckdb.create(db_filename, deck_name)
-
-                        try:
-                            deck = deckdb.get_one_by_name(db_filename, deck_name)
-                        except db.NotFoundError:
-                            # this should never happen
-                            raise db.DBError("Failed to create imported deck {!r}".format(deck_name))
+                        deck = deckdb.create(db_filename, deck_name)
                     else:
                         # clear the cards from the deck
-                        deckdb.remove_all_cards(db_filename, deck['id'])
+                        deckdb.remove_all_cards(db_filename, deck.id)
 
                     # see if the state needs to be updated
-                    if deck['state'] != deck_state:
+                    if deck.state != deck_state:
                         deckdb.update_state(db_filename, deck_name, deck_state)
+                        deck.state = deck_state
 
-                    cur_deck_id = deck['id']
+                    cur_deck_id = deck.id
                 elif lineno == 3:
                     continue  # second header row
                 else:
