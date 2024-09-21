@@ -24,10 +24,12 @@ def select(prompt, options=None, direct_choices=None):
         raise ValueError("Nothing to select")
     
     print(prompt)
-    for idx, x in enumerate(options):
-        if idx == 9:
-            idx = -1
-        print("{:d}) {:s}".format(idx+1, x[1]), file=sys.stderr)
+
+    if options is not None:
+        for idx, x in enumerate(options):
+            if idx == 9:
+                idx = -1
+            print("{:d}) {:s}".format(idx+1, x[1]), file=sys.stderr)
     if direct_choices is not None:
         for direct in direct_choices:
             is_a_number = False
@@ -58,7 +60,7 @@ def select(prompt, options=None, direct_choices=None):
             if direct_choices is None or len(direct_choices) < 1:
                print("Please enter one of the items above", file=sys.stderr)
 
-        if is_number:
+        if is_number and options is not None:
             if parsed == 0:
                 parsed = 9
             else:

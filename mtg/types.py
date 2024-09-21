@@ -17,11 +17,11 @@ def deck_state_to_name(state: str) -> str:
     if state == 'B':
         return 'Broken Down'
     elif state == 'P':
-        return 'Partially Complete'
+        return 'Partial'
     elif state == 'C':
         return 'Complete'
     else:
-        return 'Unknown'
+        return '(' + state + ')'
 
 
 # TODO: come back to this
@@ -44,11 +44,34 @@ class Deck:
     def __init__(self, id: Optional[int]=None, name: str='', state='B', owned_count: int=0, wishlisted_count: int=0):
         self.id = id
         self.name = name
+
+        # reverse translation on state in case it's a name
+        self._state = "B"
         self.state = state
+
         self.owned_count = owned_count
         self.wishlisted_count = wishlisted_count
 
     @property
+    def state(self):
+        return self._state
+    
+    @state.setter
+    def state(self, value):
+        # is it a name?
+        value = value.upper()
+        if value == 'BROKEN' or value == 'BROKEN DOWN' or value == 'BROKEN-DOWN':
+            value = 'B'
+        elif value == 'PARTIAL' or value == 'PARTIALLY COMPLETE':
+            value = 'P'
+        elif value == 'COMPLETE':
+            value = 'C'
+
+        if value not in ('B', 'P', 'C'):
+            raise ValueError("Invalid deck state {!r}".format(value))
+        
+        self._state = value
+
     def card_count(self):
         return self.owned_count + self.wishlisted_count
     
@@ -56,6 +79,6 @@ class Deck:
         return deck_state_to_name(self.state)
     
     def __str__(self):
-        s_total = 's' if self.card_count != 1 else ''
-        return "{!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(self.name, self.state, self.card_count, s_total, self.owned_count, self.wishlisted_count)
+        s_total = 's' if self.card_count() != 1 else ''
+        return "{!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(self.name, self.state_name(), self.card_count(), s_total, self.owned_count, self.wishlisted_count)
     

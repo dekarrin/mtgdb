@@ -253,11 +253,19 @@ def decks_master_menu(s: Session):
 
 
 def deck_detail_header(deck: Deck) -> str:
-    return "ID {:d} - {:s}".format(deck.id, deck.name) + "\n" + "-" * 22
+    hdr = "DECK\n"
+    hdr += "-" * 22 + "\n"
+    hdr += "{:s} (ID {:d})".format(deck.name, deck.id) + "\n"
+    card_s = 's' if deck.owned_count != 1 else ''
+    hdr += "{:d} owned card{:s}, {:d} on wishlist ({:d} total)".format(deck.owned_count, card_s, deck.wishlisted_count, deck.card_count()) + "\n"
+    hdr += deck.state_name() + "\n"
+    hdr += "-" * 22
+    return hdr
 
 
 def deck_detail_menu(s: Session, deck: Deck):
     while True:
+        cio.clear()
         print(deck_detail_header(deck))
 
         actions = [
@@ -307,11 +315,15 @@ def deck_set_name(s: Session, deck: Deck) -> Deck:
     print(deck_detail_header(deck))
 
     new_name = input("New name: ")
+    cio.clear()
+
     if new_name.strip() == '':
-        print("ERROR: deck name must have at least one non-space character")
+        print(deck_detail_header(deck))
+        print("Name not changed")
         return deck
     try:
         int(new_name.strip())
+        print(deck_detail_header(deck))
         print("ERROR: deck name cannot be only a number")
         return None
     except ValueError:
@@ -320,6 +332,7 @@ def deck_set_name(s: Session, deck: Deck) -> Deck:
     try:
         deckdb.update_name(s.db_filename, deck.name, new_name)
         deck.name = new_name
+        print(deck_detail_header(deck))
         print("Name updated to {!r}".format(new_name))
         return deck
     except DBError as e:
@@ -339,7 +352,7 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
 
     cur_state = deck.state_name()
     
-    actions.append('K', 'KEEP', 'Keep current state ({:s})'.format(cur_state))
+    actions.append(('K', 'KEEP', 'Keep current state ({:s})'.format(cur_state)))
 
     print(deck_detail_header(deck))
     new_state = cio.select("NEW STATE", direct_choices=actions)
