@@ -13,7 +13,7 @@ def pause(show_msg=True):
         input("")
 
 
-def select(prompt, options=None, direct_choices=None):
+def select(prompt, options=None, direct_choices=None, fill_to=0):
     # TODO: make this be tuple displayed, returned value.
     """
     Give options as list of tuple - returned value, displayed.
@@ -25,11 +25,13 @@ def select(prompt, options=None, direct_choices=None):
     
     print(prompt)
 
+    printed_lines = 0
     if options is not None:
         for idx, x in enumerate(options):
             if idx == 9:
                 idx = -1
             print("{:d}) {:s}".format(idx+1, x[1]), file=sys.stderr)
+            printed_lines += 1
     if direct_choices is not None:
         for direct in direct_choices:
             is_a_number = False
@@ -42,8 +44,11 @@ def select(prompt, options=None, direct_choices=None):
                 raise ValueError("Direct choices cannot be numbers")
             
             print("{:s}) {:s}".format(direct[0], direct[2]), file=sys.stderr)
+            printed_lines += 1
 
-    
+    while printed_lines < fill_to:
+        print()
+        printed_lines += 1
         
     selected_idx = None
     direct_idx = None

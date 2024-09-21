@@ -11,7 +11,7 @@ from typing import Optional, Callable
 
 from .types import Deck, deck_state_to_name
 from . import cio
-from .db import schema, deckdb, DBError
+from .db import schema, deckdb, DBError, NotFoundError
 
 class Session:
     def __init__(self, db_filename):
@@ -115,7 +115,7 @@ def paginate(items: list[any], per_page=10) -> list[list[any]]:
     return pages
 
 
-def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_page=10, filter_by: dict[str, Callable[[any, str], bool]]=None) -> tuple[str, Optional[any]]:
+def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_page=10, filter_by: dict[str, Callable[[any, str], bool]]=None, fill_empty=True) -> tuple[str, Optional[any]]:
     """
     Select an item from a paginated catalog, or exit the catalog. Returns a
     tuple containing the action ((None), 'CREATE', 'SELECT'), and if an item selected, the item. Allows
@@ -148,11 +148,18 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
         else:
             page = []
 
+        printed_lines = 0
         if len(page) > 0:
             for item in page:
                 print(item[1])
+                printed_lines += 1
         else:
             print("(No items)")
+            printed_lines += 1
+        if fill_empty:
+            while printed_lines < per_page:
+                print()
+                printed_lines += 1
 
         print("----------------------")
         if filter_by is not None:
@@ -220,7 +227,7 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
                 cio.pause()
         elif choice == 'S':
             cio.clear()
-            selected = cio.select("Which one?\n" + ("-" * 22), page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')])
+            selected = cio.select("Which one?\n" + ("-" * 22), page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+3)
             if isinstance(selected, str) and selected == '><*>CANCEL<*><':
                 continue
             return ('SELECT', selected)
@@ -340,6 +347,7 @@ def deck_set_name(s: Session, deck: Deck) -> Deck:
         print("Name updated to {!r}".format(new_name))
         return deck
     except DBError as e:
+        print(deck_detail_header(deck))
         print("ERROR: {!s}".format(e))
         return deck
 
@@ -393,7 +401,14 @@ def decks_create(s: Session) -> Optional[Deck]:
 
     # make sure this doesn't exist
     name = name.strip()
-    deckdb.get_one_by_name
+    existing = None
+    try:
+        existing = deckdb.get_one_by_name(s.db_filename, name)
+    except NotFoundError:
+        pass
+    if existing:
+        print("ERROR: deck named {:s} already exists".format(name))
+        return None
 
     # deck state?
     state = cio.prompt_choice("Deck state? (B)roken, (P)artially broken, (C)omplete:", ['B', 'P', 'C'])
