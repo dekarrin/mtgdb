@@ -88,7 +88,7 @@ def select_card(db_filename: str, name, card_num=None, edition=None):
     return data[0]
 
 
-def select_deck(db_filename: str, name):
+def select_deck(db_filename: str, name) -> Deck:
     data = deckdb.find(db_filename, name)
     
     if len(data) < 1:
@@ -100,7 +100,7 @@ def select_deck(db_filename: str, name):
         
         deck_list = ()
         for d in data:
-            opt = (d, d['name'])
+            opt = (d, d.name)
             deck_list.append(opt)
         
         return cio.select("Multiple decks match; which one should be added to?", deck_list)

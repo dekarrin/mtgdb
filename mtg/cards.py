@@ -27,7 +27,7 @@ def add_to_deck(db_filename, card_name=None, card_num=None, card_id=None, deck_n
         raise DataConflictError("Can't add {:d}x {:s}: {:s}".format(amount, cardutil.to_str(card), sub_error))
 
     # wishlist move check
-    card_counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
+    card_counts = deckdb.get_counts(db_filename, deck.id, card['id'])
     wl_move_amt = 0
     if len(card_counts) > 0:
         # given that the pk of deck_cards is (deck_id, card_id), there should only be one
@@ -53,12 +53,12 @@ def add_to_deck(db_filename, card_name=None, card_num=None, card_id=None, deck_n
     add_amt = amount - wl_move_amt
 
     if wl_move_amt > 0:
-        carddb.move_amount_from_wishlist_to_owned_in_decks(db_filename, ({'amount': wl_move_amt, 'card': card['id'], 'deck': deck['id']},))
-        print("Moved {:d}x {:s} from wishlisted to owned in {:s}".format(wl_move_amt, cardutil.to_str(card), deck['name']))
+        carddb.move_amount_from_wishlist_to_owned_in_decks(db_filename, ({'amount': wl_move_amt, 'card': card['id'], 'deck': deck.id},))
+        print("Moved {:d}x {:s} from wishlisted to owned in {:s}".format(wl_move_amt, cardutil.to_str(card), deck.name))
 
     if add_amt > 0:
-        new_amt = deckdb.add_card(db_filename, deck['id'], card['id'], add_amt)
-        print("Added {:d}x (total {:d}) {:s} to {:s}".format(amount, new_amt, cardutil.to_str(card), deck['name']))
+        new_amt = deckdb.add_card(db_filename, deck.id, card['id'], add_amt)
+        print("Added {:d}x (total {:d}) {:s} to {:s}".format(amount, new_amt, cardutil.to_str(card), deck.name))
 
 
 def remove_from_deck(db_filename, card_name=None, card_num=None, card_id=None, deck_name=None, deck_id=None, amount=1):
@@ -70,19 +70,19 @@ def remove_from_deck(db_filename, card_name=None, card_num=None, card_id=None, d
     
     # Find the card
     if card_name is not None or card_num is not None:
-        card = select_card_in_deck(db_filename, deck['id'], card_name, card_num)
+        card = select_card_in_deck(db_filename, deck.id, card_name, card_num)
     else:
-        card = deckdb.get_one_card(db_filename, deck['id'], card_id)
+        card = deckdb.get_one_card(db_filename, deck.id, card_id)
     
-    counts = deckdb.get_counts(db_filename, deck['id'], card['id'])
+    counts = deckdb.get_counts(db_filename, deck.id, card['id'])
     if len(counts) > 0 and counts[0]['count'] - amount < 0:
         print("Only {:d}x of that card is in the deck.".format(counts[0]['count']), file=sys.stderr)
         if not cio.confirm("Remove all owned copies from deck?"):
             raise UserCancelledError("user cancelled removing card from deck")
     
-    new_amt = deckdb.remove_card(db_filename, deck['id'], card['id'], amount)
+    new_amt = deckdb.remove_card(db_filename, deck.id, card['id'], amount)
     
-    print("Removed {:d}x {:s} from {:s}".format(amount, cardutil.to_str(card), deck['name']))
+    print("Removed {:d}x {:s} from {:s}".format(amount, cardutil.to_str(card), deck.name))
     if new_amt > 0:
         print("{:d}x remains in deck".format(new_amt))
     else:

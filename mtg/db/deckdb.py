@@ -102,19 +102,15 @@ def delete_by_name(db_filename: str, name: str):
         raise NotFoundError("no deck called {!r} exists".format(name))
 
 
-# diff between find_one and get_one_by_name is that find_one will do prefix
+# diff between find and get_one_by_name is that find will do prefix
 # matching, while get_one_by_name will do exact matching
-def find(db_filename, name):
+def find(db_filename: str, name: str) -> list[Deck]:
     con = util.connect(db_filename)
     cur = con.cursor()
     data = []
-    for r in cur.execute(sql_select_deck_id, (name,)):
-        data_dict = {
-            'id': r[0],
-            'name': r[1],
-        }
-        
-        data.append(data_dict)
+    for r in cur.execute(sql_select_decks_by_name_prefix, (name,)):
+        d = Deck(id=r[0], name=r[1], state=r[2], owned_count=r[3], wishlisted_count=r[4])
+        data.append(d)
     con.close()
     
     return data
@@ -395,8 +391,13 @@ GROUP BY d.id
 '''
 
 
-sql_select_deck_id = '''
-SELECT id, name FROM decks WHERE name LIKE ? || '%';
+sql_select_decks_by_name_prefix = '''
+SELECT d.id AS id, d.name AS name, s.name AS state, COALESCE(SUM(c.count),0) AS cards, COALESCE(SUM(c.wishlist_count),0) AS wishlisted_cards
+FROM decks AS d
+INNER JOIN deck_states AS s ON d.state = s.id
+LEFT OUTER JOIN deck_cards AS c ON d.id = c.deck
+WHERE d.name LIKE ? || '%'
+GROUP BY d.id
 '''
 
 
