@@ -9,7 +9,7 @@ import readline
 
 from typing import Optional, Callable
 
-from .types import Deck
+from .types import Deck, deck_state_to_name
 from . import cio
 from .db import schema, deckdb, DBError
 
@@ -37,6 +37,7 @@ def start(db_filename):
 
 
 def main_menu(s: Session):
+    # TODO: change to non-numbered menu
     top_level_items = [
         ['cards', 'View and manage inventory'],
         ['decks', 'View and manage decks'],
@@ -240,7 +241,7 @@ def decks_master_menu(s: Session):
         cio.clear()
         if selection[0] == 'SELECT':
             deck: Deck = selection[1]
-            decks_detail_menu(s, deck)
+            deck_detail_menu(s, deck)
         elif selection[0] == 'CREATE':
             # TODO: move to own function
             new_deck = decks_create(s)
@@ -251,51 +252,110 @@ def decks_master_menu(s: Session):
             break
 
 
-def decks_detail_menu(s: Session, deck: Deck):
-    header = "{!r}\n".format(deck.name)
-    header += "State: {!s}\n".format(deck.state)
-    header += "Owned: {:d} cards\n".format(deck.owned_count)
-    header += "Wishlisted: {:d} cards".format(deck.wishlisted_count)
+def deck_detail_header(deck: Deck) -> str:
+    return "ID {:d} - {:s}".format(deck.id, deck.name) + "\n" + "-" * 22
 
+
+def deck_detail_menu(s: Session, deck: Deck):
     while True:
-        print(header)
-        print("----------------------")
+        print(deck_detail_header(deck))
 
         actions = [
-            ('L', 'LIST', 'List cards in deck'),
-            ('A', 'ADD', 'Add card'),
-            ('R', 'REMOVE', 'Remove card from deck')
-            ('W', 'WISH', 'Add card to wishlist'),
-            ('U', 'UNWISH', 'Remove card from wishlist'),
-            ('S', 'STATE', 'Change deck state'),
+            ('C', 'CARDS', 'List/Manage cards in deck and wishlist'),
+            ('N', 'NAME', 'Set deck name'),
+            ('S', 'STATE', 'Set deck state'),
             ('D', 'DELETE', 'Delete deck'),
             ('X', 'EXIT', 'Exit')
         ]
         action = cio.select("ACTIONS", direct_choices=actions)
+        cio.clear()
 
-        if action == 'LIST':
-            print("listing selected")
+        if action == 'CARDS':
+            print("cards selected (Not implemented yet)")
             cio.pause()
-        elif action == 'ADD':
-            print("adding selected")
-            cio.pause()
-        elif action == 'REMOVE':
-            print("removing selected")
-            cio.pause()
-        elif action == 'WISH':
-            print("wishlisting selected")
-            cio.pause()
-        elif action == 'UNWISH':
-            print("unwishlisting selected")
+        elif action == 'NAME':
+            deck = deck_set_name(s, deck)
             cio.pause()
         elif action == 'STATE':
-            print("changing state selected")
+            deck = deck_set_state(s, deck)
             cio.pause()
         elif action == 'DELETE':
-            print("deleting selected")
+            deleted = deck_delete(s, deck)
             cio.pause()
+            if deleted:
+                break
         elif action == 'EXIT':
             break
+
+
+def deck_delete(s: Session, deck: Deck) -> bool:
+    print(deck_detail_header(deck))
+    if not cio.confirm("Are you sure you want to delete this deck?"):
+        print("Deck not deleted")
+        return False
+
+    try:
+        deckdb.delete(s.db_filename, deck.name)
+        print("Deck deleted")
+        return True
+    except DBError as e:
+        print("ERROR: {!s}".format(e))
+        return False
+
+
+def deck_set_name(s: Session, deck: Deck) -> Deck:
+    print(deck_detail_header(deck))
+
+    new_name = input("New name: ")
+    if new_name.strip() == '':
+        print("ERROR: deck name must have at least one non-space character")
+        return deck
+    try:
+        int(new_name.strip())
+        print("ERROR: deck name cannot be only a number")
+        return None
+    except ValueError:
+        pass
+
+    try:
+        deckdb.update_name(s.db_filename, deck.name, new_name)
+        deck.name = new_name
+        print("Name updated to {!r}".format(new_name))
+        return deck
+    except DBError as e:
+        print("ERROR: {!s}".format(e))
+        return deck
+
+
+def deck_set_state(s: Session, deck: Deck) -> Deck:
+    actions = []
+
+    if deck.state != 'B':
+        actions.append(('B', 'B', deck_state_to_name('B')))
+    if deck.state != 'P':
+        actions.append(('P', 'P', deck_state_to_name('P')))
+    if deck.state != 'C':
+        actions.append(('C', 'C', deck_state_to_name('C')))
+
+    cur_state = deck.state_name()
+    
+    actions.append('K', 'KEEP', 'Keep current state ({:s})'.format(cur_state))
+
+    print(deck_detail_header(deck))
+    new_state = cio.select("NEW STATE", direct_choices=actions)
+
+    if new_state == 'KEEP':
+        print("State not changed")
+        return deck
+    else:
+        try:
+            deckdb.update_state(s.db_filename, deck.name, deck.state)
+            print("State updated to {:s}".format(deck.state_name))
+            deck.state = new_state
+            return deck
+        except DBError as e:
+            print("ERROR: {!s}".format(e))
+            return deck
 
 
 def decks_create(s: Session) -> Optional[Deck]:
@@ -305,7 +365,7 @@ def decks_create(s: Session) -> Optional[Deck]:
         return None
     try:
         int(name.strip())
-        print("ERROR: deck name cannot be a number")
+        print("ERROR: deck name cannot be only a number")
         return None
     except ValueError:
         pass

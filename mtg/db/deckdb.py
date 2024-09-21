@@ -5,7 +5,7 @@ from . import util, filters, editiondb
 from ..types import Deck
 
 
-def update_state(db_filename, name, state):
+def update_state(db_filename: str, name: str, state: str):
     con = util.connect(db_filename)
     cur = con.cursor()
     cur.execute(sql_update_state, (state, name))
@@ -17,7 +17,7 @@ def update_state(db_filename, name, state):
     con.close()
     
     
-def update_name(db_filename, name, new_name):
+def update_name(db_filename: str, name: str, new_name: str):
     con = util.connect(db_filename)
     cur = con.cursor()
 

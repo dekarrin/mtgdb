@@ -11,6 +11,18 @@ def parse_cardnum(cardnum: str):
         except ValueError:
             raise ValueError("TCG number {!r} is not in EDC-123 format".format(cardnum))
         return splits[0], num
+    
+
+def deck_state_to_name(state: str) -> str:
+    if state == 'B':
+        return 'Broken Down'
+    elif state == 'P':
+        return 'Partially Complete'
+    elif state == 'C':
+        return 'Complete'
+    else:
+        return 'Unknown'
+
 
 # TODO: come back to this
 class Card:
@@ -39,6 +51,9 @@ class Deck:
     @property
     def card_count(self):
         return self.owned_count + self.wishlisted_count
+    
+    def state_name(self):
+        return deck_state_to_name(self.state)
     
     def __str__(self):
         s_total = 's' if self.card_count != 1 else ''
