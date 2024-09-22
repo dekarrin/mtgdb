@@ -64,6 +64,7 @@ def select(prompt, options=None, direct_choices=None, fill_to=0):
             # this is fine as long as there are direct choices.
             if direct_choices is None or len(direct_choices) < 1:
                print("Please enter one of the items above", file=sys.stderr)
+               continue
 
         if is_number and options is not None:
             if parsed == 0:

@@ -1,17 +1,19 @@
 from . import util, editiondb, filters
 from .errors import MultipleFoundError, NotFoundError
 
+from ..types import Card
 
-def get_all(db_filename):
+
+def get_all(db_filename: str) -> list[Card]:
     con = util.connect(db_filename)
     cur = con.cursor()
     
     data = list()
     
     for r in cur.execute(sql_get_all_cards):
-        data_dict = util.card_row_to_dict(r) 
-        data_dict['wishlist_total'] = r[16]
-        data.append(data_dict)
+        c = util.card_row_to_card(r) 
+        c.wishlist_count = r[16]
+        data.append(c)
         
     con.close()
     

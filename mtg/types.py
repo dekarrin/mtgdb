@@ -28,7 +28,7 @@ def deck_state_to_name(state: str) -> str:
 class Card:
     """Card is an entry in the inventory listing."""
 
-    def __init__(self, id: Optional[int]=None, count: int=0, name: str='', edition: str='AAA', tcg_num: int=0, condition: str='NM', language: str='English', foil: bool=False, signed: bool=False, artist_proof: bool=False, altered_art: bool=False, misprint: bool=False, promo: bool=False, textless: bool=False, printing_id: int=0, printing_note: str=''):
+    def __init__(self, id: Optional[int]=None, count: int=0, name: str='', edition: str='AAA', tcg_num: int=0, condition: str='NM', language: str='English', foil: bool=False, signed: bool=False, artist_proof: bool=False, altered_art: bool=False, misprint: bool=False, promo: bool=False, textless: bool=False, printing_id: int=0, printing_note: str='', wishlist_count: Optional[int]=None):
         self.name = name
         self.id = id
         self.count = count
@@ -45,6 +45,7 @@ class Card:
         self.textless = textless
         self.printing_id = printing_id
         self.printing_note = printing_note
+        self.wishlist_count = wishlist_count
     
     def __str__(self):
         card_str = "{:s}-{:03d} {!r}".format(self.edition, self.tcg_num, self.name)
@@ -77,7 +78,7 @@ class DeckCard(Card):
     """DeckCard is an entry in a deck."""
 
     def __init__(self, card: Card, deck_id: int, deck_count: int=0, deck_wishlist_count: int=0):
-        super().__init__(card.id, card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note)
+        super().__init__(card.id, card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note, card.wishlist_count)
         self.deck_id = deck_id
         self.deck_count = deck_count
         self.deck_wishlist_count = deck_wishlist_count

@@ -9,7 +9,7 @@ import readline
 
 from typing import Optional, Callable
 
-from .types import Deck, deck_state_to_name
+from .types import Deck, DeckCard, deck_state_to_name
 from . import cio
 from .db import schema, deckdb, DBError, NotFoundError
 
@@ -22,6 +22,7 @@ class Session:
 
 def start(db_filename):
     s = Session(db_filename)
+    cio.clear()
     print("MTGDB Interactive Mode")
     print("======================")
     print("Using database {:s}".format(s.db_filename))
@@ -230,7 +231,7 @@ def catalog_select(
                 print(' AND '.join(["{:s}={!r}".format(k.upper(), v) for k, v in active_filters.items()]))
             else:
                 print("(NO FILTERS)")
-        print("{:d} total (Page {:d}/{:d})".format(len(items), page_num+1, max(len(pages), 1)))
+        print("{:d} total (Page {:d}/{:d})".format(len(items), max(page_num+1, 1), max(len(pages), 1)))
 
         avail_choices = []
         if len(pages) > 1:
@@ -397,9 +398,7 @@ def deck_detail_menu(s: Session, deck: Deck):
         cio.clear()
 
         if action == 'CARDS':
-            print("cards selected (Not implemented yet)")
             deck_cards_menu(s, deck)
-            cio.pause()
         elif action == 'NAME':
             deck = deck_set_name(s, deck)
             cio.pause()
@@ -416,9 +415,44 @@ def deck_detail_menu(s: Session, deck: Deck):
 
 
 def deck_cards_menu(s: Session, deck: Deck):
+    extra_actions = [
+        CatOption('A', '(A)DD CARD', 'ADD'),
+    ]
     while True:
-        cards = deckdb.get_cards(s.db_filename, deck)
+        menu_lead = deck_detail_header(deck) + "\nCARDS"
+        cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None)
+        cat_items = []
+        for c in cards:
+            amounts = []
+            if c.deck_count > 0:
+                amounts.append("{:d}x".format(c.deck_count))
+            if c.deck_wishlist_count > 0:
+                amounts.append("{:d}x WL".format(c.deck_wishlist_count))
+            card_str = "{:s} {:s}".format(', '.join(amounts), str(c))
+            cat_items.append((c, card_str))
+        
+        selection = catalog_select(menu_lead, items=cat_items, include_create=False, extra_options=extra_actions)
+        
+        action = selection[0]
+        card: DeckCard = selection[1]
+        #cat_state = selection[2]
 
+        cio.clear()
+        if action == 'SELECT':
+            print(deck_detail_header(deck))
+            print("You have selected {!s}".format(card))
+            cio.pause()
+        elif action == 'ADD':
+            deck_detail_add(deck)
+            print("Not implemented yet")
+            cio.pause()
+        elif action is None:
+            break
+
+
+def deck_detail_add(s: Session, deck: Deck):
+    menu_lead = deck_detail_header(deck) + "\nADD CARD TO DECK"
+    
 
 def deck_delete(s: Session, deck: Deck) -> bool:
     print(deck_detail_header(deck))

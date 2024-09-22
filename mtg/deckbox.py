@@ -4,13 +4,19 @@ import sys
 from . import cardutil, cio
 from .db import carddb
 from .errors import UserCancelledError, DataConflictError
+from .types import Card
 
 
 def import_csv(db_filename, csv_filename, confirm_changes=True):
-    new_cards = parse_deckbox_csv(csv_filename)
-    drop_unused_fields(new_cards)
-    update_deckbox_values_to_mtgdb(new_cards)
-    update_deckbox_fieldnames_to_mtgdb(new_cards)
+    new_cards_data = parse_deckbox_csv(csv_filename)
+    drop_unused_fields(new_cards_data)
+    update_deckbox_values_to_mtgdb(new_cards_data)
+    update_deckbox_fieldnames_to_mtgdb(new_cards_data)
+
+    new_cards = list()
+    for data in new_cards_data:
+        c = Card(count=data['count'], name=data['name'], edition=data['edition'], tcg_num=data['tcg_num'], condition=data['condition'], language=data['language'], foil=data['foil'], signed=data['signed'], artist_proof=data['artist_proof'], altered_art=data['altered_art'], misprint=data['misprint'], promo=data['promo'], textless=data['textless'], printing_id=data['printing_id'], printing_note=data['printing_note'])
+        new_cards.append(c)
     
     # then pull everyfin from the db
     existing_cards = carddb.get_all(db_filename)
@@ -85,7 +91,7 @@ def import_csv(db_filename, csv_filename, confirm_changes=True):
 # count.
 # TODO: due to nested card check this is O(n^2) and could be improved to O(n) by just doing a lookup of each card
 # which is already implemented for purposes of deck importing.
-def analyze_changes(db_filename, importing, existing):
+def analyze_changes(db_filename: str, importing: list[Card], existing: list[Card]):
     no_dupes = list()
     count_only = list()
     remove_from_deck = list()
@@ -98,13 +104,13 @@ def analyze_changes(db_filename, importing, existing):
         existing_count = 0
         for check in existing:
             # first, check if same print. if so, we still might need to bump up count.
-            if card['name'].lower() != check['name'].lower():
+            if card.name.lower() != check.name.lower():
                 continue
-            if card['edition'].lower() != check['edition'].lower():
+            if card.edition.lower() != check.edition.lower():
                 continue
-            if card['tcg_num'] != check['tcg_num']:
+            if card.tcg_num != check.tcg_num:
                 continue
-            if card['condition'].lower() != check['condition'].lower():
+            if card.condition.lower() != check['condition'].lower():
                 continue
             if card['language'].lower() != check['language'].lower():
                 continue
@@ -263,7 +269,7 @@ deckbox_column_parsers = {
     'my_price': dollars_to_cents,
 }
 
-def parse_deckbox_csv(filename, row_limit=0):
+def parse_deckbox_csv(filename: str, row_limit: int=0) -> list[dict]:
     data = list()
     headers = list()
     with open(filename, newline='') as f:
