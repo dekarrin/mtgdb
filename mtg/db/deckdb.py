@@ -1,8 +1,10 @@
 import sqlite3
 
+from typing import Optional
+
 from .errors import MultipleFoundError, NotFoundError, AlreadyExistsError
 from . import util, filters, editiondb
-from ..types import Deck
+from ..types import Deck, DeckCard
 
 
 def update_state(db_filename: str, name: str, state: str):
@@ -116,16 +118,14 @@ def find(db_filename: str, name: str) -> list[Deck]:
     return data
     
     
-def get_one_card(db_filename, did, cid):
+def get_one_card(db_filename: str, did: int, cid: int) -> DeckCard:
     con = util.connect(db_filename)
     cur = con.cursor()
     rows = []
     for r in cur.execute(sql_select_deck_card, (cid, did)):
-        data_dict = util.card_row_to_dict(r[4:])
-        data_dict['deck_id'] = r[1]
-        data_dict['deck_count'] = r[2]
-        data_dict['deck_wishlist_count'] = r[3]
-        rows.append(data_dict)
+        card = util.card_row_to_card(r[4:])
+        deck_card = DeckCard(card, deck_id=r[1], deck_count=r[2], deck_wishlist_count=[3])
+        rows.append(deck_card)
     con.close()
 
     count = len(rows)        
@@ -139,13 +139,13 @@ def get_one_card(db_filename, did, cid):
     return rows[0]
     
 
-def find_cards(db_filename, did, card_name, card_num, edition):
+def find_cards(db_filename: str, did: int, card_name: Optional[str], card_num: Optional[int], edition: Optional[str]) -> list[DeckCard]:
     query = sql_get_deck_cards
     params = [did]
 
     ed_codes = None
     if edition is not None:
-        # we need to look up editions first or we are going to need to do a dynamically built
+        # we need to look up editions first or listing we are going to need to do a dynamically built
         # join and i dont want to
         matching_editions = editiondb.find(db_filename, edition)
         
@@ -164,12 +164,9 @@ def find_cards(db_filename, did, card_name, card_num, edition):
     data = []
 
     for r in cur.execute(query, params):
-        data_dict = util.card_row_to_dict(r)
-        # add some more as well
-        data_dict['deck_id'] = r[17] # dc.deck
-        data_dict['deck_count'] = r[18] # dc.count
-        data_dict['deck_wishlist_count'] = r[19]  # dc.wishlist_count
-        data.append(data_dict)
+        card = util.card_row_to_card(r)
+        deck_card = DeckCard(card, deck_id=r[17], deck_count=r[18], deck_wishlist_count=[19])
+        data.append(deck_card)
     con.close()
 
     return data
@@ -287,7 +284,7 @@ def get_counts(db_filename, did, cid=None):
     return counts
     
     
-def remove_card(db_filename, did, cid, amount=1):
+def remove_card(db_filename: str, did: int, cid: int, amount: int=1) -> int:
     con = util.connect(db_filename)
     cur = con.cursor()
     

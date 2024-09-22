@@ -48,7 +48,7 @@ def card_from_cli_arg(db_filename: str, arg: str):
     return card
 
 
-def select_card_in_deck(db_filename: str, deck_id: int, card_name: str = None, card_num: str = None, edition: str = None):
+def select_card_in_deck(db_filename: str, deck_id: int, card_name: str = None, card_num: str = None, edition: str = None) -> DeckCard:
     data = deckdb.find_cards(db_filename, deck_id, card_name, card_num, edition)
     
     if len(data) < 1:
@@ -60,7 +60,7 @@ def select_card_in_deck(db_filename: str, deck_id: int, card_name: str = None, c
         
         card_list = []
         for c in data:
-            opt = (c, cardutil.to_str(c))
+            opt = (c, str(c))
             card_list.append(opt)
         
         return cio.select("Multiple cards match; which one should be added?", card_list)

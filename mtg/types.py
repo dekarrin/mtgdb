@@ -28,14 +28,59 @@ def deck_state_to_name(state: str) -> str:
 class Card:
     """Card is an entry in the inventory listing."""
 
-    def __init__(self, id=None, count=None, name=None, edition=None, tcg_num=None, condition=None, language=None, foil=False, signed=False, artist_proof=False, altered_art=False, misprint=False, promo=False, textless=False, printing_id=0, printing_note=''):
+    def __init__(self, id: Optional[int]=None, count: int=0, name: str='', edition: str='AAA', tcg_num: int=0, condition: str='NM', language: str='English', foil: bool=False, signed: bool=False, artist_proof: bool=False, altered_art: bool=False, misprint: bool=False, promo: bool=False, textless: bool=False, printing_id: int=0, printing_note: str=''):
         self.name = name
         self.id = id
         self.count = count
         self.edition = edition
         self.tcg_num = tcg_num
-
         self.condition = condition
+        self.language = language
+        self.foil = foil
+        self.signed = signed
+        self.artist_proof = artist_proof
+        self.altered_art = altered_art
+        self.misprint = misprint
+        self.promo = promo
+        self.textless = textless
+        self.printing_id = printing_id
+        self.printing_note = printing_note
+    
+    def __str__(self):
+        card_str = "{:s}-{:03d} {!r}".format(self.edition, self.tcg_num, self.name)
+        
+        special_print_items = list()
+        if self.foil:
+            special_print_items.append('F')
+        if self.signed:
+            special_print_items.append('SIGNED')
+        if self.artist_proof:
+            special_print_items.append('PROOF')
+        if self.altered_art:
+            special_print_items.append('ALTERED')
+        if self.misprint:
+            special_print_items.append('MIS')
+        if self.promo:
+            special_print_items.append('PROMO')
+        if self.textless:
+            special_print_items.append('TXL')
+        if self.printing_note != '':
+            special_print_items.append(self['printing_note'])
+            
+        if len(special_print_items) > 0:
+            card_str += ' (' + ','.join(special_print_items) + ')'
+            
+        return card_str
+
+
+class DeckCard(Card):
+    """DeckCard is an entry in a deck."""
+
+    def __init__(self, card: Card, deck_id: int, deck_count: int=0, deck_wishlist_count: int=0):
+        super().__init__(card.id, card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note)
+        self.deck_id = deck_id
+        self.deck_count = deck_count
+        self.deck_wishlist_count = deck_wishlist_count
 
 
 class Deck:

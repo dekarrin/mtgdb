@@ -74,15 +74,15 @@ def remove_from_deck(db_filename, card_name=None, card_num=None, card_id=None, d
     else:
         card = deckdb.get_one_card(db_filename, deck.id, card_id)
     
-    counts = deckdb.get_counts(db_filename, deck.id, card['id'])
+    counts = deckdb.get_counts(db_filename, deck.id, card.id)
     if len(counts) > 0 and counts[0]['count'] - amount < 0:
         print("Only {:d}x of that card is in the deck.".format(counts[0]['count']), file=sys.stderr)
         if not cio.confirm("Remove all owned copies from deck?"):
             raise UserCancelledError("user cancelled removing card from deck")
     
-    new_amt = deckdb.remove_card(db_filename, deck.id, card['id'], amount)
+    new_amt = deckdb.remove_card(db_filename, deck.id, card.id, amount)
     
-    print("Removed {:d}x {:s} from {:s}".format(amount, cardutil.to_str(card), deck.name))
+    print("Removed {:d}x {:s} from {:s}".format(amount, str(card), deck.name))
     if new_amt > 0:
         print("{:d}x remains in deck".format(new_amt))
     else:

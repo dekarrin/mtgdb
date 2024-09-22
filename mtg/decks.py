@@ -3,8 +3,11 @@ import datetime
 import csv
 import os.path
 
+from typing import List
+
 from .errors import DataConflictError, UserCancelledError
 from . import cardutil, db, cio
+from .types import DeckCard
 from . import deck_from_cli_arg, card_from_cli_arg
 from .db import deckdb, carddb
 
@@ -98,12 +101,12 @@ def show(db_filename, deck_name=None, deck_id=None, card_name=None, card_num=Non
 
     any_matched = False
     for c in cards:
-        if not owned_only and c['deck_wishlist_count'] > 0:
+        if not owned_only and c.deck_wishlist_count > 0:
             wishlist_mark = " (WISHLISTED)" if not wishlist_only else ""
-            print("{:d}x {:s}{:s}".format(c['deck_wishlist_count'], cardutil.to_str(c)), wishlist_mark)
+            print("{:d}x {:s}{:s}".format(c.deck_wishlist_count, str(c)), wishlist_mark)
             any_matched = True
-        if not wishlist_only and c['deck_count'] > 0:
-            print("{:d}x {:s}".format(c['deck_count'], cardutil.to_str(c)))
+        if not wishlist_only and c.deck_count > 0:
+            print("{:d}x {:s}".format(c.deck_count, str(c)))
             any_matched = True
     
     if not any_matched:
@@ -235,33 +238,37 @@ def import_csv(db_filename, csv_filenames):
 
         print("Successfully imported deck from {:s}".format(csv_filename))
 
+        
 
-def export_csv(db_filename, path, filename_pattern):
+def export_csv(db_filename: str, path: str, filename_pattern: str):
+    class DeckListing:
+        def __init__(self, name: str, state: str, card_count: int):
+            self.name = name
+            self.state = state
+            self.card_count = card_count
+            self.cards: List[DeckCard] = []
+            
     if path == '':
         path = '.'
     
     decks = deckdb.get_all(db_filename)
 
-    deck_listings = []
+    deck_listings: List[DeckListing] = None  # pylance won't recognize list[DeckListing] so using List[DeckListing] for its benefit
 
     for deck in decks:
-        entry = {
-            'name': deck.name,
-            'state': deck.state,
-            'card_count': deck.owned_count,
-        },
-        entry['cards'] = deckdb.find_cards(db_filename, deck['id'], None, None, None)
+        entry = DeckListing(deck.name, deck.state_name(), deck.owned_count)
+        entry.cards = deckdb.find_cards(db_filename, deck.id, None, None, None)
         deck_listings.append(entry)
     
     for deck in deck_listings:
         cur_date = datetime.datetime.now().strftime('%Y-%m-%d')
-        filename = filename_pattern.format(DECK=deck['name'], STATE=deck['state'], DATE=cur_date)
+        filename = filename_pattern.format(DECK=deck.name, STATE=deck.state, DATE=cur_date)
         file_path = os.path.join(path, filename.replace(' ', '_'))
 
         with open(file_path, 'w', newline='') as csvfile:
             csvw = csv.writer(csvfile)
             csvw.writerow(['Deck Name', 'Deck State'])
-            csvw.writerow([deck['name'], deck['state']])
+            csvw.writerow([deck.name, deck.state])
             csvw.writerow([
                 'Owned Count', 'Wishlist Count',
                 'Name', 'Edition', 'Card Number',
@@ -270,18 +277,18 @@ def export_csv(db_filename, path, filename_pattern):
                 'Misprint', 'Promo', 'Textless',
                 'Printing ID', 'Printing Note'
             ])
-            for card in deck['cards']:
+            for card in deck.cards:
                 csvw.writerow([
-                    card['deck_count'], card['deck_wishlist_count'],
-                    card['name'], card['edition'], card['tcg_num'],
-                    card['condition'], card['language'], card['foil'],
-                    card['signed'], card['artist_proof'], card['altered_art'],
-                    card['misprint'], card['promo'], card['textless'],
-                    card['printing_id'], card['printing_note']
+                    card.deck_count, card.deck_wishlist_count,
+                    card.name, card.edition, card.tcg_num,
+                    card.condition, card.language, card.foil,
+                    card.signed, card.artist_proof, card.altered_art,
+                    card.misprint, card.promo, card.textless,
+                    card.printing_id, card.printing_note
                 ])
 
     cumulative_decks = len(deck_listings)
-    cumulative_cards = sum([d['card_count'] for d in deck_listings])
+    cumulative_cards = sum([d.card_count for d in deck_listings])
     s_deck = 's' if cumulative_decks != 1 else ''
     s_card = 's' if cumulative_cards != 1 else ''
 

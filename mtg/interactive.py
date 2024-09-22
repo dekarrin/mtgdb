@@ -17,8 +17,7 @@ class Session:
     def __init__(self, db_filename):
         self.db_filename = db_filename
         self.running = True
-        self.deck_filters = {}
-        self.deck_page = 0
+        self.deck_cat_state: Optional[CatState] = None
 
 
 def start(db_filename):
@@ -117,13 +116,76 @@ def paginate(items: list[any], per_page=10) -> list[list[any]]:
     return pages
 
 
-def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_page=10, filter_by: dict[str, Callable[[any, str], bool]]=None, fill_empty=True, active_filters=None, page_num=None, include_create=True) -> tuple[str, Optional[any], dict, int]:
+class CatOption:
+    def __init__(self, char, displayed, returned_action, selecting=False, confirm=None):
+        self.char: str = char
+        self.displayed: str = displayed
+        self.returned_action: str = returned_action
+        self.selecting: bool = selecting
+        self.confirm: Optional[str] = confirm
+
+
+class CatState:
+    def __init__(self, page_num: int, active_filters: dict, page: list[tuple[any, str]]):
+        self.page_num = page_num
+        self.active_filters = active_filters
+        self.page = page
+
+
+def catalog_print_page(page: list[tuple[any, str]], top_prompt: Optional[str]=None, per_page: int=10, fill_empty: bool=True):
+    if top_prompt is not None:
+        print(top_prompt)
+        print("----------------------")
+
+    printed_lines = 0
+    if len(page) > 0:
+        for item in page:
+            print(item[1])
+            printed_lines += 1
+    else:
+        print("(No items)")
+        printed_lines += 1
+    if fill_empty:
+        while printed_lines < per_page:
+            print()
+            printed_lines += 1
+    
+    print("----------------------")
+
+
+def catalog_select(
+        top_prompt: Optional[str],
+        items: list[tuple[any, str]],
+        per_page: int=10,
+        filter_by: dict[str, Callable[[any, str], bool]]=None,
+        fill_empty: bool=True,
+        state: Optional[CatState]=None,
+        include_create: bool=True,
+        extra_options: Optional[list[CatOption]]=None
+    ) -> tuple[str, Optional[any], CatState]:
     """
     Select an item from a paginated catalog, or exit the catalog. Returns a
     tuple containing the action ((None), 'CREATE', 'SELECT'), and if an item selected, the item. Allows
     creation of new to be specified in the action.
     """
+
+    reserved_option_keys = ['X', 'S', 'N', 'P', 'F']
+    if include_create:
+        reserved_option_keys.append('C')
+    extra_opts_dict: dict[str, CatOption] = {}
+    if extra_options is not None:
+        for eo in extra_options:
+            if eo.char.upper() in reserved_option_keys:
+                raise ValueError("Extra option key {:s} is already in use".format(eo.char.upper()))
+            if eo.char.upper() in extra_opts_dict:
+                raise ValueError("Duplicate extra option key {:s}".format(eo.char.upper()))
+            if len(eo.char.upper()) < 1:
+                raise ValueError("Extra option key must be at least one character")
+            extra_opts_dict[eo.char.upper()] = eo
+
     pages = paginate(items, per_page)
+
+    # added options - (char, displayed, returned_action, selecting, confirm)
 
     def apply_filters(items, page_num, active_filters) -> tuple[list[list[tuple[any, str]]], int]:
         filtered_items = items
@@ -136,36 +198,23 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
         if page_num >= len(pages):
             page_num = len(pages) - 1
         return pages, page_num
-    
-    def print_page(page, top_prompt=None, fill_empty=True):
-        if top_prompt is not None:
-            print(top_prompt)
-            print("----------------------")
 
-        printed_lines = 0
-        if len(page) > 0:
-            for item in page:
-                print(item[1])
-                printed_lines += 1
-        else:
-            print("(No items)")
-            printed_lines += 1
-        if fill_empty:
-            while printed_lines < per_page:
-                print()
-                printed_lines += 1
-        
-        print("----------------------")
-
+    page_num = state.page_num if state is not None else 0
     if page_num is None:
         page_num = 0
     elif page_num >= len(pages):
         page_num = len(pages) - 1
 
+    active_filters = state.active_filters if state is not None else {}
     if active_filters is None:
         active_filters = {}
     else:
         pages, page_num = apply_filters(items, page_num, active_filters)
+
+    # for selection prompts:
+    extra_lines = 3  # 1 for end bar, 1 for total count, 1 for actions
+    if filter_by is not None and len(filter_by) > 0:
+        extra_lines += 1
     
     while True:
         cio.clear()
@@ -175,7 +224,7 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
         else:
             page = []
         
-        print_page(page, top_prompt, fill_empty)
+        catalog_print_page(page, top_prompt, per_page, fill_empty)
         if filter_by is not None:
             if len(active_filters) > 0:
                 print(' AND '.join(["{:s}={!r}".format(k.upper(), v) for k, v in active_filters.items()]))
@@ -200,6 +249,10 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
         if include_create:
             print("(C)reate,", end=' ')
             avail_choices.append('C')
+        if len(extra_opts_dict) > 0:
+            for eo in extra_options:
+                print(eo.displayed + ",", end=' ')
+                avail_choices.append(eo.char.upper())
         print("E(X)it")
         avail_choices.append('X')
 
@@ -211,18 +264,18 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
             page_num -= 1
         elif choice == 'F' and filter_by is not None and len(filter_by) > 0:
             cio.clear()
-            print_page(page, top_prompt, fill_empty)
+            catalog_print_page(page, top_prompt, per_page, fill_empty)
             filter_action = cio.prompt_choice("MANAGE FILTERS:\n(A)dd/Edit, (R)emove, (C)ancel", ['A', 'R', 'C'], transform=lambda x: x.strip().upper())
             if filter_action == 'A':
                 cio.clear()
-                print_page(page, top_prompt, fill_empty)
+                catalog_print_page(page, top_prompt, per_page, fill_empty)
                 filter_opts = [(k, k.upper()) for k in filter_by]
                 cancel_opt = [('C', '><*>CANCEL<*><', 'CANCEL')]
                 filter_key = cio.select("ADD/EDIT FILTER ON:", filter_opts, direct_choices=cancel_opt)
                 if filter_key == '><*>CANCEL<*><':
                     continue
                 cio.clear()
-                print_page(page, top_prompt, fill_empty)
+                catalog_print_page(page, top_prompt, per_page, fill_empty)
                 filter_val = input(filter_key.title() + ": ")
                 if filter_val.strip() == '':
                     print("No filter added")
@@ -236,7 +289,7 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
                 # TODO: direct opts cancel
                 filter_opts = [(k, k.upper()) for k in active_filters]
                 cio.clear()
-                print_page(page, top_prompt, fill_empty)
+                catalog_print_page(page, top_prompt, per_page, fill_empty)
                 if len(filter_opts) == 0:
                     print("No filters to remove")
                     cio.pause()
@@ -260,14 +313,28 @@ def catalog_select(top_prompt: Optional[str], items: list[tuple[any, str]], per_
                 cio.pause()
         elif choice == 'S':
             cio.clear()
-            selected = cio.select("Which one?\n" + ("-" * 22), page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+3)
+            selected = cio.select("Which one?\n" + ("-" * 22), page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
             if isinstance(selected, str) and selected == '><*>CANCEL<*><':
                 continue
-            return ('SELECT', selected, active_filters, page_num)
+            return ('SELECT', selected, CatState(page_num, active_filters, page))
         elif include_create and choice == 'C':
-            return ('CREATE', None, active_filters, page_num)
+            return ('CREATE', None, CatState(page_num, active_filters, page))
         elif choice == 'X':
-            return (None, None, active_filters, page_num)
+            return (None, None, CatState(page_num, active_filters, page))
+        elif choice in extra_opts_dict:
+            eo = extra_opts_dict[choice]
+            selected = None
+            if eo.selecting:
+                cio.clear()
+                selected = cio.select(eo.displayed, page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
+                if isinstance(selected, str) and selected == '><*>CANCEL<*><':
+                    continue
+            if eo.confirm is not None:
+                cio.clear()
+                catalog_print_page(page, top_prompt, per_page, fill_empty)
+                if not cio.confirm(eo.confirm):
+                    continue
+            return (eo.returned_action, None, CatState(page_num, active_filters, page))
         else:
             print("Unknown option")
             cio.pause()
@@ -281,28 +348,24 @@ def decks_master_menu(s: Session):
     while True:
         decks = deckdb.get_all(s.db_filename)
         cat_items = [(d, str(d)) for d in decks]
-        selection = catalog_select("MANAGE DECKS", items=cat_items, filter_by=filters, active_filters=s.deck_filters, page_num=s.deck_page)
+        selection = catalog_select("MANAGE DECKS", items=cat_items, filter_by=filters, state=s.deck_cat_state)
         
         action = selection[0]
         deck: Deck = selection[1]
-        active_filters = selection[2]
-        page_num = selection[3]
+        cat_state = selection[2]
 
         cio.clear()
         if action == 'SELECT':
-            s.deck_filters = active_filters
-            s.deck_page = page_num
+            s.deck_cat_state = cat_state
             deck_detail_menu(s, deck)
         elif action == 'CREATE':
-            s.deck_filters = active_filters
-            s.deck_page = page_num
+            s.deck_cat_state = cat_state
             new_deck = decks_create(s)
             if new_deck is not None:
                 print("Created new deck {!r}".format(new_deck.name))
             cio.pause()
         elif action is None:
-            s.deck_filters = {}
-            s.deck_page = 0
+            s.deck_cat_state = None
             break
 
 
@@ -350,6 +413,11 @@ def deck_detail_menu(s: Session, deck: Deck):
                 break
         elif action == 'EXIT':
             break
+
+
+def deck_cards_menu(s: Session, deck: Deck):
+    while True:
+        cards = deckdb.get_cards(s.db_filename, deck)
 
 
 def deck_delete(s: Session, deck: Deck) -> bool:
