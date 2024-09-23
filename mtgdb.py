@@ -263,7 +263,7 @@ def invoke_list_cards(args):
         if du not in ['P', 'B', 'C']:
             raise ArgumentError("invalid deck used state {!r}; must be one of P, B, or C".format(du))
         
-    return cards.list(db_filename, args.card_name, args.card_num, args.card_edition, args.free, args.usage, wishlist_only, include_wishlist, deck_used_states)
+    return cards.list(db_filename, args.card, args.card_num, args.edition, args.free, args.usage, wishlist_only, include_wishlist, deck_used_states)
 
 
 def invoke_add(args):

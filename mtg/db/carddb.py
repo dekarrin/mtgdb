@@ -50,7 +50,7 @@ def get_one(db_filename: str, cid: int) -> CardWithUsage:
         if r[0] not in unique_cards:
             card = CardWithUsage(util.card_row_to_card(r))
             new_entry = (card, order)
-            unique_cards[new_entry.id] = new_entry
+            unique_cards[card.id] = new_entry
             order += 1
 
         if r[17] is not None:
@@ -62,7 +62,7 @@ def get_one(db_filename: str, cid: int) -> CardWithUsage:
                 deck_state=r[19]
             ))
 
-            unique_cards[card.id][0] = card
+            unique_cards[card.id] = (card, unique_cards[card.id][1])
     con.close()
 
     # sort on order.
@@ -128,7 +128,7 @@ def find(db_filename: str, name: str | None, card_num: str | None, edition: str 
         if r[0] not in unique_cards:
             card = CardWithUsage(util.card_row_to_card(r))
             new_entry = (card, order)
-            unique_cards[new_entry.id] = new_entry
+            unique_cards[card.id] = new_entry
             order += 1
 
         if r[16] is not None or r[17] is not None:
@@ -137,11 +137,11 @@ def find(db_filename: str, name: str | None, card_num: str | None, edition: str 
                 count=r[16],
                 wishlist_count=r[17],
                 deck_id=r[18],
-                deck_name=r[18],
-                deck_state=r[19]
+                deck_name=r[19],
+                deck_state=r[20]
             ))
 
-            unique_cards[card.id][0] = card
+            unique_cards[card.id] = (card, unique_cards[card.id][1])
 
     con.close()
 

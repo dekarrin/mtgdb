@@ -3,15 +3,19 @@
 # interactive mode console session.
 
 import os.path
+import sys
 
 # IMPORTING HAS SIDE EFFECTS; DO NOT REMOVE
 import readline
+
+import traceback
 
 from typing import Optional, Callable
 
 from .types import Deck, DeckCard, CardWithUsage, deck_state_to_name
 from . import cio
 from . import cards as cardops
+from . import deckbox as deckboxops
 from .errors import DataConflictError, UserCancelledError
 from .db import schema, deckdb, carddb, DBError, NotFoundError
 
@@ -35,7 +39,10 @@ def start(db_filename):
         main_menu(s)
     except KeyboardInterrupt:
         print()
-        pass
+    except:
+        print("A fatal error occurred:")
+        print(traceback.format_exc())
+        sys.exit(1)
 
     print("Goodbye!")
 
@@ -59,8 +66,7 @@ def main_menu(s: Session):
             cio.clear()
 
         if item == 'cards':
-            print("Not implemented yet")
-            cio.pause()
+            cards_master_menu(s)
         elif item == 'decks':
             decks_master_menu(s)
         elif item == 'change-db':
@@ -343,6 +349,49 @@ def catalog_select(
             cio.pause()
 
 
+def cards_master_menu(s: Session):
+    extra_actions = [
+        CatOption('I', '(I)mport', 'IMPORT'),
+    ]
+    filters = {
+        'name': lambda c, v: v.lower() in c.name.lower(),
+        'edition': lambda c, v: v.lower() in c.edition.lower(),
+    }
+    while True:
+        cards = carddb.get_all(s.db_filename)
+
+        # sort them
+        cards = sorted(cards, key=lambda c: (c.edition, c.tcg_num))
+
+        cat_items = [(c, "{:d}x {:s}".format(c.count, str(c))) for c in cards]
+        selection = catalog_select("MANAGE CARDS", items=cat_items, extra_options=extra_actions, include_create=False, filter_by=filters)
+
+        action = selection[0]
+        card: CardWithUsage = selection[1]
+        #cat_state = selection[2]
+
+        cio.clear()
+        if action == 'SELECT':
+            print("You have selected {!s}".format(card))
+            print("NOTHING IMPLEMENTED YET")
+            cio.pause()
+        elif action == 'IMPORT':
+            cards_import(s)
+        elif action is None:
+            break
+
+def cards_import(s: Session):
+    csv_file = input("Deckbox CSV file: ")
+    try:
+        deckboxops.import_csv(s.db_filename, csv_file)
+    except DataConflictError as e:
+        print("ERROR: {!s}".format(e))
+    except UserCancelledError as e:
+        return
+    
+    cio.pause()
+
+
 def decks_master_menu(s: Session):
     filters = {
         'name': lambda d, v: v.lower() in d.name.lower(),
@@ -417,12 +466,15 @@ def deck_detail_menu(s: Session, deck: Deck):
 
 
 def deck_cards_menu(s: Session, deck: Deck) -> Deck:
-    extra_actions = [
-        CatOption('A', '(A)DD CARD', 'ADD'),
-    ]
     while True:
         menu_lead = deck_detail_header(deck) + "\nCARDS"
+        extra_actions = [
+            CatOption('A', '(A)dd Card', 'ADD'),
+        ]
         cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None)
+        if len(cards) > 0:
+            extra_actions.append(CatOption('R', '(R)emove Card', 'REMOVE', selecting=True))
+        
         cat_items = []
         for c in cards:
             amounts = []
@@ -445,16 +497,39 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             print("You have selected {!s}".format(card))
             cio.pause()
         elif action == 'ADD':
-            deck = deck_detail_add(deck)
-            print("Not implemented yet")
+            deck = deck_detail_add(s, deck)
+        elif action == 'REMOVE':
+            print(card)
             cio.pause()
+            deck = deck_detail_remove(s, deck, card)
         elif action is None:
             break
     
     return deck
 
 
+def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
+    cio.clear()
+    if card.deck_count > 1:
+        amt = cio.prompt_int("How many?", min=1, max=card.deck_count, default=1)
+    else:
+        amt = 1
+
+    try:
+        cardops.remove_from_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt)
+    except DataConflictError as e:
+            print("ERROR: " + str(e))
+            cio.pause()
+            return deck
+    except UserCancelledError:
+        return deck
+    
+    deck = deckdb.get_one(s.db_filename, deck.id)
+    return deck
+
+
 def deck_detail_add(s: Session, deck: Deck) -> Deck:
+    # TODO: TEST THIS AND CONFIRM AFTER INVENTORY ALLOWS CREATION OR IMPORT
     menu_lead = deck_detail_header(deck) + "\nADD CARD TO DECK"
     cards = carddb.find(s.db_filename, None, None, None)
 

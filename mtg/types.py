@@ -66,7 +66,7 @@ class Card:
         if self.textless:
             special_print_items.append('TXL')
         if self.printing_note != '':
-            special_print_items.append(self['printing_note'])
+            special_print_items.append(self.printing_note)
             
         if len(special_print_items) > 0:
             card_str += ' (' + ','.join(special_print_items) + ')'
@@ -82,11 +82,38 @@ class Usage:
         self.count = count
         self.deck_id = deck_id
         self.deck_name = deck_name
+        self._deck_state = "B"
         self.deck_state = deck_state
         self.wishlist_count = wishlist_count
 
+    def __str__(self):
+        return "({:d}, {:d} WL) in deck {:d} {!r} ({:s})".format(self.count, self.wishlist_count if self.wishlist_count else 0, self.deck_id, self.deck_name, deck_state_to_name(self.deck_state))
+
     def clone(self) -> 'Usage':
         return Usage(self.count, self.deck_id, self.deck_name, self.deck_state, self.wishlist_count)
+    
+    @property
+    def deck_state(self):
+        return self._deck_state
+    
+    @deck_state.setter
+    def deck_state(self, value):
+        # is it a name?
+        value = value.upper()
+        if value == 'BROKEN' or value == 'BROKEN DOWN' or value == 'BROKEN-DOWN':
+            value = 'B'
+        elif value == 'PARTIAL' or value == 'PARTIALLY COMPLETE':
+            value = 'P'
+        elif value == 'COMPLETE':
+            value = 'C'
+
+        if value not in ('B', 'P', 'C'):
+            raise ValueError("Invalid deck state {!r}".format(value))
+        
+        self._deck_state = value
+    
+    def deck_state_name(self):
+        return deck_state_to_name(self.deck_state)
 
 
 class CardWithUsage(Card):

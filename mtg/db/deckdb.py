@@ -165,7 +165,7 @@ def find_cards(db_filename: str, did: int, card_name: Optional[str], card_num: O
 
     for r in cur.execute(query, params):
         card = util.card_row_to_card(r)
-        deck_card = DeckCard(card, deck_id=r[17], deck_count=r[18], deck_wishlist_count=[19])
+        deck_card = DeckCard(card, deck_id=r[17], deck_count=r[18], deck_wishlist_count=r[19])
         data.append(deck_card)
     con.close()
 
@@ -268,20 +268,22 @@ def get_counts(db_filename: str, did: int, cid: int | None=None):
     con = util.connect(db_filename)
     cur = con.cursor()
     
-    counts = {}
+    count_rows = []
     
     query = sql_get_all_existing_deck_cards if cid is None else sql_get_existing_deck_card
     params = (did,) if cid is None else (cid, did)
     
     for r in cur.execute(query, params):
+        counts = {}
         counts['card'] = r[0]
         counts['deck'] = r[1]
         counts['count'] = r[2]
         counts['wishlist_count'] = r[3]
+        count_rows.append(counts)
     
     con.close()
     
-    return counts
+    return count_rows
     
     
 def remove_card(db_filename: str, did: int, cid: int, amount: int=1) -> int:

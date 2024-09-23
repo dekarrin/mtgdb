@@ -30,7 +30,7 @@ def add_to_deck(db_filename, card_name=None, card_num=None, card_id=None, deck_n
     # wishlist move check
     card_counts = deckdb.get_counts(db_filename, deck.id, card.id)
     wl_move_amt = 0
-    if len(card_counts) > 0:
+    if len(card_counts) is not None:
         # given that the pk of deck_cards is (deck_id, card_id), there should only be one
         counts = card_counts[0]
         if counts['wishlist_count'] > 0:
@@ -201,7 +201,7 @@ def list(db_filename, card_name=None, card_num=None, card_edition=None, show_fre
     cards = carddb.find(db_filename, card_name, card_num, card_edition)
     
     # pad out to max id length
-    max_id = max([c.id for c in cards])
+    max_id = max([c.id for c in cards]) if len(cards) > 0 else 0
     id_len = len(str(max_id))
 
     id_header = "ID".ljust(id_len)
