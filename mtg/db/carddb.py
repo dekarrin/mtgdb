@@ -1,7 +1,7 @@
 from . import util, editiondb, filters
 from .errors import MultipleFoundError, NotFoundError
 
-from ..types import Card
+from ..types import Card, DeckChangeRecord
 
 
 def get_all(db_filename: str) -> list[Card]:
@@ -162,11 +162,11 @@ def find(db_filename, name, card_num, edition):
     return data_set
 
 
-def insert_multiple(db_filename, cards):
+def insert_multiple(db_filename: str, cards: list[Card]):
     insert_data = list()
     
     for c in cards:
-        insert_row = (c['count'], c['name'], c['edition'], c['tcg_num'], c['condition'], c['language'], c['foil'], c['signed'], c['artist_proof'], c['altered_art'], c['misprint'], c['promo'], c['textless'], c['printing_id'], c['printing_note'])
+        insert_row = (c.count, c.name, c.edition, c.tcg_num, c.condition, c.language, c.foil, c.signed, c.artist_proof, c.altered_art, c.misprint, c.promo, c.textless, c.printing_id, c.printing_note)
         insert_data.append(insert_row)
     
     con = util.connect(db_filename)
@@ -189,11 +189,11 @@ def insert(db_filename, card):
     return last_id
 
     
-def update_multiple_counts(db_filename, cards):
+def update_multiple_counts(db_filename: str, cards: list[Card]):
     update_data = list()
     
     for c in cards:
-        row_values = (c['count'], c['id'])
+        row_values = (c.count, c.id)
         update_data.append(row_values)
     
     con = util.connect(db_filename)
@@ -240,11 +240,11 @@ def delete(db_filename, cid):
 
 
 # TODO: this is a deck operation, it should be in deckdb
-def remove_amount_from_decks(db_filename, removals):
+def remove_amount_from_decks(db_filename: str, removals: list[DeckChangeRecord]):
     update_data = list()
 
     for r in removals:
-        row_values = (r['amount'], r['card'], r['deck'])
+        row_values = (r.amount, r.card, r.deck)
         update_data.append(row_values)
 
     con = util.connect(db_filename)
@@ -257,11 +257,11 @@ def remove_amount_from_decks(db_filename, removals):
 
 
 # TODO: this is a deck operation, it should be in deckdb
-def move_amount_from_owned_to_wishlist_in_decks(db_filename, moves):
+def move_amount_from_owned_to_wishlist_in_decks(db_filename: str, moves: list[DeckChangeRecord]):
     update_data = list()
 
     for m in moves:
-        row_values = (m['amount'], m['amount'], m['card'], m['deck'])
+        row_values = (m.amount, m.amount, m.card, m.deck)
         update_data.append(row_values)
 
     con = util.connect(db_filename)
@@ -272,11 +272,11 @@ def move_amount_from_owned_to_wishlist_in_decks(db_filename, moves):
 
 
 # TODO: this is a deck operation, it should be in deckdb
-def move_amount_from_wishlist_to_owned_in_decks(db_filename, moves):
+def move_amount_from_wishlist_to_owned_in_decks(db_filename: str, moves: list[DeckChangeRecord]):
     update_data = list()
 
     for m in moves:
-        row_values = (m['amount'], m['amount'], m['card'], m['deck'])
+        row_values = (m.amount, m.amount, m.card, m.deck)
         update_data.append(row_values)
 
     con = util.connect(db_filename)

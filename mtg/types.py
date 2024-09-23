@@ -127,4 +127,12 @@ class Deck:
     def __str__(self):
         s_total = 's' if self.card_count() != 1 else ''
         return "{!r} - {:s} - {:d} card{:s} total ({:d} owned, {:d} WL)".format(self.name, self.state_name(), self.card_count(), s_total, self.owned_count, self.wishlisted_count)
-    
+
+
+class DeckChangeRecord:
+    def __init__(self, deck_id: int, card_id: int, amount: int, deck_name: str, card_data: Card):
+        self.deck = deck_id
+        self.card = card_id
+        self.amount = amount
+        self.deck_name = deck_name
+        self.card_data = card_data

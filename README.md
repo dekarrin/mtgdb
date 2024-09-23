@@ -30,6 +30,19 @@ for cases where that is the only thing that difers.
 * `remove` - Remove a card from deck
 * `show-deck` - Show all cards in a particular deck, with filters available
 
+Work tracking:
+--------------
+Currently in a massive rewrite of several functions that use the card dict to make
+them use the Card type. This stems from needing to update carddb.get_all(), for
+which many changes are needed.
+
+* Propagate carddb.get_all()
+* Propagate cardutil.get_deck_owned_changes
+* Propagate cardutil.get_deck_wishlisted_changes
+* Propagate carddb.remove_amount_from_decks
+* Propagate carddb.move_amount_from_owned_to_wishlist_in_decks
+* Propagate carddb.move_amount_from_wishlist_to_owned_in_decks
+
 Possible Enhancements:
 ------------------------
 

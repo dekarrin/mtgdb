@@ -1,6 +1,9 @@
 import sys
 
+from typing import List
+
 from . import cio
+from .types import Card, DeckChangeRecord
 from .db import carddb
 
 
@@ -31,23 +34,25 @@ def to_str(card):
     return card_str
 
 
-def get_deck_wishlisted_changes(db_filename, card, check):
+def get_deck_wishlisted_changes(db_filename: str, card: Card, check: Card) -> list[DeckChangeRecord]:
     wishlist_to_owned = []
-    existing_id = check['id']
+    existing_id = check.id
 
     deck_counts = carddb.get_deck_counts(db_filename, existing_id)
     total_wishlisted = sum([x['wishlist_count'] for x in deck_counts])
 
     if total_wishlisted > 0:
-        amount_inc = card['count'] - check['count']
-        if cio.confirm("Card {:s} is currently wishlisted {:d}x, but import is increasing owned amount by {:d}x. Move from wishlist to owned?".format(to_str(card), check['wishlist_count'], amount_inc)):
-            if amount_inc > 1 and check['wishlist_count'] > 1:
-                max_amt = min(amount_inc, check['wishlist_count'])
-                move_count = cio.prompt_int("How many to move from wishlist to owned?".format(check['wishlist_count']), min=1, max=max_amt)
+        amount_inc = card.count - check.count
+        if cio.confirm("Card {:s} is currently wishlisted {:d}x, but import is increasing owned amount by {:d}x. Move from wishlist to owned?".format(str(card), check.wishlist_count, amount_inc)):
+            if amount_inc > 1 and check.wishlist_count > 1:
+                max_amt = min(amount_inc, check.wishlist_count)
+                move_count = cio.prompt_int("How many to move from wishlist to owned?".format(check.wishlist_count), min=1, max=max_amt)
             else:
                 move_count = 1
 
             # now we must make a list of decks and wishlist amounts to do the move by.
+
+            # TODO: shouldn't this actually be filtering only on those with wishlist_count > 0?
             wishlisted_decks = carddb.get_deck_counts(db_filename, existing_id)
             moves_to_make = []
             if len(wishlisted_decks) == 1:
@@ -86,27 +91,28 @@ def get_deck_wishlisted_changes(db_filename, card, check):
             # include the new moves in returned and make shore somefin handles it
             for move in moves_to_make:
                 wishlist_to_owned.append(
-                    {'deck': move['deck_id'], 'card': existing_id, 'amount': move['move_count'], 'deck_name': move['deck_name'], 'card_data': card}
+                    DeckChangeRecord(deck_id=move['deck_id'], card_id=existing_id, amount=move['move_count'], deck_name=move['deck_name'], card_data=card)
                 )
 
     return wishlist_to_owned
 
 
-def get_deck_owned_changes(db_filename, card, check):
+
+def get_deck_owned_changes(db_filename: str, card: Card, check: Card) -> tuple[list[DeckChangeRecord], list[DeckChangeRecord]]:
     """
     Returns remove_from_deck, owned_to_wishlist
     """
     
-    existing_id = check['id']
-    remove_from_deck = []
-    owned_to_wishlist = []
+    existing_id = check.id
+    remove_from_deck: List[DeckChangeRecord] = []
+    owned_to_wishlist: List[DeckChangeRecord] = []
 
     deck_counts = carddb.get_deck_counts(db_filename, existing_id)
 
     total_used = sum([x['count'] for x in deck_counts])
-    if total_used > card['count']:
-        move_count = total_used - card['count']
-        print("Card {:s} is in decks {:d}x times but owned count is being set to {:d}x; {:d}x must be removed/wishlisted".format(to_str(card), total_used, card['count'], move_count), file=sys.stderr)
+    if total_used > card.count:
+        move_count = total_used - card.count
+        print("Card {:s} is in decks {:d}x times but owned count is being set to {:d}x; {:d}x must be removed/wishlisted".format(str(card), total_used, card.count, move_count), file=sys.stderr)
         
         while move_count > 0:
             options = [(x, x['deck_name']+ "({:d}x)".format(x['count'])) for x in deck_counts]
@@ -122,9 +128,9 @@ def get_deck_owned_changes(db_filename, card, check):
                 deck_counts = [x for x in deck_counts if x['deck_id'] != selected_deck['deck_id']]
             
             if remove_amt > 0:
-                remove_from_deck.append({'deck': selected_deck['deck_id'], 'card': existing_id, 'amount': remove_amt, 'deck_name': selected_deck['deck_name'], 'card_data': card})
+                remove_from_deck.append(DeckChangeRecord(deck_id=selected_deck['deck_id'], card_id=existing_id, amount=remove_amt, deck_name=selected_deck['deck_name'], card_data=card))
             if wishlist_amt > 0:
-                owned_to_wishlist.append({'deck': selected_deck['deck_id'], 'card': existing_id, 'amount': wishlist_amt, 'deck_name': selected_deck['deck_name'], 'card_data': card})
+                owned_to_wishlist.append(DeckChangeRecord(deck_id=selected_deck['deck_id'], card_id=existing_id, amount=remove_amt, deck_name=selected_deck['deck_name'], card_data=card))
 
             move_count -= total_changed
 

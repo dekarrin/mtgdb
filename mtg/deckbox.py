@@ -1,13 +1,15 @@
 import csv
 import sys
 
+from typing import List
+
 from . import cardutil, cio
 from .db import carddb
 from .errors import UserCancelledError, DataConflictError
-from .types import Card
+from .types import Card, DeckChangeRecord
 
 
-def import_csv(db_filename, csv_filename, confirm_changes=True):
+def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
     new_cards_data = parse_deckbox_csv(csv_filename)
     drop_unused_fields(new_cards_data)
     update_deckbox_values_to_mtgdb(new_cards_data)
@@ -33,31 +35,31 @@ def import_csv(db_filename, csv_filename, confirm_changes=True):
         if len(new_imports) > 0:
             print("New cards to import:")
             for card in new_imports:
-                print("{:d}x {:s}".format(card['count'], cardutil.to_str(card)))
+                print("{:d}x {:s}".format(card.count, str(card)))
             print("")
         
         if len(count_updates) > 0:
             print("Update counts:")
-            for card in count_updates:
-                print("{:d}x -> {:d}x {:s}".format(card['old_count'], card['count'], cardutil.to_str(card)))
+            for upd8 in count_updates:
+                print("{:d}x -> {:d}x {:s}".format(upd8.old_count, upd8.card.count, str(card)))
             print("")
 
         if len(deck_removals) > 0:
             print("Removals from decks:")
             for removal in deck_removals:
-                print("{:d}x {:s} from {:s}".format(removal['amount'], cardutil.to_str(removal['card_data']), removal['deck_name']))
+                print("{:d}x {:s} from {:s}".format(removal.amount, str(removal.card_data), removal.deck_name))
             print("")
 
         if len(deck_owned_to_wls) > 0:
             print("Owned to wishlist:")
             for move in deck_owned_to_wls:
-                print("{:d}x {:s} moved from owned to wishlist in {:s}".format(move['amount'], cardutil.to_str(move['card_data']), move['deck_name']))
+                print("{:d}x {:s} moved from owned to wishlist in {:s}".format(move.amount, str(move.card_data), move.deck_name))
             print("")
 
         if len(deck_wl_to_owneds) > 0:
             print("Wishlist to owned:")
             for move in deck_wl_to_owneds:
-                print("{:d}x {:s} moved from wishlist to owned in {:s}".format(move['amount'], cardutil.to_str(move['card_data']), move['deck_name']))
+                print("{:d}x {:s} moved from wishlist to owned in {:s}".format(move.amount, str(move.card_data), move.deck_name))
             print("")
         
         s_count = 's' if len(count_updates) != 1 else ''
@@ -81,22 +83,27 @@ def import_csv(db_filename, csv_filename, confirm_changes=True):
     # if the card is moved entirely to wishlist, the count update will probably go to 0. We don't remove
     # 0's at this time, but if we do, we need to make shore that any such are not there due to wishlist.
     carddb.insert_multiple(db_filename, new_imports)
-    carddb.update_multiple_counts(db_filename, count_updates)
+    carddb.update_multiple_counts(db_filename, [x.card for x in count_updates])
     carddb.remove_amount_from_decks(db_filename, deck_removals)
     carddb.move_amount_from_owned_to_wishlist_in_decks(db_filename, deck_owned_to_wls)
     carddb.move_amount_from_wishlist_to_owned_in_decks(db_filename, deck_wl_to_owneds)
     
+
+class CountUpdate:
+    def __init__(self, card, old_count):
+        self.card = card
+        self.old_count = old_count
     
 # returns the set of de-duped (brand-new) card listings and the set of those that difer only in
 # count.
 # TODO: due to nested card check this is O(n^2) and could be improved to O(n) by just doing a lookup of each card
 # which is already implemented for purposes of deck importing.
-def analyze_changes(db_filename: str, importing: list[Card], existing: list[Card]):
-    no_dupes = list()
-    count_only = list()
-    remove_from_deck = list()
-    wishlist_to_owned = list()
-    owned_to_wishlist = list()
+def analyze_changes(db_filename: str, importing: list[Card], existing: list[Card]) -> tuple[list[Card], list[CountUpdate], list[DeckChangeRecord], list[DeckChangeRecord], list[DeckChangeRecord]]:
+    no_dupes: list[Card] = list()
+    count_only: list[CountUpdate] = list()
+    remove_from_deck: list[DeckChangeRecord] = list()
+    wishlist_to_owned: list[DeckChangeRecord] = list()
+    owned_to_wishlist: list[DeckChangeRecord] = list()
     for card in importing:
         already_exists = False
         update_count = False
@@ -110,59 +117,58 @@ def analyze_changes(db_filename: str, importing: list[Card], existing: list[Card
                 continue
             if card.tcg_num != check.tcg_num:
                 continue
-            if card.condition.lower() != check['condition'].lower():
+            if card.condition.lower() != check.condition.lower():
                 continue
-            if card['language'].lower() != check['language'].lower():
+            if card.language.lower() != check.language.lower():
                 continue
-            if card['foil'] != check['foil']:
+            if card.foil != check.foil:
                 continue
-            if card['signed'] != check['signed']:
+            if card.signed != check.signed:
                 continue
-            if card['artist_proof'] != check['artist_proof']:
+            if card.artist_proof != check.artist_proof:
                 continue
-            if card['altered_art'] != check['altered_art']:
+            if card.altered_art != check.altered_art:
                 continue
-            if card['misprint'] != check['misprint']:
+            if card.misprint != check.misprint:
                 continue
-            if card['promo'] != check['promo']:
+            if card.promo != check.promo:
                 continue
-            if card['textless'] != check['textless']:
+            if card.textless != check.textless:
                 continue
-            if card['printing_id'] != check['printing_id']:
+            if card.printing_id != check.printing_id:
                 continue
-            if card['printing_note'].lower() != check['printing_note'].lower():
+            if card.printing_note.lower() != check.printing_note.lower():
                 continue
             
             already_exists = True
-            existing_id = check['id']
-            existing_count = check['count']
+            existing_id = check.id
+            existing_count = check.count
             # they are the same print and instance of card; is count different?
-            if card['count'] != check['count']:
-                print("{:s} already exists (MTGDB ID {:d}), but count will be updated from {:d} to {:d}".format(cardutil.to_str(card), check['id'], check['count'], card['count']), file=sys.stderr)
+            if card.count != check.count:
+                print("{:s} already exists (MTGDB ID {:d}), but count will be updated from {:d} to {:d}".format(str(card), check.id, check.count, card.count), file=sys.stderr)
                 update_count = True
 
                 # if the count is incremented, and existing is set to wishlisted, we need to ask if we want to just move wishlist to owned
-                if card['count'] > check['count']:
+                if card.count > check.count:
                     moves = cardutil.get_deck_wishlisted_changes(db_filename, card, check)
                     wishlist_to_owned.extend(moves)
 
                 # if the count is decremented, and card is in decks, and is decremented below total owned count, we need to ask which cards to
                 # remove or move to wishlist.
-                if card['count'] < check['count']:
+                if card.count < check.count:
                     removals, moves = cardutil.get_deck_owned_changes(db_filename, card, check)
                     remove_from_deck.extend(removals)
                     owned_to_wishlist.extend(moves)
             else:
-                print("{:s} already exists (MTGDB ID {:d}) with same count; skipping".format(cardutil.to_str(card), check['id']), file=sys.stderr)
+                print("{:s} already exists (MTGDB ID {:d}) with same count; skipping".format(str(card), check.id), file=sys.stderr)
                 
             # stop checking other cards, if we are here it is time to stop
             break
         
         if already_exists:
             if update_count:
-                card['id'] = existing_id
-                card['old_count'] = existing_count
-                count_only.append(card)
+                card.id = existing_id
+                count_only.append(CountUpdate(card, existing_count))
         else:
             no_dupes.append(card)
             
