@@ -115,7 +115,9 @@ def prompt_choice(prompt, choices, transform=lambda x: x.strip().upper()) -> str
     return selected
 
 
-def prompt_int(prompt, min=None, max=None):
+def prompt_int(prompt, min=None, max=None, default: int | None=None):
+    if default:
+        prompt = "{:s} (default: {:d})".format(prompt, default)
     print(prompt)
     err_msg = "Please enter an integer"
 
@@ -133,6 +135,8 @@ def prompt_int(prompt, min=None, max=None):
     parsed = None
     while parsed is None:
         unparsed = input("{:s}==> ".format(range_marker))
+        if unparsed.strip() == "" and default is not None:
+            return default
         try:
             parsed = int(unparsed.strip())
             if min is not None and parsed < min:

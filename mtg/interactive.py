@@ -9,9 +9,11 @@ import readline
 
 from typing import Optional, Callable
 
-from .types import Deck, DeckCard, deck_state_to_name
+from .types import Deck, DeckCard, CardWithUsage, deck_state_to_name
 from . import cio
-from .db import schema, deckdb, DBError, NotFoundError
+from . import cards as cardops
+from .errors import DataConflictError, UserCancelledError
+from .db import schema, deckdb, carddb, DBError, NotFoundError
 
 class Session:
     def __init__(self, db_filename):
@@ -398,7 +400,7 @@ def deck_detail_menu(s: Session, deck: Deck):
         cio.clear()
 
         if action == 'CARDS':
-            deck_cards_menu(s, deck)
+            deck = deck_cards_menu(s, deck)
         elif action == 'NAME':
             deck = deck_set_name(s, deck)
             cio.pause()
@@ -414,7 +416,7 @@ def deck_detail_menu(s: Session, deck: Deck):
             break
 
 
-def deck_cards_menu(s: Session, deck: Deck):
+def deck_cards_menu(s: Session, deck: Deck) -> Deck:
     extra_actions = [
         CatOption('A', '(A)DD CARD', 'ADD'),
     ]
@@ -443,15 +445,57 @@ def deck_cards_menu(s: Session, deck: Deck):
             print("You have selected {!s}".format(card))
             cio.pause()
         elif action == 'ADD':
-            deck_detail_add(deck)
+            deck = deck_detail_add(deck)
             print("Not implemented yet")
             cio.pause()
         elif action is None:
             break
+    
+    return deck
 
 
-def deck_detail_add(s: Session, deck: Deck):
+def deck_detail_add(s: Session, deck: Deck) -> Deck:
     menu_lead = deck_detail_header(deck) + "\nADD CARD TO DECK"
+    cards = carddb.find(s.db_filename, None, None, None)
+
+    cat_items = []
+    deck_used_states = ['C', 'P']
+    for c in cards:
+        free = c.count - sum([u.count for u in c.usage if u.deck_state in deck_used_states])
+        disp = str(c) + " ({:d}/{:d} free)".format(free, c.count)
+        cat_items.append((c, disp))
+
+    selection = catalog_select(menu_lead, items=cat_items, include_create=False)
+
+    action = selection[0]
+    card: CardWithUsage = selection[1]
+    #cat_state = selection[2]
+
+    cio.clear()
+    if action == 'SELECT':
+        if free < 1:
+            print(deck_detail_header(deck))
+            print("ERROR: No more free cards of {!s}".format(card))
+            cio.pause()
+            return deck
+        elif free == 1:
+            amt = 1
+        else:
+            amt = cio.prompt_int("How many?".format(card), min=1, max=free, default=1)
+        
+        try:
+            cardops.add_to_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt, deck_used_states=deck_used_states)
+        except DataConflictError as e:
+            print("ERROR: " + str(e))
+            cio.pause()
+            return deck
+        except UserCancelledError:
+            return deck
+        
+        deck = deckdb.get_one(s.db_filename, deck.id)
+        return deck
+    elif action is None:
+        return deck
     
 
 def deck_delete(s: Session, deck: Deck) -> bool:
