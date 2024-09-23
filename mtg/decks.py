@@ -20,15 +20,15 @@ def remove_from_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
     card = card_from_cli_arg(db_filename, card_specifier)
 
     # all args are checked and accounted for, perform the operation
-    counts = deckdb.get_counts(db_filename, deck.id, card['id'])
+    counts = deckdb.get_counts(db_filename, deck.id, card.id)
     if len(counts) > 0 and counts[0]['wishlist_count'] - amount < 0:
         print("Only {:d}x of that card is wishlisted in the deck.".format(counts[0]['wishlist_count']), file=sys.stderr)
         if not cio.confirm("Remove all wishlisted copies from deck?"):
             raise UserCancelledError("user cancelled operation")
     
-    new_amt = deckdb.remove_wishlisted_card(db_filename, deck.id, card['id'], amount)
+    new_amt = deckdb.remove_wishlisted_card(db_filename, deck.id, card.id, amount)
 
-    print("Removed {:d}x {!s} from wishlist for {:s} ({:d}x remain on WL)".format(amount, cardutil.to_str(card), deck.name, new_amt))
+    print("Removed {:d}x {!s} from wishlist for {:s} ({:d}x remain on WL)".format(amount, str(card), deck.name, new_amt))
 
 
 def add_to_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
@@ -40,15 +40,15 @@ def add_to_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
     card = card_from_cli_arg(db_filename, card_specifier)
 
     # all args are checked and accounted for, perform the operation
-    counts = deckdb.get_counts(db_filename, deck.id, card['id'])
+    counts = deckdb.get_counts(db_filename, deck.id, card.id)
     if len(counts) > 0 and counts[0]['wishlist_count'] > 0:
         print("{:d}x of that card is already wishlisted in the deck.".format(counts[0]['wishlist_count']), file=sys.stderr)
         if not cio.confirm("Increment wishlisted amount in deck by {:d}?".format(amount)):
             raise UserCancelledError("user cancelled operation")
     
-    new_amt = deckdb.add_wishlisted_card(db_filename, deck.id, card['id'], amount)
+    new_amt = deckdb.add_wishlisted_card(db_filename, deck.id, card.id, amount)
 
-    print("Added {:d}x {!s} to wishlist for {:s} (total {:d}x on WL)".format(amount, cardutil.to_str(card), deck.name, new_amt))
+    print("Added {:d}x {!s} to wishlist for {:s} (total {:d}x on WL)".format(amount, str(card), deck.name, new_amt))
 
 
 def create(db_filename, deck_name):
