@@ -7,7 +7,7 @@ from typing import List
 
 from .errors import DataConflictError, UserCancelledError
 from . import cardutil, db, cio
-from .types import DeckCard
+from .types import DeckCard, Card
 from . import deck_from_cli_arg, card_from_cli_arg
 from .db import deckdb, carddb
 
@@ -203,28 +203,28 @@ def import_csv(db_filename, csv_filenames):
                             raise DataConflictError("{:s}:{:d}: owned card {!r} not found in inventory".format(csv_filename, lineno, name))
 
                         # otherwise, we need to create an entry to be wishlisted
-                        card_data = {
-                            'count': 0,
-                            'name': name,
-                            'edition': edition,
-                            'tcg_num': tcg_num,
-                            'condition': condition,
-                            'language': language,
-                            'foil': foil,
-                            'signed': signed,
-                            'artist_proof': artist_proof,
-                            'altered_art': altered_art,
-                            'misprint': misprint,
-                            'promo': promo,
-                            'textless': textless,
-                            'printing_id': printing_id,
-                            'printing_note': printing_note
-                        }
+                        card = Card(
+                            count=0,
+                            name=name,
+                            edition=edition,
+                            tcg_num=tcg_num,
+                            condition=condition,
+                            language=language,
+                            foil=foil,
+                            signed=signed,
+                            artist_proof=artist_proof,
+                            altered_art=altered_art,
+                            misprint=misprint,
+                            promo=promo,
+                            textless=textless,
+                            printing_id=printing_id,
+                            printing_note=printing_note
+                        )
 
-                        card_id = carddb.insert(db_filename, card_data)
+                        card.id = carddb.insert(db_filename, card)
 
                         # do not confirm existing, we wish to add it no matter what.
-                        deckdb.add_wishlisted_card(db_filename, cur_deck_id, card_id, wishlist_count_in_deck)
+                        deckdb.add_wishlisted_card(db_filename, cur_deck_id, card.id, wishlist_count_in_deck)
                     else:
                         # we now have an ID and can add the card to the deck
 

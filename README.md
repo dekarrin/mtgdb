@@ -37,7 +37,6 @@ them use the Card type. This stems from needing to update carddb.get_all(), for
 which many changes are needed.
 
 * Propagate card_from_cli_arg
-* Propagate carddb.insert
 * Propagate cardutil.get_deck_owned_changes
 * Propagate cardutil.get_deck_wishlisted_changes
 * Propagate carddb.remove_amount_from_decks
