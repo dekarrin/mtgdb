@@ -72,6 +72,30 @@ class Card:
             card_str += ' (' + ','.join(special_print_items) + ')'
             
         return card_str
+    
+    def clone(self) -> 'Card':
+        return Card(self.id, self.count, self.name, self.edition, self.tcg_num, self.condition, self.language, self.foil, self.signed, self.artist_proof, self.altered_art, self.misprint, self.promo, self.textless, self.printing_id, self.printing_note, self.wishlist_count)
+        
+
+class Usage:
+    def __init__(self, count: int, deck_id: int, deck_name: str, deck_state: str, wishlist_count: int | None=None):
+        self.count = count
+        self.deck_id = deck_id
+        self.deck_name = deck_name
+        self.deck_state = deck_state
+        self.wishlist_count = wishlist_count
+
+    def clone(self) -> 'Usage':
+        return Usage(self.count, self.deck_id, self.deck_name, self.deck_state, self.wishlist_count)
+
+
+class CardWithUsage(Card):
+    def __init__(self, card: Card, usage: list[Usage] | None=None):
+        super().__init__(card.id, card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note, card.wishlist_count)
+        self.usage: list[Usage] = usage if usage is not None else list()
+
+    def clone(self) -> 'CardWithUsage':
+        return CardWithUsage(super().clone(), [u.clone() for u in self.usage])
 
 
 class DeckCard(Card):
@@ -82,6 +106,9 @@ class DeckCard(Card):
         self.deck_id = deck_id
         self.deck_count = deck_count
         self.deck_wishlist_count = deck_wishlist_count
+
+    def clone(self) -> 'DeckCard':
+        return DeckCard(super().clone(), self.deck_id, self.deck_count, self.deck_wishlist_count)
 
 
 class Deck:
@@ -130,7 +157,7 @@ class Deck:
 
 
 class DeckChangeRecord:
-    def __init__(self, deck_id: int, card_id: int, amount: int, deck_name: str, card_data: Card):
+    def __init__(self, deck_id: int, card_id: int, amount: int, deck_name: str='', card_data: Card | None=None):
         self.deck = deck_id
         self.card = card_id
         self.amount = amount

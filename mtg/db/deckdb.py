@@ -172,7 +172,7 @@ def find_cards(db_filename: str, did: int, card_name: Optional[str], card_num: O
     return data
 
     
-def add_card(db_filename, did, cid, amount=1):
+def add_card(db_filename: str, did: int, cid: int, amount: int=1) -> int:
     con = util.connect(db_filename)
     cur = con.cursor()
     
@@ -264,7 +264,7 @@ def remove_wishlisted_card(db_filename, did, cid, amount=1):
     return new_amt  
 
 
-def get_counts(db_filename, did, cid=None):
+def get_counts(db_filename: str, did: int, cid: int | None=None):
     con = util.connect(db_filename)
     cur = con.cursor()
     

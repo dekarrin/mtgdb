@@ -1,6 +1,7 @@
 import sys
 
-from . import cardutil, cio, db, types, select_card, select_deck, select_card_in_deck
+from . import cardutil, cio, db, select_card, select_deck, select_card_in_deck
+from .types import DeckChangeRecord, Card
 from .db import deckdb, carddb
 from .errors import ArgumentError, DataConflictError, UserCancelledError, CommandError
 
@@ -20,20 +21,20 @@ def add_to_deck(db_filename, card_name=None, card_num=None, card_id=None, deck_n
         deck = deckdb.get_one(db_filename, deck_id)
 
     # check if new_amt would be over the total in use
-    free_amt = card['count'] - sum([u['count'] for u in card['usage'] if u['deck']['state'] in deck_used_states])
+    free_amt = card.count - sum([u.count for u in card.usage if u.deck_state in deck_used_states])
 
     if free_amt < amount:
         sub_error = "only {:d}x are not in use".format(free_amt) if free_amt > 0 else "all copies are in use"
-        raise DataConflictError("Can't add {:d}x {:s}: {:s}".format(amount, cardutil.to_str(card), sub_error))
+        raise DataConflictError("Can't add {:d}x {:s}: {:s}".format(amount, str(card), sub_error))
 
     # wishlist move check
-    card_counts = deckdb.get_counts(db_filename, deck.id, card['id'])
+    card_counts = deckdb.get_counts(db_filename, deck.id, card.id)
     wl_move_amt = 0
     if len(card_counts) > 0:
         # given that the pk of deck_cards is (deck_id, card_id), there should only be one
         counts = card_counts[0]
         if counts['wishlist_count'] > 0:
-            print("{:d}x {:s} is wishlisted in deck".format(cardutil.to_str(card), counts['wishlist_count']))
+            print("{:d}x {:s} is wishlisted in deck".format(str(card), counts['wishlist_count']))
             inferred_amt = " some"
             if amount == 1 or counts['wishlist_count'] == 1:
                 inferred_amt = " 1x"
@@ -44,7 +45,7 @@ def add_to_deck(db_filename, card_name=None, card_num=None, card_id=None, deck_n
                 if max_amt == 1:
                     wl_move_amt = 1
                 else:
-                    wl_move_amt = cio.get_int("How many to move?", 0, counts['wishlist_count'])
+                    wl_move_amt = cio.prompt_int("How many to move?", 0, counts['wishlist_count'])
         elif counts['count'] > 0:
             print("{:d}x of that card is already in the deck.".format(counts['count']), file=sys.stderr)
             if not cio.confirm("Increment amount in deck by {:d}?".format(amount)):
@@ -53,12 +54,12 @@ def add_to_deck(db_filename, card_name=None, card_num=None, card_id=None, deck_n
     add_amt = amount - wl_move_amt
 
     if wl_move_amt > 0:
-        carddb.move_amount_from_wishlist_to_owned_in_decks(db_filename, ({'amount': wl_move_amt, 'card': card['id'], 'deck': deck.id},))
-        print("Moved {:d}x {:s} from wishlisted to owned in {:s}".format(wl_move_amt, cardutil.to_str(card), deck.name))
+        carddb.move_amount_from_wishlist_to_owned_in_decks(db_filename, (DeckChangeRecord(amount=wl_move_amt, card_id=card.id, deck_id=deck.id),))
+        print("Moved {:d}x {:s} from wishlisted to owned in {:s}".format(wl_move_amt, str(card), deck.name))
 
     if add_amt > 0:
-        new_amt = deckdb.add_card(db_filename, deck.id, card['id'], add_amt)
-        print("Added {:d}x (total {:d}) {:s} to {:s}".format(amount, new_amt, cardutil.to_str(card), deck.name))
+        new_amt = deckdb.add_card(db_filename, deck.id, card.id, add_amt)
+        print("Added {:d}x (total {:d}) {:s} to {:s}".format(amount, new_amt, str(card), deck.name))
 
 
 def remove_from_deck(db_filename, card_name=None, card_num=None, card_id=None, deck_name=None, deck_id=None, amount=1):
@@ -89,39 +90,39 @@ def remove_from_deck(db_filename, card_name=None, card_num=None, card_id=None, d
         print("No more copies remain in deck")
 
 
-def remove_inventory_entry(db_filename, card_id, amount=1):
+def remove_inventory_entry(db_filename: str, card_id: int, amount: bool=1):
     card = carddb.get_one(db_filename, card_id)
     counts = carddb.get_deck_counts(db_filename, card['id'])
     total_wishlisted = sum([c['wishlist_count'] for c in counts])
     total_in_decks = sum([c['count'] for c in counts])
 
-    new_card = card
-    new_card['count'] = max(0, card['count'] - amount)
+    new_card = card.clone()
+    new_card.count = max(0, card.count - amount)
 
     # cases: count goes to 0 or less.
     # - check if we have moves to make. if any are moved to wishlist, clearly the user does not want to delete the card at this time.
     # - if none are wishlisted, confirm deletion.
-    if new_card['count'] < 1:
+    if new_card.count < 1:
         removals, to_wishlist = cardutil.get_deck_owned_changes(db_filename, card, new_card)
         if len(to_wishlist) < 1:
-            print("Removing {:d}x {:s} will delete {:d}x from decks and {:d}x from deck wishlists".format(amount, cardutil.to_str(card), total_in_decks, total_wishlisted))
-            if not cio.confirm("Delete {:s} from inventory?".format(cardutil.to_str(card))):
+            print("Removing {:d}x {:s} will delete {:d}x from decks and {:d}x from deck wishlists".format(amount, str(card), total_in_decks, total_wishlisted))
+            if not cio.confirm("Delete {:s} from inventory?".format(str(card))):
                 raise UserCancelledError("user cancelled removing card from inventory")
-            carddb.delete(db_filename, card['id'])
-            print("Removed all copies of {:s} from inventory".format(cardutil.to_str(card)))
+            carddb.delete(db_filename, card.id)
+            print("Removed all copies of {:s} from inventory".format(str(card)))
         else:
             carddb.remove_amount_from_decks(db_filename, removals)
             carddb.move_amount_from_owned_to_wishlist_in_decks(db_filename, to_wishlist)
-            carddb.update_count(db_filename, card['id'], count=0)
-            print("Removed all owned copies of {:s} from inventory and decks; moved {:d}x to wishlists".format(cardutil.to_str(card), sum([x['amount'] for x in to_wishlist])))
+            carddb.update_count(db_filename, card.id, count=0)
+            print("Removed all owned copies of {:s} from inventory and decks; moved {:d}x to wishlists".format(str(card), sum([x.amount for x in to_wishlist])))
     else:
         removals, to_wishlist = cardutil.get_deck_owned_changes(db_filename, card, new_card)
         carddb.remove_amount_from_decks(db_filename, removals)
         carddb.move_amount_from_owned_to_wishlist_in_decks(db_filename, to_wishlist)
-        carddb.update_count(db_filename, card['id'], count=new_card['count'])
-        total_removed = sum([x['amount'] for x in removals])
-        total_wishlisted = sum([x['amount'] for x in to_wishlist])
-        print("Removed {:d}x owned copies of {:s} from inventory; removed {:d}x from decks and moved {:d}x to wishlists".format(amount, cardutil.to_str(card), total_removed, total_wishlisted))
+        carddb.update_count(db_filename, card.id, count=new_card.count)
+        total_removed = sum([x.amount for x in removals])
+        total_wishlisted = sum([x.amount for x in to_wishlist])
+        print("Removed {:d}x owned copies of {:s} from inventory; removed {:d}x from decks and moved {:d}x to wishlists".format(amount, str(card), total_removed, total_wishlisted))
 
 
 
@@ -135,27 +136,27 @@ def create_inventory_entry(db_filename, amount=None, card_id=None, edition_code=
         raise ValueError("must give TCG number when giving edition code")
     
     if tcg_num is not None:
-        card = {
-            'name': name,
-            'edition': edition_code,
-            'tcg_num': tcg_num,
-            'condition': cond,
-            'language': lang,
-            'foil': foil,
-            'signed': signed,
-            'artist_proof': proof,
-            'altered_art': altered,
-            'misprint': misprint,
-            'promo': promo,
-            'textless': textless,
-            'printing_id': pid,
-            'printing_note': note
-        }
+        card = Card(
+            name=name,
+            edition=edition_code,
+            tcg_num=tcg_num,
+            condition=cond,
+            language=lang,
+            foil=foil,
+            signed=signed,
+            artist_proof=proof,
+            altered_art=altered,
+            misprint=misprint,
+            promo=promo,
+            textless=textless,
+            printing_id=pid,
+            printing_note=note
+        )
 
         cid = None
         try:
             cid = carddb.get_id_by_reverse_search(db_filename, name, edition_code, tcg_num, cond, lang, foil, signed, proof, altered, misprint, promo, textless, pid, note)
-            card['id'] = cid
+            card.id = cid
         except db.NotFoundError:
             pass
 
@@ -171,12 +172,12 @@ def create_inventory_entry(db_filename, amount=None, card_id=None, edition_code=
             # NOT doing wishlist update flow; add (to deck) already does this
 
             new_amt = carddb.update_count(db_filename, cid, by_amount=amount)
-            print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, cardutil.to_str(card), cid))
+            print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, str(card), cid))
         else:
             # doesn't exist, do creation flow
-            card['count'] = amount
-            card['id'] = carddb.insert(db_filename, card)
-            print("Created new entry {:d}x {:s} (ID: {:d})".format(amount, cardutil.to_str(card), card['id']))
+            card.count = amount
+            card.id = carddb.insert(db_filename, card)
+            print("Created new entry {:d}x {:s} (ID: {:d})".format(amount, str(card), card.id))
     elif card_id is not None:
         if amount is None:
             amount = 1
@@ -188,7 +189,7 @@ def create_inventory_entry(db_filename, amount=None, card_id=None, edition_code=
         new_amt = carddb.update_count(db_filename, card_id, by_amount=amount)
 
         # NOT doing wishlist update flow; add (to deck) already does this
-        print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, cardutil.to_str(card), card_id))
+        print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, str(card), card_id))
     else:
         raise CommandError("condition should never happen")
 
@@ -200,7 +201,7 @@ def list(db_filename, card_name=None, card_num=None, card_edition=None, show_fre
     cards = carddb.find(db_filename, card_name, card_num, card_edition)
     
     # pad out to max id length
-    max_id = max([c['id'] for c in cards])
+    max_id = max([c.id for c in cards])
     id_len = len(str(max_id))
 
     id_header = "ID".ljust(id_len)
@@ -210,24 +211,24 @@ def list(db_filename, card_name=None, card_num=None, card_edition=None, show_fre
     print("{:s}: {:s}x SET-NUM 'CARD'".format(id_header, count_abbrev))
     print("==========================")
     for c in cards:
-        wishlist_total = sum([u['wishlist_count'] for u in c['usage']])
+        wishlist_total = sum([u.wishlist_count for u in c.usage])
 
         # if it's JUST count=0 with no wishlist.... that's weird. it should show
         # up as normal.
 
-        on_wishlist_with_no_owned = wishlist_total > 0 and c['count'] == 0
+        on_wishlist_with_no_owned = wishlist_total > 0 and c.count == 0
 
         if wishlist_only:
             if wishlist_total < 1:
                 continue
 
-            line = ("{:0" + str(id_len) + "d}: {:d}x {:s}").format(c['id'], wishlist_total, cardutil.to_str(c))
+            line = ("{:0" + str(id_len) + "d}: {:d}x {:s}").format(c.id, wishlist_total, str(c))
 
             if show_usage:
                 line += " -"
-                if len(c['usage']) > 0:
-                    for u in c['usage']:
-                        line += " {:d}x in {:s},".format(u['wishlist_count'], u['deck']['name'])
+                if len(c.usage) > 0:
+                    for u in c.usage:
+                        line += " {:d}x in {:s},".format(u.wishlist_count, u.deck_name)
                     line = line[:-1]
                 else:
                     line += " not in any decks"
@@ -237,21 +238,21 @@ def list(db_filename, card_name=None, card_num=None, card_edition=None, show_fre
             if on_wishlist_with_no_owned and not include_wishlist:
                 continue
             
-            line = ("{:0" + str(id_len) + "d}: {:d}x {:s}").format(c['id'], c['count'], cardutil.to_str(c))
+            line = ("{:0" + str(id_len) + "d}: {:d}x {:s}").format(c.id, c.count, str(c))
 
             if include_wishlist:
                 line += " ({:d}x WISHLISTED)".format(wishlist_total)
 
             if show_free:
                 # subtract count all decks that have status C or P.
-                free = c['count'] - sum([u['count'] for u in c['usage'] if u['deck']['state'] in deck_used_states])
-                line += " ({:d}/{:d} free)".format(free, c['count'])
+                free = c.count - sum([u.count for u in c.usage if u.deck_state in deck_used_states])
+                line += " ({:d}/{:d} free)".format(free, c.count)
 
             if show_usage:
                 line += " -"
-                if len(c['usage']) > 0:
-                    for u in c['usage']:
-                        line += " {:d}x in {:s} ({:s}),".format(u['count'], u['deck']['name'], u['deck']['state'])
+                if len(c.usage) > 0:
+                    for u in c.usage:
+                        line += " {:d}x in {:s} ({:s}),".format(u.count, u.deck_name, u.deck_state)
                     line = line[:-1]
                 else:
                     line += " not in any decks"

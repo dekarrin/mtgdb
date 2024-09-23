@@ -1,7 +1,7 @@
 from . import util, editiondb, filters
 from .errors import MultipleFoundError, NotFoundError
 
-from ..types import Card, DeckChangeRecord
+from ..types import Card, CardWithUsage, Usage, DeckChangeRecord
 
 
 def get_all(db_filename: str) -> list[Card]:
@@ -37,42 +37,38 @@ def get_id_by_reverse_search(db_filename, name, edition, tcg_num, condition, lan
     return matching_ids[0]
 
 
-def get_one(db_filename, cid):
+def get_one(db_filename: str, cid: int) -> CardWithUsage:
     con = util.connect(db_filename)
     cur = con.cursor()
     
     query = sql_find_card_by_id_in_use
-    unique_cards = {}
+    unique_cards: dict[int, tuple[CardWithUsage, int]] = {}  # int in tuple is for ordering
     order = 0
     
     rows = []
     for r in cur.execute(query, (cid,)):
         if r[0] not in unique_cards:
-            new_entry = util.card_row_to_dict(r)
-            unique_cards[new_entry['id']] = new_entry
-            unique_cards[new_entry['id']]['usage'] = []
-            unique_cards[new_entry['id']]['order'] = order
+            card = CardWithUsage(util.card_row_to_card(r))
+            new_entry = (card, order)
+            unique_cards[new_entry.id] = new_entry
             order += 1
 
         if r[17] is not None:
-            entry = unique_cards[r[0]]        
+            card = unique_cards[r[0]][0]
+            card.usage.append(Usage(
+                count=r[16],
+                deck_id=r[17],
+                deck_name=r[18],
+                deck_state=r[19]
+            ))
 
-            usage_entry = {
-                'count': r[16],
-                'deck': {
-                    'id': r[17],
-                    'name': r[18],
-                    'state': r[19]
-                },
-            }
-
-            entry['usage'].append(usage_entry)
-            unique_cards[entry['id']] = entry
+            unique_cards[card.id][0] = card
     con.close()
 
     # sort on order.
     rows = [x for x in unique_cards.values()]
-    rows.sort(key=lambda x: x['order'])
+    rows.sort(key=lambda x: x[1])
+    rows = [x[0] for x in rows]
 
     count = len(rows)        
     if count < 1:
@@ -104,7 +100,7 @@ def get_deck_counts(db_filename, card_id):
     return data
 
 
-def find(db_filename, name, card_num, edition):
+def find(db_filename: str, name: str | None, card_num: str | None, edition: str | None) -> list[CardWithUsage]:
     query = sql_select_in_use
     params = list()
     ed_codes = None
@@ -126,38 +122,33 @@ def find(db_filename, name, card_num, edition):
     con = util.connect(db_filename)
     cur = con.cursor()
 
-    unique_cards = {}
-
+    unique_cards: dict[int, tuple[CardWithUsage, int]] = {}  # int in tuple is for ordering
     order = 0
     for r in cur.execute(query, params):
         if r[0] not in unique_cards:
-            new_entry = util.card_row_to_dict(r)
-            unique_cards[new_entry['id']] = new_entry
-            unique_cards[new_entry['id']]['usage'] = []
-            unique_cards[new_entry['id']]['order'] = order
+            card = CardWithUsage(util.card_row_to_card(r))
+            new_entry = (card, order)
+            unique_cards[new_entry.id] = new_entry
             order += 1
 
-        if r[17] is not None:
-            entry = unique_cards[r[0]]        
+        if r[16] is not None or r[17] is not None:
+            card = unique_cards[r[0]][0]
+            card.usage.append(Usage(
+                count=r[16],
+                wishlist_count=r[17],
+                deck_id=r[18],
+                deck_name=r[18],
+                deck_state=r[19]
+            ))
 
-            usage_entry = {
-                'count': r[16],
-                'wishlist_count': r[17],
-                'deck': {
-                    'id': r[18],
-                    'name': r[19],
-                    'state': r[20]
-                },
-            }
-
-            entry['usage'].append(usage_entry)
-            unique_cards[entry['id']] = entry
+            unique_cards[card.id][0] = card
 
     con.close()
 
     # sort on order.
     data_set = [x for x in unique_cards.values()]
-    data_set.sort(key=lambda x: x['order'])
+    data_set.sort(key=lambda x: x[1])
+    data_set = [x[0] for x in data_set]
 
     return data_set
 
@@ -177,11 +168,11 @@ def insert_multiple(db_filename: str, cards: list[Card]):
 
 
 # insert returns an ID, the others do not.
-def insert(db_filename, card):
+def insert(db_filename: str, card: Card) -> int:
     con = util.connect(db_filename)
     cur = con.cursor()
     last_id = None
-    for r in cur.execute(sql_insert_single, (card['count'], card['name'], card['edition'], card['tcg_num'], card['condition'], card['language'], card['foil'], card['signed'], card['artist_proof'], card['altered_art'], card['misprint'], card['promo'], card['textless'], card['printing_id'], card['printing_note'])):
+    for r in cur.execute(sql_insert_single, (card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note)):
         last_id = r[0]
     con.commit()
     con.close()
@@ -204,7 +195,7 @@ def update_multiple_counts(db_filename: str, cards: list[Card]):
 
 
 # returns new count
-def update_count(db_filename, cid, count=None, by_amount=None):
+def update_count(db_filename: str, cid: int, count: int | None=None, by_amount: int | None=None) -> int:
     if count is None and by_amount is None:
         return ValueError("count or by_amount must be provided")
     if count and by_amount:

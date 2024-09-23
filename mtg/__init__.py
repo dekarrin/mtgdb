@@ -24,7 +24,7 @@ def deck_from_cli_arg(db_filename: str, arg: str) -> Deck:
     return deck
 
 
-def card_from_cli_arg(db_filename: str, arg: str):
+def card_from_cli_arg(db_filename: str, arg: str) -> CardWithUsage:
     """
     Interpret a CLI argument as a card ID, partial name, or EDC-123 style
     number, and retrieve the card object
@@ -68,7 +68,7 @@ def select_card_in_deck(db_filename: str, deck_id: int, card_name: str = None, c
     return data[0]
 
 
-def select_card(db_filename: str, name, card_num=None, edition=None):
+def select_card(db_filename: str, name: str, card_num: str | None=None, edition: str | None=None) -> CardWithUsage:
     data = carddb.find(db_filename, name, card_num, edition)
 
     if len(data) < 1:
@@ -80,7 +80,7 @@ def select_card(db_filename: str, name, card_num=None, edition=None):
         
         card_list = []
         for c in data:
-            opt = (c, cardutil.to_str(c))
+            opt = (c, str(c))
             card_list.append(opt)
         
         return cio.select("Multiple cards match; which one should be added?", card_list)
