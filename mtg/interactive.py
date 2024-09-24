@@ -408,10 +408,14 @@ def decks_master_menu(s: Session):
         'name': lambda d, v: v.lower() in d.name.lower(),
         'state': lambda d, v: d.state == v.upper(),
     }
+    extra_options=[
+        CatOption('E', '(E)xport Decks', 'EXPORT'),
+        CatOption('I', '(I)mport Decks', 'IMPORT'),
+    ]
     while True:
         decks = deckdb.get_all(s.db_filename)
         cat_items = [(d, str(d)) for d in decks]
-        selection = catalog_select("MANAGE DECKS", items=cat_items, filter_by=filters, state=s.deck_cat_state)
+        selection = catalog_select("MANAGE DECKS", items=cat_items, filter_by=filters, state=s.deck_cat_state, extra_options=extra_options)
         
         action = selection[0]
         deck: Deck = selection[1]
@@ -427,9 +431,46 @@ def decks_master_menu(s: Session):
             if new_deck is not None:
                 print("Created new deck {!r}".format(new_deck.name))
             cio.pause()
+        elif action == 'EXPORT':
+            s.deck_cat_state = cat_state
+            decks_export(s)
+            cio.pause()
+        elif action == 'IMPORT':
+            s.deck_cat_state = cat_state
+            decks_import(s)
+            cio.pause()
         elif action is None:
             s.deck_cat_state = None
             break
+
+
+def decks_import(s: Session):
+    filenames = []
+    i = 0
+    while True:
+        i += 1
+        filename = input("Path to deck CSV file #{:d} (blank to finish): ".format(i))
+        if filename == '':
+            break
+        filenames.append(filename)
+    if len(filenames) < 1:
+        print("No files given")
+        return
+    
+    deckops.import_csv(s.db_filename, filenames)
+
+
+
+def decks_export(s: Session):
+    path = input("Enter path to export decks to (default .): ")
+    if path == '':
+        path = '.'
+    filename_pattern = input("Enter file pattern (default {DECK}-{DATE}.csv): ")
+    if filename_pattern == '':
+        filename_pattern = '{DECK}-{DATE}.csv'
+
+    deckops.export_csv(s.db_filename, path, filename_pattern)
+
 
 
 def deck_detail_header(deck: Deck, final_bar=True) -> str:

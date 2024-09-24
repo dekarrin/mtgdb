@@ -252,7 +252,6 @@ def import_csv(db_filename, csv_filenames):
 
         print("Successfully imported deck from {:s}".format(csv_filename))
 
-        
 
 def export_csv(db_filename: str, path: str, filename_pattern: str):
     class DeckListing:
@@ -267,7 +266,7 @@ def export_csv(db_filename: str, path: str, filename_pattern: str):
     
     decks = deckdb.get_all(db_filename)
 
-    deck_listings: List[DeckListing] = None  # pylance won't recognize list[DeckListing] so using List[DeckListing] for its benefit
+    deck_listings: List[DeckListing] = []  # pylance won't recognize list[DeckListing] so using List[DeckListing] for its benefit
 
     for deck in decks:
         entry = DeckListing(deck.name, deck.state_name(), deck.owned_count)

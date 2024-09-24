@@ -6,11 +6,13 @@ decks that cards are in as well as how many copies in main inventory are free.
 
 Requires python >= 3.9.
 
-To use, `init-db` a DB. Then, export an inventory list from deckbox, and
-`import` it into the DB. `create-deck` to create a new one. By default, it will
-be in `broken` (`B`) state, and adding cards to it will not count against their
-free total. To fix that, `set-deck-state` to `P` (partial) or `C` (complete)
-state. Then, `add` and `remove` cards to decks as desired.
+To use interactively, execute `./mtgdb.py` and use the online menu system.
+
+To use non-interactively, `init-db` a DB. Then, export an inventory list from
+deckbox, and `import` it into the DB. `create-deck` to create a new one. By
+default, it will be in `broken` (`B`) state, and adding cards to it will not
+count against their free total. To fix that, `set-deck-state` to `P` (partial)
+or `C` (complete) state. Then, `add` and `remove` cards to decks as desired.
 
 To save elsewhere, use `export-decks` to get decklist CSVs that can be saved and
 viewed elsewhere. You can use `import-decks` to bring them back in.
