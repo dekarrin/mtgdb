@@ -45,7 +45,7 @@ class Card:
         self.textless = textless
         self.printing_id = printing_id
         self.printing_note = printing_note
-        self.wishlist_count = wishlist_count
+        self.wishlist_count = wishlist_count  # TODO: this is an annoying property that causes confusion with DeckCard.deck_wishlist_count. Find out who is using it and convert to alternatives.
     
     def __str__(self):
         card_str = "{:s}-{:03d} {!r}".format(self.edition, self.tcg_num, self.name)

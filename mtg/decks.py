@@ -7,17 +7,24 @@ from typing import List
 
 from .errors import DataConflictError, UserCancelledError
 from . import cardutil, db, cio
-from .types import DeckCard, Card
+from .types import DeckCard, Card, Deck, CardWithUsage
 from . import deck_from_cli_arg, card_from_cli_arg
 from .db import deckdb, carddb
 
 
-def remove_from_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
+def remove_from_wishlist(db_filename: str, deck_specifier: str | Deck, card_specifier: str | CardWithUsage, amount: int=1):
     if amount < 1:
         raise ValueError("amount must be at least 1")
 
-    deck = deck_from_cli_arg(db_filename, deck_specifier)
-    card = card_from_cli_arg(db_filename, card_specifier)
+    if isinstance(deck_specifier, Deck):
+        deck = deck_specifier
+    else:
+        deck = deck_from_cli_arg(db_filename, deck_specifier)
+
+    if isinstance(card_specifier, CardWithUsage):
+        card = card_specifier
+    else:
+        card = card_from_cli_arg(db_filename, card_specifier)
 
     # all args are checked and accounted for, perform the operation
     counts = deckdb.get_counts(db_filename, deck.id, card.id)
@@ -31,13 +38,20 @@ def remove_from_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
     print("Removed {:d}x {!s} from wishlist for {:s} ({:d}x remain on WL)".format(amount, str(card), deck.name, new_amt))
 
 
-def add_to_wishlist(db_filename, deck_specifier, card_specifier, amount=1):
+def add_to_wishlist(db_filename: str, deck_specifier: str | Deck, card_specifier: str | CardWithUsage, amount: int=1):
     if amount < 1:
         raise ValueError("amount must be at least 1")
 
     # TODO: move this to invoke and receive deck and card directly when they are actual complete objects
-    deck = deck_from_cli_arg(db_filename, deck_specifier)
-    card = card_from_cli_arg(db_filename, card_specifier)
+    if isinstance(deck_specifier, Deck):
+        deck = deck_specifier
+    else:
+        deck = deck_from_cli_arg(db_filename, deck_specifier)
+
+    if isinstance(card_specifier, CardWithUsage):
+        card = card_specifier
+    else:
+        card = card_from_cli_arg(db_filename, card_specifier)
 
     # all args are checked and accounted for, perform the operation
     counts = deckdb.get_counts(db_filename, deck.id, card.id)

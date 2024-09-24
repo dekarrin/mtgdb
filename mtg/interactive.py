@@ -15,14 +15,15 @@ from typing import Optional, Callable
 from .types import Deck, DeckCard, CardWithUsage, deck_state_to_name
 from . import cio
 from . import cards as cardops
+from . import decks as deckops
 from . import deckbox as deckboxops
 from .errors import DataConflictError, UserCancelledError
 from .db import schema, deckdb, carddb, DBError, NotFoundError
 
 class Session:
-    def __init__(self, db_filename):
-        self.db_filename = db_filename
-        self.running = True
+    def __init__(self, db_filename: str):
+        self.db_filename: str = db_filename
+        self.running: bool = True
         self.deck_cat_state: Optional[CatState] = None
 
 
@@ -126,12 +127,13 @@ def paginate(items: list[any], per_page=10) -> list[list[any]]:
 
 
 class CatOption:
-    def __init__(self, char, displayed, returned_action, selecting=False, confirm=None):
+    def __init__(self, char, displayed, returned_action, selecting=False, confirm=None, title=None):
         self.char: str = char
         self.displayed: str = displayed
         self.returned_action: str = returned_action
         self.selecting: bool = selecting
         self.confirm: Optional[str] = confirm
+        self.title: str = title if title is not None else displayed
 
 
 class CatState:
@@ -322,6 +324,11 @@ def catalog_select(
                 cio.pause()
         elif choice == 'S':
             cio.clear()
+            # print the entire top prompt EXCEPT for the last line
+            if top_prompt is not None:
+                all_but_last = top_prompt.split('\n')[:-1]
+                if len(all_but_last) > 0:
+                    print('\n'.join(all_but_last))
             selected = cio.select("Which one?\n" + ("-" * 22), page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
             if isinstance(selected, str) and selected == '><*>CANCEL<*><':
                 continue
@@ -335,7 +342,11 @@ def catalog_select(
             selected = None
             if eo.selecting:
                 cio.clear()
-                selected = cio.select(eo.displayed, page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
+                if top_prompt is not None:
+                    all_but_last = top_prompt.split('\n')[:-1]
+                    if len(all_but_last) > 0:
+                        print('\n'.join(all_but_last))
+                selected = cio.select(eo.title + '\n' + ("-" * 22), page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
                 if isinstance(selected, str) and selected == '><*>CANCEL<*><':
                     continue
             if eo.confirm is not None:
@@ -343,7 +354,7 @@ def catalog_select(
                 catalog_print_page(page, top_prompt, per_page, fill_empty)
                 if not cio.confirm(eo.confirm):
                     continue
-            return (eo.returned_action, None, CatState(page_num, active_filters, page))
+            return (eo.returned_action, selected, CatState(page_num, active_filters, page))
         else:
             print("Unknown option")
             cio.pause()
@@ -472,9 +483,14 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             CatOption('A', '(A)dd Card', 'ADD'),
         ]
         cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None)
-        if len(cards) > 0:
-            extra_actions.append(CatOption('R', '(R)emove Card', 'REMOVE', selecting=True))
-        
+        wl_cards = [c for c in cards if c.deck_wishlist_count > 0]
+        owned_cards = [c for c in cards if c.deck_count > 0]
+        if len(owned_cards) > 0:
+            extra_actions.append(CatOption('R', '(R)emove Card', 'REMOVE', selecting=True, title='Remove card'))
+        extra_actions.append(CatOption('W', '(W)ishlist Card', 'WISHLIST'))
+        if len(wl_cards) > 0:
+            extra_actions.append(CatOption('U', '(U)nwishlist Card', 'UNWISH', selecting=True, title='Unwishlist card'))
+
         cat_items = []
         for c in cards:
             amounts = []
@@ -499,25 +515,36 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         elif action == 'ADD':
             deck = deck_detail_add(s, deck)
         elif action == 'REMOVE':
-            print(card)
-            cio.pause()
             deck = deck_detail_remove(s, deck, card)
+        elif action == 'WISHLIST':
+            deck = deck_detail_wishlist(s, deck)
+        elif action == 'UNWISH':
+            deck = deck_detail_unwish(s, deck, card)
         elif action is None:
             break
     
     return deck
 
 
-def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
+def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
     cio.clear()
-    if card.deck_count > 1:
-        amt = cio.prompt_int("How many?", min=1, max=card.deck_count, default=1)
+
+    if card.deck_wishlist_count < 1:
+        print(deck_detail_header(deck))
+        print("ERROR: No owned copies of {!s} are in deck; did you mean to (R)emove?".format(card))
+
+    if card.deck_wishlist_count > 1:
+        print(deck_detail_header(deck))
+        amt = cio.prompt_int("Unwishlist how many?", min=1, max=card.deck_wishlist_count, default=1)
     else:
         amt = 1
 
+    # convert card to CardWithUsage
+    card = carddb.get_one(s.db_filename, card.id)
     try:
-        cardops.remove_from_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt)
+        deckops.remove_from_wishlist(s.db_filename, card_specifier=card, deck_specifier=deck, amount=amt)
     except DataConflictError as e:
+            print(deck_detail_header(deck))
             print("ERROR: " + str(e))
             cio.pause()
             return deck
@@ -528,8 +555,68 @@ def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
     return deck
 
 
+def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
+    cio.clear()
+
+    if card.deck_count < 1:
+        print(deck_detail_header(deck))
+        print("ERROR: No owned copies of {!s} are in deck; did you mean to (U)nwish?".format(card))
+        return deck
+
+    if card.deck_count > 1:
+        print(deck_detail_header(deck))
+        amt = cio.prompt_int("Remove how many?", min=1, max=card.deck_count, default=1)
+    else:
+        amt = 1
+
+    try:
+        cardops.remove_from_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt)
+    except DataConflictError as e:
+            print(deck_detail_header(deck))
+            print("ERROR: " + str(e))
+            cio.pause()
+            return deck
+    except UserCancelledError:
+        return deck
+    
+    deck = deckdb.get_one(s.db_filename, deck.id)
+    return deck
+
+
+def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
+    menu_lead = deck_detail_header(deck) + "\nADD CARD TO DECK WISHLIST"
+    cards = carddb.find(s.db_filename, None, None, None)
+
+    cat_items = [(c, str(c)) for c in cards]
+
+    selection = catalog_select(menu_lead, items=cat_items, include_create=False)
+
+    action = selection[0]
+    card: CardWithUsage = selection[1]
+    #cat_state = selection[2]
+
+    cio.clear()
+    if action == 'SELECT':
+        print(deck_detail_header(deck))
+        amt = cio.prompt_int("How many to wishlist?".format(card), min=1, default=1)
+
+        try:
+            deckops.add_to_wishlist(s.db_filename, card_specifier=card, deck_specifier=deck, amount=amt)
+        except DataConflictError as e:
+            print(deck_detail_header(deck))
+            print("ERROR: " + str(e))
+            cio.pause()
+            return deck
+        except UserCancelledError:
+            return deck
+        
+        deck = deckdb.get_one(s.db_filename, deck.id)
+        return deck
+    elif action is None:
+        return deck
+
+
 def deck_detail_add(s: Session, deck: Deck) -> Deck:
-    # TODO: TEST THIS AND CONFIRM AFTER INVENTORY ALLOWS CREATION OR IMPORT
     menu_lead = deck_detail_header(deck) + "\nADD CARD TO DECK"
     cards = carddb.find(s.db_filename, None, None, None)
 
@@ -548,6 +635,7 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
 
     cio.clear()
     if action == 'SELECT':
+        free = card.count - sum([u.count for u in card.usage if u.deck_state in deck_used_states])
         if free < 1:
             print(deck_detail_header(deck))
             print("ERROR: No more free cards of {!s}".format(card))
@@ -556,7 +644,8 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
         elif free == 1:
             amt = 1
         else:
-            amt = cio.prompt_int("How many?".format(card), min=1, max=free, default=1)
+            print(deck_detail_header(deck))
+            amt = cio.prompt_int("Add how many?".format(card), min=1, max=free, default=1)
         
         try:
             cardops.add_to_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt, deck_used_states=deck_used_states)
@@ -633,6 +722,8 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
         actions.append(('C', 'C', deck_state_to_name('C')))
 
     cur_state = deck.state_name()
+
+    # TODO: ensure that it is legal to swap from B to P/C.
     
     actions.append(('K', 'KEEP', 'Keep current state ({:s})'.format(cur_state)))
 

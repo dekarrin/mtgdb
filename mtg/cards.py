@@ -30,7 +30,7 @@ def add_to_deck(db_filename, card_name=None, card_num=None, card_id=None, deck_n
     # wishlist move check
     card_counts = deckdb.get_counts(db_filename, deck.id, card.id)
     wl_move_amt = 0
-    if len(card_counts) is not None:
+    if len(card_counts) > 0:
         # given that the pk of deck_cards is (deck_id, card_id), there should only be one
         counts = card_counts[0]
         if counts['wishlist_count'] > 0:
