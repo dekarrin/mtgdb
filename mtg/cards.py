@@ -90,7 +90,7 @@ def remove_from_deck(db_filename, card_name=None, card_num=None, card_id=None, d
         print("No more copies remain in deck")
 
 
-def remove_inventory_entry(db_filename: str, card_id: int, amount: bool=1):
+def remove_inventory_entry(db_filename: str, card_id: int, amount: int=1):
     card = carddb.get_one(db_filename, card_id)
     counts = carddb.get_deck_counts(db_filename, card['id'])
     total_wishlisted = sum([c['wishlist_count'] for c in counts])
@@ -126,7 +126,7 @@ def remove_inventory_entry(db_filename: str, card_id: int, amount: bool=1):
 
 
 
-def create_inventory_entry(db_filename, amount=None, card_id=None, edition_code=None, tcg_num=None, name='<UNNAMED>', cond='NM', lang='English', foil=False, signed=False, proof=False, altered=False, misprint=False, promo=False, textless=False, pid=0, note=''):
+def create_inventory_entry(db_filename: str, amount: int | None=None, card_id: int | None=None, edition_code: str | None=None, tcg_num: int | None=None, name: str='<UNNAMED>', cond: str='NM', lang: str='English', foil: bool=False, signed: bool=False, proof: bool=False, altered: bool=False, misprint: bool=False, promo: bool=False, textless: bool=False, pid: int=0, note: str=''):
     # sanity checks
     if card_id is None and (tcg_num is None or edition_code is None):
         raise ValueError("must give either card ID or edition_code and TCG number")

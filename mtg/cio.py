@@ -13,17 +13,21 @@ def pause(show_msg=True):
         input("")
 
 
-def select(prompt, options=None, direct_choices=None, fill_to=0):
+def select(prompt, options=None, non_number_choices=None, fill_to=0, default=None):
     # TODO: make this be tuple displayed, returned value.
     """
     Give options as list of tuple - returned value, displayed.
     Give direct_choices as list of tuple - entered value, returned value, displayed
+    Default must be a returned value, not a choice.
     """
 
-    if (options is None or len(options) < 1) and (direct_choices is None or len(direct_choices) < 1):
+    if (options is None or len(options) < 1) and (non_number_choices is None or len(non_number_choices) < 1):
         raise ValueError("Nothing to select")
     
-    print(prompt)
+    if prompt is not None:
+        if default is not None:
+            prompt = "{:s} (default: {!r})".format(prompt, default)
+        print(prompt)
 
     printed_lines = 0
     if options is not None:
@@ -32,8 +36,8 @@ def select(prompt, options=None, direct_choices=None, fill_to=0):
                 idx = -1
             print("{:d}) {:s}".format(idx+1, x[1]), file=sys.stderr)
             printed_lines += 1
-    if direct_choices is not None:
-        for direct in direct_choices:
+    if non_number_choices is not None:
+        for direct in non_number_choices:
             is_a_number = False
             try:
                 int(direct[0])
@@ -57,12 +61,14 @@ def select(prompt, options=None, direct_choices=None, fill_to=0):
         unparsed = input("==> ")
         parsed = None
         is_number = False
+        if default is not None and unparsed.strip() == "":
+            return default
         try:
             parsed = int(unparsed.strip())
             is_number = True
         except ValueError:
             # this is fine as long as there are direct choices.
-            if direct_choices is None or len(direct_choices) < 1:
+            if non_number_choices is None or len(non_number_choices) < 1:
                print("Please enter one of the items above", file=sys.stderr)
                continue
 
@@ -79,7 +85,7 @@ def select(prompt, options=None, direct_choices=None, fill_to=0):
                     print("Please enter one of the items above", file=sys.stderr)
         else:
             direct_select = unparsed.strip().upper()
-            for idx, x in enumerate(direct_choices):
+            for idx, x in enumerate(non_number_choices):
                 if direct_select == x[0]:
                     direct_idx = idx
                     break
@@ -90,18 +96,20 @@ def select(prompt, options=None, direct_choices=None, fill_to=0):
         selected_option = options[selected_idx]
         return selected_option[0]
     elif direct_idx is not None:
-        selected_option = direct_choices[direct_idx]
+        selected_option = non_number_choices[direct_idx]
         return selected_option[1]
     else:
         raise Exception("Should never happen")
 
 
-def prompt_choice(prompt, choices, transform=lambda x: x.strip().upper()) -> str:
+def prompt_choice(prompt, choices, transform=lambda x: x.strip().upper(), default=None) -> str:
     """
     Automatically strips input and converts it to upper case; modify transform
     param to alter this behavior.
     """
     if prompt is not None:
+        if default is not None:
+            prompt = "{:s} (default: {!r})".format(prompt, default)
         print(prompt)
 
     selected = None
@@ -116,7 +124,7 @@ def prompt_choice(prompt, choices, transform=lambda x: x.strip().upper()) -> str
 
 
 def prompt_int(prompt, min=None, max=None, default: int | None=None):
-    if default:
+    if default is not None:
         prompt = "{:s} (default: {:d})".format(prompt, default)
     print(prompt)
     err_msg = "Please enter an integer"
@@ -151,13 +159,21 @@ def prompt_int(prompt, min=None, max=None, default: int | None=None):
     return parsed
 
 
-def confirm(preprompt):
-    print(preprompt)
+def confirm(preprompt, one_line: bool=False, default: bool | None=None):
+    if default is not None:
+        preprompt = "{:s} (default: {!r})".format(preprompt, 'YES' if default else 'NO')
+    
+    if not one_line:
+        print(preprompt)
     
     confirmed = None
     
     while confirmed is None:
-        c = input("(Y/N) ")
+        if one_line:
+            c = input("{:s} (Y/N) ".format(preprompt))
+        else:
+            c = input("(Y/N) ")
+        
         c = c.upper()
         
         if c == "Y" or c == "YES":
@@ -165,6 +181,6 @@ def confirm(preprompt):
         elif c == "N" or c == "NO":
             confirmed = False
         else:        
-            print("Please type 'YES' or 'NO'")
+            print("Please type 'Y'/'YES' or 'N'/'NO'")
         
     return confirmed

@@ -14,6 +14,7 @@ def parse_cardnum(cardnum: str):
     
 
 def deck_state_to_name(state: str) -> str:
+    state = state.upper()
     if state == 'B':
         return 'Broken Down'
     elif state == 'P':
@@ -22,6 +23,24 @@ def deck_state_to_name(state: str) -> str:
         return 'Complete'
     else:
         return '(' + state + ')'
+    
+
+def card_condition_to_name(cond: str) -> str:
+    cond = cond.upper()
+    if cond == 'M':
+        return 'Mint'
+    if cond == 'NM':
+        return 'Near Mint'
+    elif cond == 'LP':
+        return 'Lightly Played'
+    elif cond == 'MP':
+        return 'Moderately Played'
+    elif cond == 'HP':
+        return 'Heavily Played'
+    elif cond == 'P':
+        return 'Poor/Damaged'
+    else:
+        return '(' + cond + ')'
 
 
 # TODO: come back to this

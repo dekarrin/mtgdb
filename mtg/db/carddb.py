@@ -20,7 +20,7 @@ def get_all(db_filename: str) -> list[Card]:
     return data
 
 
-def get_id_by_reverse_search(db_filename, name, edition, tcg_num, condition, language, foil, signed, artist_proof, altered_art, misprint, promo, textless, printing_id, printing_note):
+def get_id_by_reverse_search(db_filename: str, name: str, edition: str, tcg_num: int, condition: str, language: str, foil: bool, signed: bool, artist_proof: bool, altered_art: bool, misprint: bool, promo: bool, textless: bool, printing_id: int, printing_note: str):
     con = util.connect(db_filename)
     cur = con.cursor()
     
@@ -216,6 +216,19 @@ def update_count(db_filename: str, cid: int, count: int | None=None, by_amount: 
     return new_count
 
 
+def update_condition(db_filename: str, cid: int, cond: str):
+    if cond not in ['M', 'NM', 'LP', 'MP', 'HP', 'P']:
+        raise ValueError("invalid condition {!r}".format(cond))
+
+    query = sql_update_cond
+    params = (cond, cid)
+
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute(query, params)
+    con.commit()
+    con.close()
+
 
 def delete(db_filename, cid):
     con = util.connect(db_filename)
@@ -299,7 +312,7 @@ FROM inventory WHERE
     edition = ? AND
     tcg_num = ? AND
     condition = ? AND
-    language = ? AND
+    language LIKE '%' || ? || '%' AND
     foil = ? AND
     signed = ? AND
     artist_proof = ? AND
@@ -452,6 +465,17 @@ WHERE
     id=?
 RETURNING count;
 '''
+
+    
+sql_update_cond = '''
+UPDATE
+    inventory
+SET
+    condition=?
+WHERE
+    id=?
+'''
+
 
 sql_update_count_by = '''
 UPDATE

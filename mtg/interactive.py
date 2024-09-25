@@ -12,7 +12,7 @@ import traceback
 
 from typing import Optional, Callable
 
-from .types import Deck, DeckCard, CardWithUsage, deck_state_to_name
+from .types import Deck, DeckCard, Card, CardWithUsage, deck_state_to_name, parse_cardnum, card_condition_to_name
 from . import cio
 from . import cards as cardops
 from . import decks as deckops
@@ -172,6 +172,7 @@ def catalog_select(
         fill_empty: bool=True,
         state: Optional[CatState]=None,
         include_create: bool=True,
+        include_select: bool=True,
         extra_options: Optional[list[CatOption]]=None
     ) -> tuple[str, Optional[any], CatState]:
     """
@@ -254,7 +255,7 @@ def catalog_select(
         if filter_by is not None and len(filter_by) > 0:
             print("(F)ilter,", end=' ')
             avail_choices.append('F')
-        if len(page) > 0:
+        if include_select and len(page) > 0:
             print("(S)elect,", end=' ')
             avail_choices.append('S')
         if include_create:
@@ -282,7 +283,7 @@ def catalog_select(
                 catalog_print_page(page, top_prompt, per_page, fill_empty)
                 filter_opts = [(k, k.upper()) for k in filter_by]
                 cancel_opt = [('C', '><*>CANCEL<*><', 'CANCEL')]
-                filter_key = cio.select("ADD/EDIT FILTER ON:", filter_opts, direct_choices=cancel_opt)
+                filter_key = cio.select("ADD/EDIT FILTER ON:", filter_opts, non_number_choices=cancel_opt)
                 if filter_key == '><*>CANCEL<*><':
                     continue
                 cio.clear()
@@ -306,7 +307,7 @@ def catalog_select(
                     cio.pause()
                     continue
                 other_opts = [('A', '><*>ALL<*><', 'ALL'), ('C', '><*>CANCEL<*><', 'CANCEL')]
-                filter_key = cio.select("REMOVE FILTER ON:", filter_opts, direct_choices=other_opts)
+                filter_key = cio.select("REMOVE FILTER ON:", filter_opts, non_number_choices=other_opts)
                 if filter_key == '><*>CANCEL<*><':
                     continue
                 elif filter_key == '><*>ALL<*><':
@@ -322,14 +323,14 @@ def catalog_select(
             else:
                 print("Unknown option")
                 cio.pause()
-        elif choice == 'S':
+        elif include_select and choice == 'S':
             cio.clear()
             # print the entire top prompt EXCEPT for the last line
             if top_prompt is not None:
                 all_but_last = top_prompt.split('\n')[:-1]
                 if len(all_but_last) > 0:
                     print('\n'.join(all_but_last))
-            selected = cio.select("Which one?\n" + ("-" * 22), page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
+            selected = cio.select("Which one?\n" + ("-" * 22), page, non_number_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
             if isinstance(selected, str) and selected == '><*>CANCEL<*><':
                 continue
             return ('SELECT', selected, CatState(page_num, active_filters, page))
@@ -346,7 +347,7 @@ def catalog_select(
                     all_but_last = top_prompt.split('\n')[:-1]
                     if len(all_but_last) > 0:
                         print('\n'.join(all_but_last))
-                selected = cio.select(eo.title + '\n' + ("-" * 22), page, direct_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
+                selected = cio.select(eo.title + '\n' + ("-" * 22), page, non_number_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
                 if isinstance(selected, str) and selected == '><*>CANCEL<*><':
                     continue
             if eo.confirm is not None:
@@ -363,6 +364,7 @@ def catalog_select(
 def cards_master_menu(s: Session):
     extra_actions = [
         CatOption('I', '(I)mport', 'IMPORT'),
+        CatOption('A', '(A)dd', 'ADD'),
     ]
     filters = {
         'name': lambda c, v: v.lower() in c.name.lower(),
@@ -383,13 +385,231 @@ def cards_master_menu(s: Session):
 
         cio.clear()
         if action == 'SELECT':
+            card_usage = carddb.get_one(s.db_filename, card.id)
+            cards_detail_menu(s, card_usage)
             print("You have selected {!s}".format(card))
             print("NOTHING IMPLEMENTED YET")
             cio.pause()
+        elif action == 'ADD':
+            cards_add(s)
         elif action == 'IMPORT':
             cards_import(s)
         elif action is None:
             break
+
+
+def card_detail_header(c: CardWithUsage, final_bar=True) -> str:
+    deck_used_states = ['P', 'C']
+    wishlist_total = sum([u.wishlist_count for u in c.usage])
+    in_decks = sum([u.count for u in c.usage if u.deck_state in deck_used_states])
+    free = c.count - in_decks
+
+    hdr = "CARD\n"
+    hdr += "-" * 22 + "\n"
+    hdr += "{:s} (ID {:d})\n".format(str(c), c.id)
+    hdr += "Condition: {:s} ({:s}), Language: {:s}\n".format(card_condition_to_name(c.condition), c.condition, c.language)
+    hdr += "{:d}x owned\n".format(c.count)
+
+    wls_count = len([u for u in c.usage if u.wishlist_count > 0])
+    decks_count = len([u for u in c.usage if u.count > 0])
+
+    s_decklist = 's' if decks_count != 1 else ''
+    s_wishlist = 's' if wls_count != 1 else ''
+
+    hdr += "{:d}x in {:d} decklist{:s} ({:d}x free), {:d}x on {:d} wishlist{:s}\n".format(in_decks, decks_count, s_decklist, free, wishlist_total, wls_count, s_wishlist)
+    if final_bar:
+        hdr += "\n" + "-" * 22
+    return hdr
+
+
+def cards_detail_menu(s: Session, card: CardWithUsage):
+    while True:
+        cio.clear()
+        print(card_detail_header(card))
+
+        actions = [
+            ('D', 'DECKS', 'View decks this card is in'),
+            ('C', 'COND', 'Set card condition'),
+            ('A', 'ADD', 'Add owned count'),
+            ('R', 'REMOVE', 'Remove owned count'),
+            ('X', 'EXIT', 'Exit')
+        ]
+        action = cio.select("ACTIONS", non_number_choices=actions)
+        cio.clear()
+
+        if action == 'DECKS':
+            card_decks_menu(s, card)
+        elif action == 'COND':
+            card = card_set_condition(s, card)
+        elif action == 'ADD':
+            card = card_add_single(s, card)
+        elif action == 'REMOVE':
+            card = card_remove_single(s, card)
+
+            # if user just cleared the entry, break out
+            if card = None:
+                break
+        elif action == 'EXIT':
+            break
+
+
+def cards_decks_menus(s: Session, c: CardWithUsage):
+    while True:
+        menu_lead = card_detail_header(card) + "\nUSAGE"
+        cat_items = []
+        for u in c.usage:
+            " {:d}x in {:s} ({:s}),".format(u.count, u.deck_name, u.deck_state)
+            cat_items.append((u, card_str))
+        
+        selection = catalog_select(menu_lead, items=cat_items, include_create=False, include_select=False)
+        
+        action = selection[0]
+        card: DeckCard = selection[1]
+        #cat_state = selection[2]
+
+        cio.clear()
+        if action == 'SELECT':
+            print(deck_detail_header(deck))
+            print("You have selected {!s}".format(card))
+            cio.pause()
+        elif action == 'ADD':
+            deck = deck_detail_add(s, deck)
+        elif action == 'REMOVE':
+            deck = deck_detail_remove(s, deck, card)
+        elif action == 'WISHLIST':
+            deck = deck_detail_wishlist(s, deck)
+        elif action == 'UNWISH':
+            deck = deck_detail_unwish(s, deck, card)
+        elif action is None:
+            break
+    
+    return deck
+
+
+def card_remove_single(s: Session, c: CardWithUsage) -> CardWithUsage | None:
+    if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
+        return c
+    
+    amt = cio.prompt_int("How many to remove?", min=0, default=0)
+    if amt == 0:
+        return c
+    
+    try:
+        cardops.remove_inventory_entry(s.db_filename, c.id, amt)
+        try:
+            c = carddb.get_one(s.db_filename, c.id)
+        except NotFoundError:
+            c = None
+    except DataConflictError as e:
+        print("ERROR: {!s}".format(e))
+    except UserCancelledError as e:
+        return c
+    
+    cio.pause()
+    return c
+
+
+def card_set_condition(s: Session, c: CardWithUsage) -> CardWithUsage:
+    if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
+        return c
+
+    new_cond = cio.prompt_choice("Condition", ['M', 'NM', 'LP', 'MP', 'HP', 'P'], default=c.condition)
+    if new_cond == c.condition:
+        print("Condition not changed")
+        cio.pause()
+        return c
+    
+    carddb.update_condition(s.db_filename, c.id, new_cond)
+    c.condition = new_cond
+    return c
+
+
+def card_add_single(s: Session, c: CardWithUsage) -> CardWithUsage:
+    if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
+        return c
+    
+    amt = cio.prompt_int("How many to add?", min=0, default=1)
+    if amt == 0:
+        return c
+    
+    try:
+        cardops.create_inventory_entry(s.db_filename, amt, c.id)
+        c = carddb.get_one(s.db_filename, c.id)
+    except DataConflictError as e:
+        print("ERROR: {!s}".format(e))
+    except UserCancelledError as e:
+        return c
+    
+    cio.pause()
+    return c
+
+
+def cards_add(s: Session):
+    if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
+        return
+    
+    print("Add New Inventory Entry")
+    c = Card()
+    c.name = input("Card name (empty to cancel): ")
+    if c.name.strip() == '':
+        return
+    
+    while True:
+        card_num = input("Card number in EDN-123 format (empty to cancel): ")
+        if card_num.strip() == '':
+            return
+        try:
+            c.tcg_num, c.edition = parse_cardnum(card_num)
+            break
+        except ValueError as e:
+            print("ERROR: {!s}".format(e))
+    
+    c.condition = cio.prompt_choice("Condition", ['M', 'NM', 'LP', 'MP', 'HP', 'P'], default='NM')
+    c.language = input("Language (default English): ")
+    if c.language.strip() == '':
+        c.language = 'English'
+    c.foil = cio.confirm("Foil?", one_line=True, default=False)
+    c.signed = cio.confirm("Signed?", one_line=True, default=False)
+    c.artist_proof = cio.confirm("Artist Proof?", one_line=True, default=False)
+    c.altered_art = cio.confirm("Altered Art?", one_line=True, default=False)
+    c.misprint = cio.confirm("Misprint?", one_line=True, default=False)
+    c.promo = cio.confirm("Promo?", one_line=True, default=False)
+    c.textless = cio.confirm("Textless?", one_line=True, default=False)
+    c.printing_id = cio.prompt_int("Printing ID", min=0, default=0)
+    c.printing_note = input("Printing Note: ")
+
+    # okay, check if it already exists and let the user know if so
+    try:
+        cid = carddb.get_id_by_reverse_search(s.db_filename, c.name, c.edition, c.tcg_num, c.condition, c.language, c.foil, c.signed, c.artist_proof, c.altered_art, c.misprint, c.promo, c.textless, c.printing_id, c.printing_note)
+        c.id = cid
+    except NotFoundError:
+        pass
+
+    amt = 0
+    if c.id is not None:
+        cio.clear()
+        print("{:s} already exists in inventory with ID {:d}".format(str(c), c.id))
+        if not cio.confirm("Increment count in inventory?"):
+            return
+        amt = cio.prompt_int("How much? (0 to cancel)", min=1, default=1)
+        if amt == 0:
+            return
+    else:
+        amt = cio.prompt_int("How many?", min=0, default=0)
+    
+    cio.clear()
+    if not cio.confirm("Add {:d}x {!s} to inventory?".format(amt, c)):
+        return
+
+    try:
+        cardops.create_inventory_entry(s.db_filename, amt, edition_code=c.edition, tcg_num=c.tcg_num, name=c.name, cond=c.condition, lang=c.language, foil=c.foil, signed=c.signed, artist_proof=c.artist_proof, altered_art=c.altered_art, misprint=c.misprint, promo=c.promo, textless=c.textless, pid=c.printing_id, note=c.printing_note)
+    except DataConflictError as e:
+        print("ERROR: {!s}".format(e))
+    except UserCancelledError as e:
+        return
+    
+    cio.pause()
+
 
 def cards_import(s: Session):
     csv_file = input("Deckbox CSV file: ")
@@ -495,7 +715,7 @@ def deck_detail_menu(s: Session, deck: Deck):
             ('D', 'DELETE', 'Delete deck'),
             ('X', 'EXIT', 'Exit')
         ]
-        action = cio.select("ACTIONS", direct_choices=actions)
+        action = cio.select("ACTIONS", non_number_choices=actions)
         cio.clear()
 
         if action == 'CARDS':
@@ -767,7 +987,7 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
     actions.append(('K', 'KEEP', 'Keep current state ({:s})'.format(cur_state)))
 
     print(deck_detail_header(deck))
-    new_state = cio.select("NEW STATE", direct_choices=actions)
+    new_state = cio.select("NEW STATE", non_number_choices=actions)
     cio.clear()
 
     if new_state == 'KEEP':
