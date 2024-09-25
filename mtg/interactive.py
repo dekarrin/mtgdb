@@ -446,10 +446,8 @@ def decks_master_menu(s: Session):
 
 def decks_import(s: Session):
     filenames = []
-    i = 0
     while True:
-        i += 1
-        filename = input("Path to deck CSV file #{:d} (blank to finish): ".format(i))
+        filename = input("Path to deck CSV file #{:d} (blank to finish): ".format(len(filenames) + 1))
         if filename == '':
             break
         filenames.append(filename)
