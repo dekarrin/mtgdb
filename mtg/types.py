@@ -142,6 +142,13 @@ class CardWithUsage(Card):
 
     def clone(self) -> 'CardWithUsage':
         return CardWithUsage(super().clone(), [u.clone() for u in self.usage])
+    
+    def deck_count(self) -> int:
+        """Return the total number of decks this card is in or wishlisted in."""
+        if self.usage is None:
+            return 0
+        
+        return len(self.usage)
 
 
 class DeckCard(Card):

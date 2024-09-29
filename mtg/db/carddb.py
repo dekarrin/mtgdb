@@ -53,13 +53,14 @@ def get_one(db_filename: str, cid: int) -> CardWithUsage:
             unique_cards[card.id] = new_entry
             order += 1
 
-        if r[17] is not None:
+        if r[18] is not None:
             card = unique_cards[r[0]][0]
             card.usage.append(Usage(
                 count=r[16],
-                deck_id=r[17],
-                deck_name=r[18],
-                deck_state=r[19]
+                wishlist_count=r[17],
+                deck_id=r[18],
+                deck_name=r[19],
+                deck_state=r[20]
             ))
 
             unique_cards[card.id] = (card, unique_cards[card.id][1])
@@ -81,7 +82,7 @@ def get_one(db_filename: str, cid: int) -> CardWithUsage:
     return rows[0]
 
 
-def get_deck_counts(db_filename, card_id):
+def get_deck_counts(db_filename: str, card_id: int) -> list[dict]:
     con = util.connect(db_filename)
     cur = con.cursor()
     
@@ -131,7 +132,7 @@ def find(db_filename: str, name: str | None, card_num: str | None, edition: str 
             unique_cards[card.id] = new_entry
             order += 1
 
-        if r[16] is not None or r[17] is not None:
+        if r[18] is not None:
             card = unique_cards[r[0]][0]
             card.usage.append(Usage(
                 count=r[16],
@@ -295,7 +296,7 @@ SELECT
     dc.deck,
     dc.count,
     dc.wishlist_count,
-    d.deck_name
+    d.name
 FROM
     deck_cards AS dc
 INNER JOIN decks AS d ON dc.deck = d.id
@@ -343,6 +344,7 @@ SELECT
     c.printing_id,
     c.printing_note,
     dc.count AS count_in_deck,
+    dc.wishlist_count AS wishlist_count_in_deck,
     d.id AS deck_id,
     d.name AS deck_name,
     d.state AS deck_state

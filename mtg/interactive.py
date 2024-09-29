@@ -25,6 +25,7 @@ class Session:
         self.db_filename: str = db_filename
         self.running: bool = True
         self.deck_cat_state: Optional[CatState] = None
+        self.inven_cat_state: Optional[CatState] = None
 
 
 def start(db_filename):
@@ -164,11 +165,26 @@ def catalog_print_page(page: list[tuple[any, str]], top_prompt: Optional[str]=No
     print("----------------------")
 
 
+class CatFilter:
+    def __init__(self, name: str, fn: Callable[[any, str], bool], normalize: Optional[Callable[[str], str]]=None, fmt_hint: str | None=None):
+        self.name = name
+        self.apply = fn
+        self.fmt_hint = fmt_hint
+        if normalize is not None:
+            self.normalize = normalize
+        else:
+            def noop(x: str) -> str:
+                return x
+            self.normalize = noop
+
+
+
+
 def catalog_select(
         top_prompt: Optional[str],
         items: list[tuple[any, str]],
         per_page: int=10,
-        filter_by: dict[str, Callable[[any, str], bool]]=None,
+        filters: list[CatFilter]=None,
         fill_empty: bool=True,
         state: Optional[CatState]=None,
         include_create: bool=True,
@@ -180,6 +196,10 @@ def catalog_select(
     tuple containing the action ((None), 'CREATE', 'SELECT'), and if an item selected, the item. Allows
     creation of new to be specified in the action.
     """
+
+    filter_by: dict[str, CatFilter] = None
+    if filters is not None:
+        filter_by = {f.name: f for f in filters}
 
     reserved_option_keys = ['X', 'S', 'N', 'P', 'F']
     if include_create:
@@ -204,7 +224,7 @@ def catalog_select(
         for k in active_filters:
             f = filter_by[k]
             filter_val = active_filters[k]
-            filtered_items = [x for x in filtered_items if f(x[0], filter_val)]
+            filtered_items = [x for x in filtered_items if f.apply(x[0], filter_val)]
         items = filtered_items
         pages = paginate(items, per_page)
         if page_num >= len(pages):
@@ -239,7 +259,7 @@ def catalog_select(
         catalog_print_page(page, top_prompt, per_page, fill_empty)
         if filter_by is not None:
             if len(active_filters) > 0:
-                print(' AND '.join(["{:s}={!r}".format(k.upper(), v) for k, v in active_filters.items()]))
+                print(' AND '.join(["{:s}:{!r}".format(k.upper(), v) for k, v in active_filters.items()]))
             else:
                 print("(NO FILTERS)")
         print("{:d} total (Page {:d}/{:d})".format(len(items), max(page_num+1, 1), max(len(pages), 1)))
@@ -287,13 +307,31 @@ def catalog_select(
                 if filter_key == '><*>CANCEL<*><':
                     continue
                 cio.clear()
+                f = filter_by[filter_key]
                 catalog_print_page(page, top_prompt, per_page, fill_empty)
-                filter_val = input(filter_key.title() + ": ")
-                if filter_val.strip() == '':
+                filter_expr = None
+                while filter_expr is None:
+                    hint = ""
+                    if f.fmt_hint is not None:
+                        hint = " ({:s})".format(f.fmt_hint)
+                    filter_val = input(f.name.title() + hint + ": ")
+                    if filter_val.strip() == '':
+                        break
+                    try:
+                        normalized = f.normalize(filter_val)
+                        if normalized is not None and normalized != '':
+                            filter_val = normalized
+                    except Exception as e:
+                        print("ERROR: {!s}".format(e))
+                    else:
+                        filter_expr = filter_val
+
+                if filter_expr is None:
                     print("No filter added")
                     cio.pause()
                     continue
-                active_filters[filter_key] = filter_val
+
+                active_filters[filter_key] = filter_expr
 
                 # update pages to be filtered
                 pages, page_num = apply_filters(items, page_num, active_filters)
@@ -362,52 +400,133 @@ def catalog_select(
 
 
 def cards_master_menu(s: Session):
+    def num_expr(val: str):
+        # it can either be an exact number, or a comparator followed by a number
+        val = val.strip()
+        if val.isdigit():
+            return '=' + val
+        
+        # replace all ws runs with space:
+        val = ' '.join(val.split())
+
+        # remove all spaces:
+        val = val.replace(' ', '')
+
+        # examine first character:
+        if len(val) == 0:
+            # should never happen
+            raise ValueError("Empty string")
+        
+        if not val.startswith(('<', '>', '<=', '>=', '=', '!=', '==')):
+            raise ValueError("Operator must be one of <, >, <=, >=, =, !=")
+        
+        num = None
+        op = None
+        # get the number
+        # try the ones with most chars first so we do not have false positives
+        if val.startswith(('<=', '>=', '!=', '==')):
+            if len(val) < 3:
+                raise ValueError("Missing number after operator")
+            op = val[:2]
+            num = val[2:]
+        elif val.startswith(('>', '<', '=')):
+            if len(val) < 2:
+                raise ValueError("Missing number after operator")
+            op = val[0]
+            num = val[1:]
+        else:
+            # should never happen
+            raise ValueError("Unknown operator")
+
+        if not num.isdigit():
+            raise ValueError("Not a number: {!r}".format(num))
+        
+        if op == '==':
+            op = '='
+
+        return op + num
+    
+    def num_expr_matches(against: int, expr: str) -> bool:
+        # assume above func already normalized it.
+
+        num = 0
+        op = ''
+        if expr.startswith(('<=', '>=', '!=')):
+            num = int(expr[2:])
+            op = expr[:2]
+        elif expr.startswith(('<', '>', '=')):
+            num = int(expr[1:])
+            op = expr[:1]
+        else:
+            # should never happen
+            raise ValueError("Unknown operator")
+        
+        if op == '<':
+            return against < num
+        elif op == '>':
+            return against > num
+        elif op == '=':
+            return against == num
+        elif op == '<=':
+            return against <= num
+        elif op == '>=':
+            return against >= num
+        elif op == '!=':
+            return against != num
+        else:
+            # should never happen
+            raise ValueError("Unknown operator")
+
+
     extra_actions = [
         CatOption('I', '(I)mport', 'IMPORT'),
         CatOption('A', '(A)dd', 'ADD'),
     ]
-    filters = {
-        'name': lambda c, v: v.lower() in c.name.lower(),
-        'edition': lambda c, v: v.lower() in c.edition.lower(),
-    }
+    filters = [
+        CatFilter('name', lambda c, v: v.lower() in c.name.lower()),
+        CatFilter('edition', lambda c, v: v.lower() in c.edition.lower()),
+        CatFilter('in_decks', lambda c, v: num_expr_matches(c.deck_count(), v), normalize=num_expr)
+    ]
     while True:
-        cards = carddb.get_all(s.db_filename)
+        cards = carddb.find(s.db_filename, None, None, None)
 
         # sort them
         cards = sorted(cards, key=lambda c: (c.edition, c.tcg_num))
 
         cat_items = [(c, "{:d}x {:s}".format(c.count, str(c))) for c in cards]
-        selection = catalog_select("MANAGE CARDS", items=cat_items, extra_options=extra_actions, include_create=False, filter_by=filters)
+        selection = catalog_select("MANAGE CARDS", items=cat_items, extra_options=extra_actions, include_create=False, filters=filters, state=s.inven_cat_state)
 
         action = selection[0]
         card: CardWithUsage = selection[1]
-        #cat_state = selection[2]
+        cat_state = selection[2]
 
         cio.clear()
         if action == 'SELECT':
+            s.inven_cat_state = cat_state
             card_usage = carddb.get_one(s.db_filename, card.id)
             cards_detail_menu(s, card_usage)
-            print("You have selected {!s}".format(card))
-            print("NOTHING IMPLEMENTED YET")
-            cio.pause()
         elif action == 'ADD':
+            s.inven_cat_state = cat_state
             cards_add(s)
         elif action == 'IMPORT':
+            s.inven_cat_state = cat_state
             cards_import(s)
         elif action is None:
+            s.inven_cat_state = None
             break
 
 
 def card_detail_header(c: CardWithUsage, final_bar=True) -> str:
     deck_used_states = ['P', 'C']
     wishlist_total = sum([u.wishlist_count for u in c.usage])
-    in_decks = sum([u.count for u in c.usage if u.deck_state in deck_used_states])
-    free = c.count - in_decks
+    in_decks = sum([u.count for u in c.usage])
+    in_decks_unfree = sum([u.count for u in c.usage if u.deck_state in deck_used_states])
+    free = c.count - in_decks_unfree
 
     hdr = "CARD\n"
     hdr += "-" * 22 + "\n"
     hdr += "{:s} (ID {:d})\n".format(str(c), c.id)
-    hdr += "Condition: {:s} ({:s}), Language: {:s}\n".format(card_condition_to_name(c.condition), c.condition, c.language)
+    hdr += "{:s} ({:s}), {:s}\n".format(card_condition_to_name(c.condition), c.condition, c.language)
     hdr += "{:d}x owned\n".format(c.count)
 
     wls_count = len([u for u in c.usage if u.wishlist_count > 0])
@@ -416,7 +535,8 @@ def card_detail_header(c: CardWithUsage, final_bar=True) -> str:
     s_decklist = 's' if decks_count != 1 else ''
     s_wishlist = 's' if wls_count != 1 else ''
 
-    hdr += "{:d}x in {:d} decklist{:s} ({:d}x free), {:d}x on {:d} wishlist{:s}\n".format(in_decks, decks_count, s_decklist, free, wishlist_total, wls_count, s_wishlist)
+    hdr += "{:d}x in {:d} decklist{:s} ({:d}x free)\n".format(in_decks, decks_count, s_decklist, free)
+    hdr += "{:d}x on {:d} wishlist{:s}".format(wishlist_total, wls_count, s_wishlist)
     if final_bar:
         hdr += "\n" + "-" * 22
     return hdr
@@ -447,46 +567,36 @@ def cards_detail_menu(s: Session, card: CardWithUsage):
             card = card_remove_single(s, card)
 
             # if user just cleared the entry, break out
-            if card = None:
+            if card is None:
                 break
         elif action == 'EXIT':
             break
 
 
-def cards_decks_menus(s: Session, c: CardWithUsage):
+def card_decks_menu(s: Session, c: CardWithUsage):
     while True:
-        menu_lead = card_detail_header(card) + "\nUSAGE"
+        menu_lead = card_detail_header(c) + "\nUSAGE"
         cat_items = []
         for u in c.usage:
-            " {:d}x in {:s} ({:s}),".format(u.count, u.deck_name, u.deck_state)
-            cat_items.append((u, card_str))
+            if u.count > 0:
+                item = "{:d}x in {:s} ({:s}),".format(u.count, u.deck_name, u.deck_state)
+                cat_items.append(('', item))
+            if u.wishlist_count > 0:
+                item = "{:d}x on wishlist in {:s}".format(u.wishlist_count, u.deck_name)
+                cat_items.append(('', item))
         
         selection = catalog_select(menu_lead, items=cat_items, include_create=False, include_select=False)
         
         action = selection[0]
-        card: DeckCard = selection[1]
-        #cat_state = selection[2]
 
-        cio.clear()
-        if action == 'SELECT':
-            print(deck_detail_header(deck))
-            print("You have selected {!s}".format(card))
-            cio.pause()
-        elif action == 'ADD':
-            deck = deck_detail_add(s, deck)
-        elif action == 'REMOVE':
-            deck = deck_detail_remove(s, deck, card)
-        elif action == 'WISHLIST':
-            deck = deck_detail_wishlist(s, deck)
-        elif action == 'UNWISH':
-            deck = deck_detail_unwish(s, deck, card)
-        elif action is None:
+        if action is None:
             break
-    
-    return deck
+
+
 
 
 def card_remove_single(s: Session, c: CardWithUsage) -> CardWithUsage | None:
+    print(card_detail_header(c))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         return c
     
@@ -510,6 +620,7 @@ def card_remove_single(s: Session, c: CardWithUsage) -> CardWithUsage | None:
 
 
 def card_set_condition(s: Session, c: CardWithUsage) -> CardWithUsage:
+    print(card_detail_header(c))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         return c
 
@@ -525,6 +636,7 @@ def card_set_condition(s: Session, c: CardWithUsage) -> CardWithUsage:
 
 
 def card_add_single(s: Session, c: CardWithUsage) -> CardWithUsage:
+    print(card_detail_header(c))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         return c
     
@@ -625,8 +737,8 @@ def cards_import(s: Session):
 
 def decks_master_menu(s: Session):
     filters = {
-        'name': lambda d, v: v.lower() in d.name.lower(),
-        'state': lambda d, v: d.state == v.upper(),
+        CatFilter('name', lambda d, v: v.lower() in d.name.lower()),
+        CatFilter('state', lambda d, v: d.state == v.upper()),
     }
     extra_options=[
         CatOption('E', '(E)xport Decks', 'EXPORT'),
@@ -635,7 +747,7 @@ def decks_master_menu(s: Session):
     while True:
         decks = deckdb.get_all(s.db_filename)
         cat_items = [(d, str(d)) for d in decks]
-        selection = catalog_select("MANAGE DECKS", items=cat_items, filter_by=filters, state=s.deck_cat_state, extra_options=extra_options)
+        selection = catalog_select("MANAGE DECKS", items=cat_items, filters=filters, state=s.deck_cat_state, extra_options=extra_options)
         
         action = selection[0]
         deck: Deck = selection[1]

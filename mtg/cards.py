@@ -92,7 +92,7 @@ def remove_from_deck(db_filename, card_name=None, card_num=None, card_id=None, d
 
 def remove_inventory_entry(db_filename: str, card_id: int, amount: int=1):
     card = carddb.get_one(db_filename, card_id)
-    counts = carddb.get_deck_counts(db_filename, card['id'])
+    counts = carddb.get_deck_counts(db_filename, card.id)
     total_wishlisted = sum([c['wishlist_count'] for c in counts])
     total_in_decks = sum([c['count'] for c in counts])
 
