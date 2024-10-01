@@ -119,8 +119,10 @@ CREATE TABLE "inventory" (
     "textless"        INTEGER NOT NULL DEFAULT 0,
     "printing_id"     INTEGER NOT NULL,
     "printing_note"   TEXT,
+    "scryfall_id"     INTEGER,
     FOREIGN KEY("condition") REFERENCES "conditions"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     FOREIGN KEY("edition") REFERENCES "editions"("code") ON DELETE NO ACTION ON UPDATE CASCADE,
+    FOREIGN KEY("scryfall_id") REFERENCES "gameplay_data"("scryfall_id") ON DELETE NO ACTION ON UPDATE CASCADE,
     PRIMARY KEY("id" AUTOINCREMENT)
 )
 '''
@@ -139,6 +141,23 @@ CREATE TABLE "deck_cards" (
     FOREIGN KEY("deck") REFERENCES "decks"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     PRIMARY KEY("card", "deck")
 );
+'''
+
+sql_drop_gameplay_data = '''
+DROP TABLE IF EXISTS "gameplay_data";
+'''
+
+sql_create_gameplay_data = '''
+CREATE TABLE "gameplay_data" (
+    "scryfall_id"  INTEGER NOT NULL,
+    "face_index"   INTEGER NOT NULL,
+    "name"         TEXT NOT NULL,
+    "mana_cost"    TEXT NOT NULL,
+    "type"         TEXT NOT NULL,
+    "power"        INTEGER,
+    "toughness"    INTEGER,
+    "rarity"       TEXT NOT NULL,
+    PRIMARY KEY ("scryfall_id", "face_index");
 '''
 
 sql_insert_conditions = '''

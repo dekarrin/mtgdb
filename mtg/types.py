@@ -47,7 +47,7 @@ def card_condition_to_name(cond: str) -> str:
 class Card:
     """Card is an entry in the inventory listing."""
 
-    def __init__(self, id: Optional[int]=None, count: int=0, name: str='', edition: str='AAA', tcg_num: int=0, condition: str='NM', language: str='English', foil: bool=False, signed: bool=False, artist_proof: bool=False, altered_art: bool=False, misprint: bool=False, promo: bool=False, textless: bool=False, printing_id: int=0, printing_note: str='', wishlist_count: Optional[int]=None):
+    def __init__(self, id: Optional[int]=None, count: int=0, name: str='', edition: str='AAA', tcg_num: int=0, condition: str='NM', language: str='English', foil: bool=False, signed: bool=False, artist_proof: bool=False, altered_art: bool=False, misprint: bool=False, promo: bool=False, textless: bool=False, printing_id: int=0, printing_note: str='', scryfall_id: Optional[str]=None):
         self.name = name
         self.id = id
         self.count = count
@@ -64,7 +64,7 @@ class Card:
         self.textless = textless
         self.printing_id = printing_id
         self.printing_note = printing_note
-        self.wishlist_count = wishlist_count  # TODO: this is an annoying property that causes confusion with DeckCard.deck_wishlist_count. Find out who is using it and convert to alternatives.
+        self.scryfall_id = scryfall_id
     
     def __str__(self):
         card_str = "{:s}-{:03d} {!r}".format(self.edition, self.tcg_num, self.name)
@@ -93,11 +93,11 @@ class Card:
         return card_str
     
     def clone(self) -> 'Card':
-        return Card(self.id, self.count, self.name, self.edition, self.tcg_num, self.condition, self.language, self.foil, self.signed, self.artist_proof, self.altered_art, self.misprint, self.promo, self.textless, self.printing_id, self.printing_note, self.wishlist_count)
+        return Card(self.id, self.count, self.name, self.edition, self.tcg_num, self.condition, self.language, self.foil, self.signed, self.artist_proof, self.altered_art, self.misprint, self.promo, self.textless, self.printing_id, self.printing_note, self.scryfall_id)
         
 
 class Usage:
-    def __init__(self, count: int, deck_id: int, deck_name: str, deck_state: str, wishlist_count: int | None=None):
+    def __init__(self, count: int, deck_id: int, deck_name: str, deck_state: str, wishlist_count: int):
         self.count = count
         self.deck_id = deck_id
         self.deck_name = deck_name
@@ -137,25 +137,41 @@ class Usage:
 
 class CardWithUsage(Card):
     def __init__(self, card: Card, usage: list[Usage] | None=None):
-        super().__init__(card.id, card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note, card.wishlist_count)
+        super().__init__(card.id, card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note, card.scryfall_id)
         self.usage: list[Usage] = usage if usage is not None else list()
 
     def clone(self) -> 'CardWithUsage':
         return CardWithUsage(super().clone(), [u.clone() for u in self.usage])
     
-    def deck_count(self) -> int:
+    def total_referencing_decks(self) -> int:
         """Return the total number of decks this card is in or wishlisted in."""
         if self.usage is None:
             return 0
         
         return len(self.usage)
+    
+    def total_wishlisted_in_decks(self) -> int:
+        """
+        Return the total number of instances of this card that are on a wishlist.
+        """
+        if self.usage is None:
+            return 0
+        
+        return sum([u.wishlist_count for u in self.usage if u.wishlist_count > 0])
+    
+    def total_used_in_decks(self) -> int:
+        """Return the total number of instances of this card that are owned and used in a deck. Does NOT include wishlisted cards."""
+        if self.usage is None:
+            return 0
+        
+        return sum([u.count for u in self.usage])
 
 
 class DeckCard(Card):
     """DeckCard is an entry in a deck."""
 
     def __init__(self, card: Card, deck_id: int, deck_count: int=0, deck_wishlist_count: int=0):
-        super().__init__(card.id, card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note, card.wishlist_count)
+        super().__init__(card.id, card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note, card.scryfall_id)
         self.deck_id = deck_id
         self.deck_count = deck_count
         self.deck_wishlist_count = deck_wishlist_count

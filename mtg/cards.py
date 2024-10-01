@@ -92,9 +92,8 @@ def remove_from_deck(db_filename, card_name=None, card_num=None, card_id=None, d
 
 def remove_inventory_entry(db_filename: str, card_id: int, amount: int=1):
     card = carddb.get_one(db_filename, card_id)
-    counts = carddb.get_deck_counts(db_filename, card.id)
-    total_wishlisted = sum([c['wishlist_count'] for c in counts])
-    total_in_decks = sum([c['count'] for c in counts])
+    total_wishlisted = card.total_wishlisted_in_decks()
+    total_in_decks = card.total_used_in_decks()
 
     new_card = card.clone()
     new_card.count = max(0, card.count - amount)
@@ -103,7 +102,7 @@ def remove_inventory_entry(db_filename: str, card_id: int, amount: int=1):
     # - check if we have moves to make. if any are moved to wishlist, clearly the user does not want to delete the card at this time.
     # - if none are wishlisted, confirm deletion.
     if new_card.count < 1:
-        removals, to_wishlist = cardutil.get_deck_owned_changes(db_filename, card, new_card)
+        removals, to_wishlist = cardutil.get_deck_owned_changes(card, new_card)
         if len(to_wishlist) < 1:
             print("Removing {:d}x {:s} will delete {:d}x from decks and {:d}x from deck wishlists".format(amount, str(card), total_in_decks, total_wishlisted))
             if not cio.confirm("Delete {:s} from inventory?".format(str(card))):
@@ -116,7 +115,7 @@ def remove_inventory_entry(db_filename: str, card_id: int, amount: int=1):
             carddb.update_count(db_filename, card.id, count=0)
             print("Removed all owned copies of {:s} from inventory and decks; moved {:d}x to wishlists".format(str(card), sum([x.amount for x in to_wishlist])))
     else:
-        removals, to_wishlist = cardutil.get_deck_owned_changes(db_filename, card, new_card)
+        removals, to_wishlist = cardutil.get_deck_owned_changes(card, new_card)
         carddb.remove_amount_from_decks(db_filename, removals)
         carddb.move_amount_from_owned_to_wishlist_in_decks(db_filename, to_wishlist)
         carddb.update_count(db_filename, card.id, count=new_card.count)

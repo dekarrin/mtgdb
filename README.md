@@ -32,6 +32,11 @@ for cases where that is the only thing that difers.
 * `remove` - Remove a card from deck
 * `show-deck` - Show all cards in a particular deck, with filters available
 
+
+-----
+All callers of get_deck_counts should be updated to just use a CardWithUsage
+* remove_inventory_entry
+
 Possible Enhancements:
 ------------------------
 

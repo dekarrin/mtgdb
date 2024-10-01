@@ -4,20 +4,40 @@ from .errors import MultipleFoundError, NotFoundError
 from ..types import Card, CardWithUsage, Usage, DeckChangeRecord
 
 
-def get_all(db_filename: str) -> list[Card]:
+def get_all(db_filename: str) -> list[CardWithUsage]:
     con = util.connect(db_filename)
     cur = con.cursor()
-    
-    data = list()
+
+    unique_cards: dict[int, tuple[CardWithUsage, int]] = {}  # int in tuple is for ordering
+    order = 0
     
     for r in cur.execute(sql_get_all_cards):
-        c = util.card_row_to_card(r) 
-        c.wishlist_count = r[16]
-        data.append(c)
+        if r[0] not in unique_cards:
+            card = CardWithUsage(util.card_row_to_card(r))
+            new_entry = (card, order)
+            unique_cards[card.id] = new_entry
+            order += 1
+
+        if r[18] is not None:
+            card = unique_cards[r[0]][0]
+            card.usage.append(Usage(
+                count=r[16],
+                wishlist_count=r[17],
+                deck_id=r[18],
+                deck_name=r[19],
+                deck_state=r[20]
+            ))
+
+            unique_cards[card.id] = (card, unique_cards[card.id][1])
         
     con.close()
+
+    # sort on order.
+    rows = [x for x in unique_cards.values()]
+    rows.sort(key=lambda x: x[1])
+    rows = [x[0] for x in rows]
     
-    return data
+    return rows
 
 
 def get_id_by_reverse_search(db_filename: str, name: str, edition: str, tcg_num: int, condition: str, language: str, foil: bool, signed: bool, artist_proof: bool, altered_art: bool, misprint: bool, promo: bool, textless: bool, printing_id: int, printing_note: str):
@@ -80,25 +100,6 @@ def get_one(db_filename: str, cid: int) -> CardWithUsage:
         raise MultipleFoundError("multiple cards with that ID exist")
         
     return rows[0]
-
-
-def get_deck_counts(db_filename: str, card_id: int) -> list[dict]:
-    con = util.connect(db_filename)
-    cur = con.cursor()
-    
-    data = list()
-    
-    for r in cur.execute(sql_get_deck_counts, (card_id,)):
-        data.append({
-            'deck_id': r[0],
-            'count': r[1],
-            'wishlist_count': r[2],
-            'deck_name': r[3],
-        })
-    
-    con.close()
-    
-    return data
 
 
 def find(db_filename: str, name: str | None, card_num: str | None, edition: str | None) -> list[CardWithUsage]:
@@ -291,20 +292,6 @@ def move_amount_from_wishlist_to_owned_in_decks(db_filename: str, moves: list[De
     con.close()
 
 
-sql_get_deck_counts = '''
-SELECT
-    dc.deck,
-    dc.count,
-    dc.wishlist_count,
-    d.name
-FROM
-    deck_cards AS dc
-INNER JOIN decks AS d ON dc.deck = d.id
-WHERE
-    dc.card = ?
-'''
-
-
 sql_reverse_search = '''
 SELECT
     id
@@ -404,11 +391,15 @@ SELECT
     c.textless,
     c.printing_id,
     c.printing_note,
-    COALESCE(SUM(dc.wishlist_count),0) AS wishlist_count
-FROM
-    inventory AS c
-LEFT OUTER JOIN deck_cards AS dc ON dc.card = c.id
-GROUP BY c.id
+    dc.count AS count_in_deck,
+    dc.wishlist_count AS wishlist_count_in_deck,
+    d.id AS deck_id,
+    d.name AS deck_name,
+    d.state AS deck_state
+FROM 
+    inventory as c
+LEFT OUTER JOIN deck_cards as dc ON dc.card = c.id
+LEFT OUTER JOIN decks as d ON dc.deck = d.id;
 '''
 
 

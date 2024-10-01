@@ -6,7 +6,7 @@ from typing import List
 from . import cardutil, cio
 from .db import carddb
 from .errors import UserCancelledError, DataConflictError
-from .types import Card, DeckChangeRecord
+from .types import Card, DeckChangeRecord, CardWithUsage
 
 
 def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
@@ -98,7 +98,7 @@ class CountUpdate:
 # count.
 # TODO: due to nested card check this is O(n^2) and could be improved to O(n) by just doing a lookup of each card
 # which is already implemented for purposes of deck importing.
-def analyze_changes(db_filename: str, importing: list[Card], existing: list[Card]) -> tuple[list[Card], list[CountUpdate], list[DeckChangeRecord], list[DeckChangeRecord], list[DeckChangeRecord]]:
+def analyze_changes(db_filename: str, importing: list[Card], existing: list[CardWithUsage]) -> tuple[list[Card], list[CountUpdate], list[DeckChangeRecord], list[DeckChangeRecord], list[DeckChangeRecord]]:
     no_dupes: list[Card] = list()
     count_only: list[CountUpdate] = list()
     remove_from_deck: list[DeckChangeRecord] = list()
@@ -156,7 +156,7 @@ def analyze_changes(db_filename: str, importing: list[Card], existing: list[Card
                 # if the count is decremented, and card is in decks, and is decremented below total owned count, we need to ask which cards to
                 # remove or move to wishlist.
                 if card.count < check.count:
-                    removals, moves = cardutil.get_deck_owned_changes(db_filename, card, check)
+                    removals, moves = cardutil.get_deck_owned_changes(card, check)
                     remove_from_deck.extend(removals)
                     owned_to_wishlist.extend(moves)
             else:
@@ -273,6 +273,7 @@ deckbox_column_parsers = {
     'printing_note': str,
     'tags': str,
     'my_price': dollars_to_cents,
+    'scryfall_id': str,
 }
 
 def parse_deckbox_csv(filename: str, row_limit: int=0) -> list[dict]:
@@ -281,6 +282,7 @@ def parse_deckbox_csv(filename: str, row_limit: int=0) -> list[dict]:
     with open(filename, newline='') as f:
         csvr = csv.reader(f)
         rn = 0
+        hit_scryfall_id = False
         for row in csvr:
             cn = 0
             
@@ -290,6 +292,8 @@ def parse_deckbox_csv(filename: str, row_limit: int=0) -> list[dict]:
                     # on header row
                     key = cell.lower().replace(' ', '_')
                     headers.append(key)
+                    if key == 'scryfall_id':
+                        hit_scryfall_id = True
                 else:
                     col_name = headers[cn]
                     parser = None
@@ -303,6 +307,8 @@ def parse_deckbox_csv(filename: str, row_limit: int=0) -> list[dict]:
 
             if rn == 0 and len(headers) > 0 and headers[0] != 'count':
                 raise DataConflictError("First column was expected to be 'count' but is {!r}; are you sure this is in deckbox format?".format(headers[0]))
+            if rn == 0 and not hit_scryfall_id:
+                print("No scryfall_id column found; this import will not be able to update scryfall_id values", file=sys.stderr)
                 
             if rn > 0 and len(row_data) > 0:
                 data.append(row_data)
