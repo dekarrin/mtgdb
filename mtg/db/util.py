@@ -47,6 +47,7 @@ def card_row_to_card(r) -> Card:
         textless=int_to_bool(r[13]),
         printing_id=r[14],
         printing_note=none_to_empty_str(r[15]),
+        scryfall_id=r[16]
     )
 
 

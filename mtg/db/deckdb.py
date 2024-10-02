@@ -165,7 +165,7 @@ def find_cards(db_filename: str, did: int, card_name: Optional[str], card_num: O
 
     for r in cur.execute(query, params):
         card = util.card_row_to_card(r)
-        deck_card = DeckCard(card, deck_id=r[17], deck_count=r[18], deck_wishlist_count=r[19])
+        deck_card = DeckCard(card, deck_id=r[18], deck_count=r[19], deck_wishlist_count=r[20])
         data.append(deck_card)
     con.close()
 

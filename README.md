@@ -4,7 +4,7 @@ mtgdb
 Python script for managing a sqlite3 db that imports from deckbox and tracks
 decks that cards are in as well as how many copies in main inventory are free.
 
-Requires python >= 3.9.
+Requires python >= 3.9 and requests module.
 
 To use interactively, execute `./mtgdb.py` and use the online menu system.
 
@@ -34,8 +34,8 @@ for cases where that is the only thing that difers.
 
 
 -----
-All callers of get_deck_counts should be updated to just use a CardWithUsage
-* remove_inventory_entry
+Update ALL card imports to include scryfall_id.
+Update ALL card exports to include scryfall_id.
 
 Possible Enhancements:
 ------------------------

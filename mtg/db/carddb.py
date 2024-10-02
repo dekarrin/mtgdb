@@ -18,14 +18,14 @@ def get_all(db_filename: str) -> list[CardWithUsage]:
             unique_cards[card.id] = new_entry
             order += 1
 
-        if r[18] is not None:
+        if r[19] is not None:
             card = unique_cards[r[0]][0]
             card.usage.append(Usage(
-                count=r[16],
-                wishlist_count=r[17],
-                deck_id=r[18],
-                deck_name=r[19],
-                deck_state=r[20]
+                count=r[17],
+                wishlist_count=r[18],
+                deck_id=r[19],
+                deck_name=r[20],
+                deck_state=r[21]
             ))
 
             unique_cards[card.id] = (card, unique_cards[card.id][1])
@@ -73,14 +73,14 @@ def get_one(db_filename: str, cid: int) -> CardWithUsage:
             unique_cards[card.id] = new_entry
             order += 1
 
-        if r[18] is not None:
+        if r[19] is not None:
             card = unique_cards[r[0]][0]
             card.usage.append(Usage(
-                count=r[16],
-                wishlist_count=r[17],
-                deck_id=r[18],
-                deck_name=r[19],
-                deck_state=r[20]
+                count=r[17],
+                wishlist_count=r[18],
+                deck_id=r[19],
+                deck_name=r[20],
+                deck_state=r[21]
             ))
 
             unique_cards[card.id] = (card, unique_cards[card.id][1])
@@ -133,14 +133,14 @@ def find(db_filename: str, name: str | None, card_num: str | None, edition: str 
             unique_cards[card.id] = new_entry
             order += 1
 
-        if r[18] is not None:
+        if r[19] is not None:
             card = unique_cards[r[0]][0]
             card.usage.append(Usage(
-                count=r[16],
-                wishlist_count=r[17],
-                deck_id=r[18],
-                deck_name=r[19],
-                deck_state=r[20]
+                count=r[17],
+                wishlist_count=r[18],
+                deck_id=r[19],
+                deck_name=r[20],
+                deck_state=r[21]
             ))
 
             unique_cards[card.id] = (card, unique_cards[card.id][1])
@@ -159,7 +159,7 @@ def insert_multiple(db_filename: str, cards: list[Card]):
     insert_data = list()
     
     for c in cards:
-        insert_row = (c.count, c.name, c.edition, c.tcg_num, c.condition, c.language, c.foil, c.signed, c.artist_proof, c.altered_art, c.misprint, c.promo, c.textless, c.printing_id, c.printing_note)
+        insert_row = (c.count, c.name, c.edition, c.tcg_num, c.condition, c.language, c.foil, c.signed, c.artist_proof, c.altered_art, c.misprint, c.promo, c.textless, c.printing_id, c.printing_note, c.scryfall_id)
         insert_data.append(insert_row)
     
     con = util.connect(db_filename)
@@ -174,7 +174,7 @@ def insert(db_filename: str, card: Card) -> int:
     con = util.connect(db_filename)
     cur = con.cursor()
     last_id = None
-    for r in cur.execute(sql_insert_single, (card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note)):
+    for r in cur.execute(sql_insert_single, (card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note, card.scryfall_id)):
         last_id = r[0]
     con.commit()
     con.close()
@@ -330,6 +330,7 @@ SELECT
     c.textless,
     c.printing_id,
     c.printing_note,
+    c.scryfall_id,
     dc.count AS count_in_deck,
     dc.wishlist_count AS wishlist_count_in_deck,
     d.id AS deck_id,
@@ -361,6 +362,7 @@ SELECT
     c.textless,
     c.printing_id,
     c.printing_note,
+    c.scryfall_id,
     dc.count AS count_in_deck,
     dc.wishlist_count AS wishlist_count_in_deck,
     d.id AS deck_id,
@@ -391,6 +393,7 @@ SELECT
     c.textless,
     c.printing_id,
     c.printing_note,
+    c.scryfall_id,
     dc.count AS count_in_deck,
     dc.wishlist_count AS wishlist_count_in_deck,
     d.id AS deck_id,
@@ -419,7 +422,8 @@ INSERT INTO inventory (
     promo,
     textless,
     printing_id,
-    printing_note
+    printing_note,
+    scryfall_id
 )
 VALUES
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -441,7 +445,8 @@ INSERT INTO inventory (
     promo,
     textless,
     printing_id,
-    printing_note
+    printing_note,
+    scryfall_id
 )
 VALUES
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

@@ -149,14 +149,16 @@ DROP TABLE IF EXISTS "gameplay_data";
 
 sql_create_gameplay_data = '''
 CREATE TABLE "gameplay_data" (
-    "scryfall_id"  INTEGER NOT NULL,
+    "scryfall_id"  TEXT NOT NULL,
     "face_index"   INTEGER NOT NULL,
-    "name"         TEXT NOT NULL,
-    "mana_cost"    TEXT NOT NULL,
-    "type"         TEXT NOT NULL,
-    "power"        INTEGER,
-    "toughness"    INTEGER,
     "rarity"       TEXT NOT NULL,
+    "updated_at"   TEXT NOT NULL,
+    "name"         TEXT NOT NULL,
+    "cost"         TEXT NOT NULL,
+    "type"         TEXT NOT NULL,
+    "power"        TEXT,
+    "toughness"    TEXT,
+    "text"         TEXT,
     PRIMARY KEY ("scryfall_id", "face_index");
 '''
 

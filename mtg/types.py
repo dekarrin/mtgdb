@@ -1,5 +1,7 @@
 from typing import Optional
 
+import datetime
+
 # TODO: move this to top-level
 def parse_cardnum(cardnum: str):
     splits = cardnum.split('-', maxsplit=1)
@@ -43,7 +45,96 @@ def card_condition_to_name(cond: str) -> str:
         return '(' + cond + ')'
 
 
-# TODO: come back to this
+class Face:
+    def __init__(self, name: str, type: str, cost: str, text: str='', power: str | None=None, toughness: str | None=None, index: int=0):
+        self.index = index
+        self.name = name
+        self.cost = cost
+        self.type = type
+        self.text = text
+        self.power = power
+        self.toughness = toughness
+
+    def __lt__(self, other):
+        return self.index < other.index
+    
+    def __eq__(self, other):
+        if not isinstance(other, Face):
+            return False
+        return self._identity_tuple() == other._identity_tuple()
+    
+    def __hash__(self):
+        return hash(self._identity_tuple())
+    
+    def __str__(self):
+        if self.power is not None and self.toughness is not None:
+            return "{:s} - {:s}/{:s} {:s} {:s}".format(self.name, self.power, self.toughness, self.cost, self.type)
+        else:
+            return "{:s} - {:s} {:s}".format(self.name, self.cost, self.type)
+    
+    def _identity_tuple(self):
+        return (self.index, self.name, self.cost, self.type, self.text, self.power, self.toughness)
+    
+    def clone(self) -> 'Face':
+        return Face(self.name, self.type, self.cost, self.text, self.power, self.toughness, self.index)
+
+
+class CardGameData:
+    def __init__(self, *faces: Face, scryfall_id: str, rarity: str, last_updated: datetime.datetime):
+        self.scryfall_id = scryfall_id
+        self.faces: list[Face] = list()
+        self.rarity = rarity
+        self.last_updated = last_updated
+        for f in faces:
+            self.faces.append(f)
+        self.faces.sort()
+
+    @property
+    def name(self) -> str:
+        if len(self.faces) < 1:
+            return ''
+        
+        return ' // '.join(f.name for f in self.faces)
+    
+    @property
+    def type(self) -> str:
+        if len(self.faces) < 1:
+            return ''
+        
+        return ' // '.join(f.type for f in self.faces)
+    
+    @property
+    def cost(self) -> str:
+        if len(self.faces) < 1:
+            return ''
+        
+        return ' // '.join(f.cost for f in self.faces)
+    
+    @property
+    def text(self) -> str:
+        if len(self.faces) < 1:
+            return ''
+        
+        return ' // '.join(f.text for f in self.faces)
+    
+    @property
+    def power(self) -> str | None:
+        if len(self.faces) < 1:
+            return None
+        
+        return ' // '.join(f.power for f in self.faces)
+    
+    @property
+    def toughness(self) -> str | None:
+        if len(self.faces) < 1:
+            return None
+        
+        return ' // '.join(f.toughness for f in self.faces)
+    
+    def clone(self) -> 'CardGameData':
+        return CardGameData(*[f.clone() for f in self.faces], scryfall_id=self.scryfall_id, rarity=self.rarity, last_updated=self.last_updated)
+
+
 class Card:
     """Card is an entry in the inventory listing."""
 
@@ -94,6 +185,10 @@ class Card:
     
     def clone(self) -> 'Card':
         return Card(self.id, self.count, self.name, self.edition, self.tcg_num, self.condition, self.language, self.foil, self.signed, self.artist_proof, self.altered_art, self.misprint, self.promo, self.textless, self.printing_id, self.printing_note, self.scryfall_id)
+    
+    @property
+    def cardnum(self) -> str:
+        return "{:s}-{:03d}".format(self.edition, self.tcg_num)
         
 
 class Usage:
