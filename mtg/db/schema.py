@@ -116,7 +116,8 @@ CREATE TABLE "scryfall" (
     "power"        TEXT,
     "toughness"    TEXT,
     "text"         TEXT,
-    PRIMARY KEY ("id", "face_index");
+    PRIMARY KEY ("id", "face_index")
+)
 '''
 
 sql_drop_inventory = '''

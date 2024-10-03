@@ -357,7 +357,7 @@ def parse_deckbox_csv(filename: str, row_limit: int=0) -> list[dict]:
                 raise DataConflictError("First column was expected to be 'count' but is {!r}; are you sure this is in deckbox format?".format(headers[0]))
             if rn == 0 and not hit_scryfall_id:
                 print("No scryfall_id column found; this import will not be able to update scryfall_id values", file=sys.stderr)
-            if hit_scryfall_id and rn > 0 and 'scryfall_id' not in row_data:
+            if rn > 0 and 'scryfall_id' not in row_data and len(row_data) > 0:
                 row_data['scryfall_id'] = None
                 
             if rn > 0 and len(row_data) > 0:
