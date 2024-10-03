@@ -4,7 +4,7 @@ from typing import Sequence, Any, Tuple
 
 from .types import Card, ScryfallCardData, ScryfallFace, CardWithUsage
 from .http import HttpAgent
-from .db import carddb, NotFoundError, scryfalldb
+from .db import carddb, NotFoundError, AlreadyExistsError, scryfalldb
 
 
 class APIError(Exception):
@@ -83,7 +83,7 @@ def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
         if card.scryfall_id is None:
             db_cards: list[CardWithUsage] = None
             try:
-                db_cards = carddb.find(db_filename, name=card.name, card_num=card.cardnum)
+                db_cards = carddb.find(db_filename, name=card.name, card_num=card.cardnum, edition=None)
             except NotFoundError:
                 pass
 
@@ -92,7 +92,14 @@ def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
             else:
                 card_data, _ = fetch_card_data_by_name(card.name, set=card.edition)
                 card_data.last_updated = datetime.datetime.now(tz=datetime.timezone.utc)
-                scryfalldb.insert(db_filename, card_data)
+
+                try:
+                    scryfalldb.insert(db_filename, card_data)
+                except AlreadyExistsError:
+                    # clear it and reinsert
+                    scryfalldb.delete_one(db_filename, card_data.id)
+                    scryfalldb.insert(db_filename, card_data)
+
                 if db_cards is not None:
                     for c in db_cards:
                         carddb.update_scryfall_id(db_filename, c.id, card_data.id)
@@ -105,6 +112,7 @@ def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
         card_data = scryfalldb.get_one(db_filename, scryfall_id)
         if datetime.datetime.now(tz=datetime.timezone.utc) - card_data.last_updated > datetime.timedelta(months=3):
             card_data = None
+            scryfalldb.delete_one(db_filename, scryfall_id)
     except NotFoundError:
         pass
 
@@ -114,7 +122,7 @@ def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
         scryfalldb.insert(db_filename, card_data)
         name = raw_resp['name']
         card_num = raw_resp['set'] + '-' + int(raw_resp['collector_number'])
-        db_cards = carddb.find(db_filename, name=name, card_num=card_num)
+        db_cards = carddb.find(db_filename, name=name, card_num=card_num, edition=None)
         if db_cards is not None:
             for c in db_cards:
                 carddb.update_scryfall_id(db_filename, c.id, card_data.id)

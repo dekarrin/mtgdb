@@ -27,6 +27,7 @@ def update_name(db_filename: str, name: str, new_name: str):
         cur.execute(sql_update_name, (new_name, name))
         con.commit()
     except sqlite3.IntegrityError:
+        con.rollback()
         con.close()
         raise AlreadyExistsError("A deck with that name already exists")
     
@@ -337,6 +338,7 @@ def create(db_filename, name) -> Deck:
         new_row = cur.execute(sql_insert_new, (name,)).fetchone()
         con.commit()
     except sqlite3.IntegrityError:
+        con.rollback()
         con.close()
         raise AlreadyExistsError("A deck with that name already exists")
     new_id, new_state = new_row[0], new_row[1]

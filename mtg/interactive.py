@@ -509,7 +509,7 @@ def cards_master_menu(s: Session):
             scryfall_data: ScryfallCardData = None
             try:
                 scryfall_data = scryfallops.get_card_data(s.db_filename, card)
-            except Exception as e:
+            except scryfallops.APIError as e:
                 print("WARN: Get Scryfall Data: {!s}".format(e))
                 cio.pause()
             else:

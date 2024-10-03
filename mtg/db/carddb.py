@@ -551,7 +551,6 @@ SET
     scryfall_id=?
 WHERE
     id=?
-RETURNING scryfall_id;
 '''
 
 

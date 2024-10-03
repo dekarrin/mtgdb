@@ -1,7 +1,10 @@
 import datetime
 
+import sqlite3
+
 from . import util
-from .errors import NotFoundError
+
+from .errors import NotFoundError, AlreadyExistsError
 
 from ..types import ScryfallCardData, ScryfallFace
 
@@ -80,11 +83,30 @@ def insert(db_filename: str, card_data: ScryfallCardData):
 
     con = util.connect(db_filename)
     cur = con.cursor()
-    cur.execute(sql_insert_scryfall_card_data, card_row)
+
+    try:
+        cur.execute(sql_insert_scryfall_card_data, card_row)
+    except sqlite3.IntegrityError:
+        con.rollback()
+        con.close()
+        raise AlreadyExistsError("Card data with scryfall_id {:s} already exists".format(card_data.id))
+    con.commit()
     cur.executemany(sql_insert_scryfall_card_face, face_rows)
     con.commit()
     con.close()
 
+
+def delete_one(db_filename: str, id: str):
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute(sql_delete_scryfall_card_data, (id,))
+    con.commit()
+    con.close()
+
+
+sql_delete_scryfall_card_data = '''
+DELETE FROM scryfall WHERE id = ?
+'''
 
 sql_get_scryfall_card_data = '''
 SELECT
@@ -114,7 +136,7 @@ INSERT INTO scryfall (
 sql_insert_scryfall_card_face = '''
 INSERT INTO scryfall_faces (
     scryfall_id,
-    index,
+    "index",
     name,
     cost,
     type,
