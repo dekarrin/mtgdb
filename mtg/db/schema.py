@@ -11,6 +11,7 @@ def init(db_filename):
     # drop old tables
     cur.execute(sql_drop_deck_cards)
     cur.execute(sql_drop_inventory)
+    cur.execute(sql_drop_scryfall_faces)
     cur.execute(sql_drop_scryfall)
     cur.execute(sql_drop_editions)
     cur.execute(sql_drop_decks)
@@ -25,6 +26,7 @@ def init(db_filename):
     cur.execute(sql_create_decks)
     cur.execute(sql_create_editions)
     cur.execute(sql_create_scryfall)
+    cur.execute(sql_create_scryfall_faces)
     cur.execute(sql_create_inventory)
     cur.execute(sql_create_deck_cards)
     
@@ -106,17 +108,31 @@ DROP TABLE IF EXISTS "scryfall";
 sql_create_scryfall = '''
 CREATE TABLE "scryfall" (
     "id"           TEXT NOT NULL,
-    "face_index"   INTEGER NOT NULL,
     "web_uri"      TEXT NOT NULL,
     "rarity"       TEXT NOT NULL,
     "updated_at"   TEXT NOT NULL,
+    PRIMARY KEY ("id")
+)
+'''
+
+
+sql_drop_scryfall_faces = '''
+DROP TABLE IF EXISTS "scryfall_faces";
+'''
+
+
+sql_create_scryfall_faces = '''
+CREATE TABLE "scryfall_faces" (
+    "scryfall_id"  TEXT NOT NULL,
+    "index"        INTEGER NOT NULL,
     "name"         TEXT NOT NULL,
     "cost"         TEXT NOT NULL,
     "type"         TEXT NOT NULL,
     "power"        TEXT,
     "toughness"    TEXT,
     "text"         TEXT,
-    PRIMARY KEY ("id", "face_index")
+    FOREIGN KEY("scryfall_id") REFERENCES "scryfall"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    PRIMARY KEY ("scryfall_id", "index")
 )
 '''
 

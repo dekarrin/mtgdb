@@ -14,7 +14,7 @@ def get_one(db_filename: str, id: str) -> ScryfallCardData:
     rarity: str = ''
     uri: str = ''
     last_updated: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
-    for r in cur.execute(sql_get_gameplay_faces, (id,)):
+    for r in cur.execute(sql_get_scryfall_card_data, (id,)):
         if r[0] != '' and rarity == '':
             rarity = r[0]
 
@@ -57,15 +57,12 @@ def insert(db_filename: str, card_data: ScryfallCardData):
     if card_data.faces is None or len(card_data.faces) < 1:
         raise ValueError("Cannot insert CardGameData with no faces into database")
 
-    data_rows = []
+    face_rows = []
 
     for idx, f in enumerate(card_data.faces):
-        data_rows.append((
+        face_rows.append((
             card_data.id,
             idx,
-            card_data.rarity,
-            card_data.uri,
-            card_data.last_updated.isoformat(),
             f.name,
             f.cost,
             f.type,
@@ -74,45 +71,55 @@ def insert(db_filename: str, card_data: ScryfallCardData):
             f.text
         ))
 
+    card_row = (
+        card_data.id,
+        card_data.rarity,
+        card_data.uri,
+        card_data.last_updated.isoformat()
+    )
+
     con = util.connect(db_filename)
     cur = con.cursor()
-    cur.executemany(sql_insert_gameplay_faces, data_rows)
+    cur.execute(sql_insert_scryfall_card_data, card_row)
+    cur.executemany(sql_insert_scryfall_card_face, face_rows)
     con.commit()
     con.close()
 
 
-sql_get_gameplay_faces_base = '''
+sql_get_scryfall_card_data = '''
 SELECT
-    rarity,
-    web_uri,
-    updated_at,
-    face_index,
-    name,
-    cost,
-    type,
-    power,
-    toughness,
-    text
-FROM gameplay_data
+    s.rarity,
+    s.web_uri,
+    s.updated_at,
+    f.index,
+    f.name,
+    f.cost,
+    f.type,
+    f.power,
+    f.toughness,
+    f.text
+FROM scryfall AS s
+INNER JOIN scryfall_faces AS f ON s.id = f.scryfall_id
 '''
 
-
-sql_get_gameplay_faces = sql_get_gameplay_faces_base + '''
-WHERE id = ?
-'''
-
-sql_insert_gameplay_faces = '''
-INSERT INTO gameplay_data (
+sql_insert_scryfall_card_data = '''
+INSERT INTO scryfall (
     id,
-    face_index,
     rarity,
     web_uri,
-    updated_at,
+    updated_at
+) VALUES (?, ?, ?, ?)
+'''
+
+sql_insert_scryfall_card_face = '''
+INSERT INTO scryfall_faces (
+    scryfall_id,
+    index,
     name,
     cost,
     type,
     power,
     toughness,
     text
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 '''
