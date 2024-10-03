@@ -557,7 +557,26 @@ def wrap_preformatted_text(text: str, width: int) -> str:
     return '\n'.join(wrapped)
 
 
-def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar: bool=True, inven_details: bool=True, title: str='CARD') -> str:
+def box_text(text: str, text_width: int, pad_sides: int=1) -> str:
+    pad = max(pad_sides, 0)
+    inner_width = text_width + (2 * (pad))
+
+    top_bar = "╔" + "═" * inner_width + "╗"
+    bot_bar = "╚" + "═" * inner_width + "╝"
+
+    lines = text.splitlines()
+    boxed = []
+    boxed.append(top_bar)
+    for line in lines:
+        add_amt = text_width - len(line)
+        line = "║" + (" " * pad) + line + (" " * add_amt) + (" " * pad) + "║"
+        boxed.append(line)
+    boxed.append(bot_bar)
+
+    return '\n'.join(boxed)
+
+
+def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar: bool=True, inven_details: bool=True, title: str='CARD', box_card: bool=False) -> str:
     deck_used_states = ['P', 'C']
     wishlist_total = sum([u.wishlist_count for u in c.usage])
     in_decks = sum([u.count for u in c.usage])
@@ -568,52 +587,62 @@ def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None,
 
     if title is not None and len(title) > 0:
         hdr = str(title) + "\n"
-        hdr += "-" * 22 + "\n"
+
+        if not box_card:
+            hdr += "-" * 22 + "\n"
     
+    cbox: str = ''
     if scryfall_data is not None:
-        hdr += "{:s}".format(c.name)
+        cbox += "{:s}".format(c.name)
         amt = text_wrap_width - len(scryfall_data.name)
         cost = scryfall_data.cost
         spaces = amt - len(cost)
-        hdr += "{:s}{:s}\n".format(' ' * spaces, cost)
+        cbox += "{:s}{:s}\n".format(' ' * spaces, cost)
 
         if len(c.special_print_items) > 0:
-            hdr += "({:s})\n".format(','.join(c.special_print_items))
+            cbox += "({:s})\n".format(','.join(c.special_print_items))
         else:
-            hdr += "\n"
+            cbox += "\n"
         
-        hdr += "{:s}\n".format(scryfall_data.type)
-        hdr += "\n"
+        cbox += "{:s}\n".format(scryfall_data.type)
+        cbox += "\n"
 
         if len(scryfall_data.faces) > 1:
             if any([f.text is not None and len(f.text) > 0 for f in scryfall_data.faces]) or any ([f.power is not None and len(f.power) > 0 for f in scryfall_data.faces]):
                 for i, f in enumerate(scryfall_data.faces):
-                    hdr += "FACE {:d}:\n".format(i + 1)
+                    cbox += "FACE {:d}:\n".format(i + 1)
                     if f.text is not None and len(f.text) > 0:
                         text = wrap_preformatted_text(f.text, text_wrap_width)
-                        hdr += "{:s}\n".format(text)
+                        cbox += "{:s}\n".format(text)
                     if f.power is not None and len(f.power) > 0:
-                        hdr += "{:s}/{:s}\n".format(f.power, f.toughness)
-                    hdr += "\n"
+                        cbox += "{:s}/{:s}\n".format(f.power, f.toughness)
+                    cbox += "\n"
         else:
             text = wrap_preformatted_text(scryfall_data.text, text_wrap_width)
-            hdr += "{:s}\n\n".format(text)
+            cbox += "{:s}\n\n".format(text)
         
-        hdr += "{:s}".format(c.cardnum)
+        cbox += "{:s}".format(c.cardnum)
         if len(scryfall_data.faces) < 2 and scryfall_data.power is not None and len(scryfall_data.power) > 0:
             amt = text_wrap_width - len(c.cardnum)
             st = "{:s}/{:s}".format(scryfall_data.power, scryfall_data.toughness)
             spaces = amt - len(st)
-            hdr += "{:s}{:s}\n".format(' ' * spaces, st)
+            cbox += "{:s}{:s}\n".format(' ' * spaces, st)
         else:
-            hdr += "\n"
+            cbox += "\n"
         
-        if inven_details:
-            hdr += "-" * 22 + "\n"
+        if inven_details and not box_card:
+            cbox += "-" * 22
     else:
-        hdr += "{:s}\n".format(str(c))
+        cbox += "{:s}\n".format(str(c))
 
-    if not inven_details and final_bar:
+    if box_card:
+        hdr += box_text(cbox, text_wrap_width)
+        if inven_details:
+            hdr += "\n"
+    else:
+        hdr += cbox
+
+    if not inven_details and final_bar and not box_card:
         hdr += "-" * 22
 
     if inven_details:
@@ -638,7 +667,7 @@ def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None,
 def cards_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None):
     while True:
         cio.clear()
-        print(card_detail_header(card, scryfall_data))
+        print(card_infobox(card, scryfall_data, box_card=True))
 
         actions = [
             ('D', 'DECKS', 'View decks this card is in'),
@@ -667,8 +696,15 @@ def cards_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCa
 
 
 def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None):
+    menu_lead = "CARD\n"
+    menu_lead += "-" * 22 + "\n"
+    menu_lead += c.name
+    if len(c.special_print_items) > 0:
+        menu_lead += " (" + ','.join(c.special_print_items) + ")"
+    menu_lead += "\n"
+    menu_lead += "USAGE"
+
     while True:
-        menu_lead = card_detail_header(c, scryfall_data) + "\nUSAGE"
         cat_items = []
         for u in c.usage:
             if u.count > 0:
@@ -687,7 +723,7 @@ def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
 
 
 def card_remove_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage | None:
-    print(card_detail_header(c, scryfall_data))
+    print(card_infobox(c, scryfall_data, box_card=True))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         return c
     
@@ -711,7 +747,7 @@ def card_remove_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCard
 
 
 def card_set_condition(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage:
-    print(card_detail_header(c, scryfall_data))
+    print(card_infobox(c, scryfall_data, box_card=True))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         return c
 
@@ -727,7 +763,7 @@ def card_set_condition(s: Session, c: CardWithUsage, scryfall_data: ScryfallCard
 
 
 def card_add_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage:
-    print(card_detail_header(c, scryfall_data))
+    print(card_infobox(c, scryfall_data, box_card=True))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         return c
     
@@ -894,7 +930,7 @@ def decks_export(s: Session):
 
 
 
-def deck_detail_header(deck: Deck, final_bar=True) -> str:
+def deck_infobox(deck: Deck, final_bar=True) -> str:
     hdr = "DECK\n"
     hdr += "-" * 22 + "\n"
     hdr += "{:s} (ID {:d})".format(deck.name, deck.id) + "\n"
@@ -909,7 +945,7 @@ def deck_detail_header(deck: Deck, final_bar=True) -> str:
 def deck_detail_menu(s: Session, deck: Deck):
     while True:
         cio.clear()
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
 
         actions = [
             ('C', 'CARDS', 'List/Manage cards in deck and wishlist'),
@@ -940,7 +976,7 @@ def deck_detail_menu(s: Session, deck: Deck):
 
 def deck_cards_menu(s: Session, deck: Deck) -> Deck:
     while True:
-        menu_lead = deck_detail_header(deck) + "\nCARDS"
+        menu_lead = deck_infobox(deck) + "\nCARDS"
         extra_actions = [
             CatOption('A', '(A)dd Card', 'ADD'),
         ]
@@ -976,8 +1012,8 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             scryfall_data = retrieve_scryfall_data(s, card)
             usage_card = carddb.get_one(s.db_filename, card.id)
             
-            print(deck_detail_header(deck))
-            print(card_detail_header(usage_card, scryfall_data, inven_details=False, title="CARDS"))
+            print(deck_infobox(deck))
+            print(card_infobox(usage_card, scryfall_data, inven_details=False, title=" ", box_card=True))
             cio.pause()
         elif action == 'ADD':
             deck = deck_detail_add(s, deck)
@@ -997,11 +1033,11 @@ def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
     cio.clear()
 
     if card.deck_wishlist_count < 1:
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         print("ERROR: No owned copies of {!s} are in deck; did you mean to (R)emove?".format(card))
 
     if card.deck_wishlist_count > 1:
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         amt = cio.prompt_int("Unwishlist how many?", min=1, max=card.deck_wishlist_count, default=1)
     else:
         amt = 1
@@ -1011,7 +1047,7 @@ def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
     try:
         deckops.remove_from_wishlist(s.db_filename, card_specifier=card, deck_specifier=deck, amount=amt)
     except DataConflictError as e:
-            print(deck_detail_header(deck))
+            print(deck_infobox(deck))
             print("ERROR: " + str(e))
             cio.pause()
             return deck
@@ -1026,12 +1062,12 @@ def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
     cio.clear()
 
     if card.deck_count < 1:
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         print("ERROR: No owned copies of {!s} are in deck; did you mean to (U)nwish?".format(card))
         return deck
 
     if card.deck_count > 1:
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         amt = cio.prompt_int("Remove how many?", min=1, max=card.deck_count, default=1)
     else:
         amt = 1
@@ -1039,7 +1075,7 @@ def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
     try:
         cardops.remove_from_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt)
     except DataConflictError as e:
-            print(deck_detail_header(deck))
+            print(deck_infobox(deck))
             print("ERROR: " + str(e))
             cio.pause()
             return deck
@@ -1051,7 +1087,7 @@ def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
 
 
 def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
-    menu_lead = deck_detail_header(deck) + "\nADD CARD TO DECK WISHLIST"
+    menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK WISHLIST"
     cards = carddb.find(s.db_filename, None, None, None)
 
     cat_items = [(c, str(c)) for c in cards]
@@ -1064,13 +1100,13 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
 
     cio.clear()
     if action == 'SELECT':
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         amt = cio.prompt_int("How many to wishlist?".format(card), min=1, default=1)
 
         try:
             deckops.add_to_wishlist(s.db_filename, card_specifier=card, deck_specifier=deck, amount=amt)
         except DataConflictError as e:
-            print(deck_detail_header(deck))
+            print(deck_infobox(deck))
             print("ERROR: " + str(e))
             cio.pause()
             return deck
@@ -1084,7 +1120,7 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
 
 
 def deck_detail_add(s: Session, deck: Deck) -> Deck:
-    menu_lead = deck_detail_header(deck) + "\nADD CARD TO DECK"
+    menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK"
     cards = carddb.find(s.db_filename, None, None, None)
 
     cat_items = []
@@ -1104,14 +1140,14 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
     if action == 'SELECT':
         free = card.count - sum([u.count for u in card.usage if u.deck_state in deck_used_states])
         if free < 1:
-            print(deck_detail_header(deck))
+            print(deck_infobox(deck))
             print("ERROR: No more free cards of {!s}".format(card))
             cio.pause()
             return deck
         elif free == 1:
             amt = 1
         else:
-            print(deck_detail_header(deck))
+            print(deck_infobox(deck))
             amt = cio.prompt_int("Add how many?".format(card), min=1, max=free, default=1)
         
         try:
@@ -1130,10 +1166,10 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
     
 
 def deck_delete(s: Session, deck: Deck) -> bool:
-    print(deck_detail_header(deck))
+    print(deck_infobox(deck))
     confirmed = cio.confirm("Are you sure you want to delete this deck?")
     cio.clear()
-    print(deck_detail_header(deck))
+    print(deck_infobox(deck))
     
     if not confirmed:
         print("Deck not deleted")
@@ -1149,18 +1185,18 @@ def deck_delete(s: Session, deck: Deck) -> bool:
 
 
 def deck_set_name(s: Session, deck: Deck) -> Deck:
-    print(deck_detail_header(deck))
+    print(deck_infobox(deck))
 
     new_name = input("New name: ")
     cio.clear()
 
     if new_name.strip() == '':
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         print("Name not changed")
         return deck
     try:
         int(new_name.strip())
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         print("ERROR: deck name cannot be only a number")
         return None
     except ValueError:
@@ -1169,11 +1205,11 @@ def deck_set_name(s: Session, deck: Deck) -> Deck:
     try:
         deckdb.update_name(s.db_filename, deck.name, new_name)
         deck.name = new_name
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         print("Name updated to {!r}".format(new_name))
         return deck
     except DBError as e:
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         print("ERROR: {!s}".format(e))
         return deck
 
@@ -1194,23 +1230,23 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
     
     actions.append(('K', 'KEEP', 'Keep current state ({:s})'.format(cur_state)))
 
-    print(deck_detail_header(deck))
+    print(deck_infobox(deck))
     new_state = cio.select("NEW STATE", non_number_choices=actions)
     cio.clear()
 
     if new_state == 'KEEP':
-        print(deck_detail_header(deck))
+        print(deck_infobox(deck))
         print("State not changed")
         return deck
     else:
         try:
             deckdb.update_state(s.db_filename, deck.name, deck.state)
             deck.state = new_state
-            print(deck_detail_header(deck))
+            print(deck_infobox(deck))
             print("State updated to {:s}".format(deck.state_name()))
             return deck
         except DBError as e:
-            print(deck_detail_header(deck))
+            print(deck_infobox(deck))
             print("ERROR: {!s}".format(e))
             return deck
 
