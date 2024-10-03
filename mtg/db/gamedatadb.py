@@ -49,23 +49,23 @@ def get_one(db_filename: str, id: str) -> ScryfallCardData:
     return gamedata
 
 
-def insert(db_filename: str, gamedata: ScryfallCardData):
-    if gamedata is None:
+def insert(db_filename: str, card_data: ScryfallCardData):
+    if card_data is None:
         raise ValueError("Cannot insert None into database")
-    if gamedata.id is None:
+    if card_data.id is None:
         raise ValueError("Cannot insert CardGameData with no scryfall_id into database")
-    if gamedata.faces is None or len(gamedata.faces) < 1:
+    if card_data.faces is None or len(card_data.faces) < 1:
         raise ValueError("Cannot insert CardGameData with no faces into database")
 
     data_rows = []
 
-    for idx, f in enumerate(gamedata.faces):
+    for idx, f in enumerate(card_data.faces):
         data_rows.append((
-            gamedata.id,
+            card_data.id,
             idx,
-            gamedata.rarity,
-            gamedata.uri,
-            gamedata.last_updated.isoformat(),
+            card_data.rarity,
+            card_data.uri,
+            card_data.last_updated.isoformat(),
             f.name,
             f.cost,
             f.type,
