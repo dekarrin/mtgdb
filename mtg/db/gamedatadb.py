@@ -3,14 +3,14 @@ import datetime
 from . import util
 from .errors import NotFoundError
 
-from ..types import CardGameData, Face
+from ..types import ScryfallCardData, ScryfallFace
 
 
-def get_one(db_filename: str, id: str) -> CardGameData:
+def get_one(db_filename: str, id: str) -> ScryfallCardData:
     con = util.connect(db_filename)
     cur = con.cursor()
     
-    faces: list[Face] = list()
+    faces: list[ScryfallFace] = list()
     rarity: str = ''
     uri: str = ''
     last_updated: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
@@ -24,7 +24,7 @@ def get_one(db_filename: str, id: str) -> CardGameData:
         if r[2] != '':
             last_updated = datetime.datetime.fromisoformat(r[2])
         
-        faces.append(Face(
+        faces.append(ScryfallFace(
             index=r[3],
             name=r[4],
             cost=r[5],
@@ -38,10 +38,10 @@ def get_one(db_filename: str, id: str) -> CardGameData:
     if len(faces) == 0:
         raise NotFoundError("No gameplay data found for card with scryfall_id {!r}".format(id))
 
-    gamedata = CardGameData(
-        scryfall_id=id,
+    gamedata = ScryfallCardData(
+        id=id,
         rarity=rarity,
-        scryfall_uri=uri,
+        uri=uri,
         last_updated=last_updated,
         *faces
     )
@@ -49,10 +49,10 @@ def get_one(db_filename: str, id: str) -> CardGameData:
     return gamedata
 
 
-def insert(db_filename: str, gamedata: CardGameData):
+def insert(db_filename: str, gamedata: ScryfallCardData):
     if gamedata is None:
         raise ValueError("Cannot insert None into database")
-    if gamedata.scryfall_id is None:
+    if gamedata.id is None:
         raise ValueError("Cannot insert CardGameData with no scryfall_id into database")
     if gamedata.faces is None or len(gamedata.faces) < 1:
         raise ValueError("Cannot insert CardGameData with no faces into database")
@@ -61,10 +61,10 @@ def insert(db_filename: str, gamedata: CardGameData):
 
     for idx, f in enumerate(gamedata.faces):
         data_rows.append((
-            gamedata.scryfall_id,
+            gamedata.id,
             idx,
             gamedata.rarity,
-            gamedata.scryfall_uri,
+            gamedata.uri,
             gamedata.last_updated.isoformat(),
             f.name,
             f.cost,

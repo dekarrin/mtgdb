@@ -45,7 +45,7 @@ def card_condition_to_name(cond: str) -> str:
         return '(' + cond + ')'
 
 
-class Face:
+class ScryfallFace:
     def __init__(self, name: str, type: str, cost: str, text: str='', power: str | None=None, toughness: str | None=None, index: int=0):
         self.index = index
         self.name = name
@@ -59,7 +59,7 @@ class Face:
         return self.index < other.index
     
     def __eq__(self, other):
-        if not isinstance(other, Face):
+        if not isinstance(other, ScryfallFace):
             return False
         return self._identity_tuple() == other._identity_tuple()
     
@@ -78,16 +78,22 @@ class Face:
     def _identity_tuple(self):
         return (self.index, self.name, self.cost, self.type, self.text, self.power, self.toughness)
     
-    def clone(self) -> 'Face':
-        return Face(self.name, self.type, self.cost, self.text, self.power, self.toughness, self.index)
+    def clone(self) -> 'ScryfallFace':
+        return ScryfallFace(self.name, self.type, self.cost, self.text, self.power, self.toughness, self.index)
 
 
-class CardGameData:
-    def __init__(self, *faces: Face, scryfall_id: str, rarity: str, scryfall_uri: str, last_updated: datetime.datetime):
-        self.scryfall_id = scryfall_id
-        self.faces: list[Face] = list()
+class ScryfallCardData:
+    """
+    ScryfallCardData contains supplementary information on a card. Most
+    information is dropped from what is received from scryfall, as the main
+    inventory database already has most of that.
+    """
+
+    def __init__(self, *faces: ScryfallFace, id: str, rarity: str, uri: str, last_updated: datetime.datetime):
+        self.id = id
+        self.faces: list[ScryfallFace] = list()
         self.rarity = rarity
-        self.scryfall_uri = scryfall_uri
+        self.uri = uri
         self.last_updated = last_updated
         for f in faces:
             self.faces.append(f)
@@ -135,14 +141,14 @@ class CardGameData:
         
         return ' // '.join(f.toughness for f in self.faces)
     
-    def clone(self) -> 'CardGameData':
-        return CardGameData(*[f.clone() for f in self.faces], scryfall_id=self.scryfall_id, rarity=self.rarity, scryfall_uri=self.scryfall_uri, last_updated=self.last_updated)
+    def clone(self) -> 'ScryfallCardData':
+        return ScryfallCardData(*[f.clone() for f in self.faces], id=self.id, rarity=self.rarity, uri=self.uri, last_updated=self.last_updated)
     
     def __str__(self):
         return "{:s} - {:s} {:s}".format(self.name, self.cost, self.type)
     
     def __repr__(self):
-        return "CardGameData(scryfall_id={!r}, rarity={!r}, scryfall_uri={!r}, last_updated={!r}, faces=*{!r})".format(self.scryfall_id, self.rarity, self.scryfall_uri, self.last_updated.isoformat(), self.faces)
+        return "ScryfallCardData(id={!r}, rarity={!r}, uri={!r}, last_updated={!r}, faces=*{!r})".format(self.id, self.rarity, self.uri, self.last_updated.isoformat(), self.faces)
 
 
 class Card:

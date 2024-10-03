@@ -2,7 +2,7 @@ import datetime
 
 from typing import Sequence, Any, Tuple
 
-from .types import Card, CardGameData, Face, CardWithUsage
+from .types import Card, ScryfallCardData, ScryfallFace, CardWithUsage
 from .http import HttpAgent
 from .db import carddb, gamedatadb, NotFoundError
 
@@ -64,7 +64,7 @@ class APIError(Exception):
         return APIError(details, status, warnings)
     
 
-def get_game_data(db_filename: str, card: Card | None=None, scryfall_id: str='') -> CardGameData:
+def get_game_data(db_filename: str, card: Card | None=None, scryfall_id: str='') -> ScryfallCardData:
     """
     Get gameplay data for a card from the database. Input can be either card or
     scryfall_id. At least one must be given, and if both are given, only
@@ -95,7 +95,7 @@ def get_game_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
                 gamedatadb.insert(db_filename, gamedata)
                 if db_cards is not None:
                     for c in db_cards:
-                        carddb.update_scryfall_id(db_filename, c.id, gamedata.scryfall_id)
+                        carddb.update_scryfall_id(db_filename, c.id, gamedata.id)
                 return gamedata
             
     # if we are at this point, scryfall_id is set to a valid value
@@ -117,12 +117,12 @@ def get_game_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
         db_cards = carddb.find(db_filename, name=name, card_num=card_num)
         if db_cards is not None:
             for c in db_cards:
-                carddb.update_scryfall_id(db_filename, c.id, gamedata.scryfall_id)
+                carddb.update_scryfall_id(db_filename, c.id, gamedata.id)
     
     return gamedata
 
 
-def fetch_card_data_by_id(scryfall_id: str, scryfall_host='api.scryfall.com') -> Tuple[CardGameData, dict]:
+def fetch_card_data_by_id(scryfall_id: str, scryfall_host='api.scryfall.com') -> Tuple[ScryfallCardData, dict]:
     client = _get_http_client(scryfall_host)
 
     params = {
@@ -140,7 +140,7 @@ def fetch_card_data_by_id(scryfall_id: str, scryfall_host='api.scryfall.com') ->
     return data, resp
 
 
-def fetch_card_data_by_name(name: str, fuzzy: bool=False, set: str='', scryfall_host='api.scryfall.com') -> Tuple[CardGameData, dict]:
+def fetch_card_data_by_name(name: str, fuzzy: bool=False, set: str='', scryfall_host='api.scryfall.com') -> Tuple[ScryfallCardData, dict]:
     client = _get_http_client(scryfall_host)
 
     params = {
@@ -166,11 +166,11 @@ def fetch_card_data_by_name(name: str, fuzzy: bool=False, set: str='', scryfall_
     return data, resp
 
 
-def _parse_resp_card_game_data(resp: dict[str, Any]) -> CardGameData:
-    c = CardGameData(
-        scryfall_id=resp['id'],
+def _parse_resp_card_game_data(resp: dict[str, Any]) -> ScryfallCardData:
+    c = ScryfallCardData(
+        id=resp['id'],
         rarity=resp['rarity'],
-        scryfall_uri=resp['scryfall_uri'],
+        uri=resp['scryfall_uri'],
         last_updated=datetime.datetime.now(tz=datetime.timezone.utc),
     )
 
@@ -192,8 +192,8 @@ def _parse_resp_card_game_data(resp: dict[str, Any]) -> CardGameData:
     return c
 
 
-def _parse_resp_face(f: dict[str, Any]) -> Face:
-    face = Face(
+def _parse_resp_face(f: dict[str, Any]) -> ScryfallFace:
+    face = ScryfallFace(
         name=f['name'],
         type=f['type_line'],
         cost=f['mana_cost'],
