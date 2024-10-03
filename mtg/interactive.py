@@ -54,18 +54,19 @@ def start(db_filename):
 
 def main_menu(s: Session):
     # TODO: change to non-numbered menu
+
     top_level_items = [
-        ['cards', 'View and manage inventory'],
-        ['decks', 'View and manage decks'],
-        ['change-db', 'Change the database file being used'],
-        ['show-db', 'Show the database file currently in use'],
-        ['init', 'Initialize the database file'],
-        ['exit', 'Exit the program'],
+        ('C', 'cards', 'View and manage cards in inventory'),
+        ('D', 'decks', 'View and manage decks'),
+        ('B', 'change-db', 'Change the database file being used'),
+        ('S', 'show-db', 'Show the database file currently in use'),
+        ('I', 'init', 'Initialize the database file'),
+        ('X', 'exit', 'Exit the program')
     ]
 
     while s.running:
         cio.clear()
-        item = cio.select("MAIN MENU", top_level_items)
+        item = cio.select("MAIN MENU", non_number_choices=top_level_items)
 
         if item != 'exit':
             cio.clear()
@@ -179,8 +180,6 @@ class CatFilter:
             def noop(x: str) -> str:
                 return x
             self.normalize = noop
-
-
 
 
 def catalog_select(
@@ -558,7 +557,7 @@ def wrap_preformatted_text(text: str, width: int) -> str:
     return '\n'.join(wrapped)
 
 
-def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar=True) -> str:
+def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar: bool=True, inven_details: bool=True, title: str='CARD') -> str:
     deck_used_states = ['P', 'C']
     wishlist_total = sum([u.wishlist_count for u in c.usage])
     in_decks = sum([u.count for u in c.usage])
@@ -567,8 +566,10 @@ def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None,
 
     text_wrap_width = 40
 
-    hdr = "CARD\n"
-    hdr += "-" * 22 + "\n"
+    if title is not None and len(title) > 0:
+        hdr = str(title) + "\n"
+        hdr += "-" * 22 + "\n"
+    
     if scryfall_data is not None:
         hdr += "{:s}".format(c.name)
         amt = text_wrap_width - len(scryfall_data.name)
@@ -607,23 +608,30 @@ def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None,
         else:
             hdr += "\n"
         
-        hdr += "-" * 22 + "\n"
+        if inven_details:
+            hdr += "-" * 22 + "\n"
     else:
         hdr += "{:s}\n".format(str(c))
-    hdr += "Inventory ID: {:d}\n".format(c.id)
-    hdr += "{:s} ({:s}), {:s}\n".format(card_condition_to_name(c.condition), c.condition, c.language)
-    hdr += "{:d}x owned\n".format(c.count)
 
-    wls_count = len([u for u in c.usage if u.wishlist_count > 0])
-    decks_count = len([u for u in c.usage if u.count > 0])
+    if not inven_details and final_bar:
+        hdr += "-" * 22
 
-    s_decklist = 's' if decks_count != 1 else ''
-    s_wishlist = 's' if wls_count != 1 else ''
+    if inven_details:
+        hdr += "Inventory ID: {:d}\n".format(c.id)
+        hdr += "{:s} ({:s}), {:s}\n".format(card_condition_to_name(c.condition), c.condition, c.language)
+        hdr += "{:d}x owned\n".format(c.count)
 
-    hdr += "{:d}x in {:d} decklist{:s} ({:d}x free)\n".format(in_decks, decks_count, s_decklist, free)
-    hdr += "{:d}x on {:d} wishlist{:s}".format(wishlist_total, wls_count, s_wishlist)
-    if final_bar:
-        hdr += "\n" + "-" * 22
+        wls_count = len([u for u in c.usage if u.wishlist_count > 0])
+        decks_count = len([u for u in c.usage if u.count > 0])
+
+        s_decklist = 's' if decks_count != 1 else ''
+        s_wishlist = 's' if wls_count != 1 else ''
+
+        hdr += "{:d}x in {:d} decklist{:s} ({:d}x free)\n".format(in_decks, decks_count, s_decklist, free)
+        hdr += "{:d}x on {:d} wishlist{:s}".format(wishlist_total, wls_count, s_wishlist)
+        if final_bar:
+            hdr += "\n" + "-" * 22
+    
     return hdr
 
 
@@ -963,8 +971,13 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
 
         cio.clear()
         if action == 'SELECT':
+            # we need the usage card for this
+
+            scryfall_data = retrieve_scryfall_data(s, card)
+            usage_card = carddb.get_one(s.db_filename, card.id)
+            
             print(deck_detail_header(deck))
-            print("You have selected {!s}".format(card))
+            print(card_detail_header(usage_card, scryfall_data, inven_details=False, title="CARDS"))
             cio.pause()
         elif action == 'ADD':
             deck = deck_detail_add(s, deck)
