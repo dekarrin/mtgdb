@@ -12,11 +12,12 @@ import traceback
 
 from typing import Optional, Callable
 
-from .types import Deck, DeckCard, Card, CardWithUsage, deck_state_to_name, parse_cardnum, card_condition_to_name
+from .types import Deck, DeckCard, Card, CardWithUsage, ScryfallCardData, deck_state_to_name, parse_cardnum, card_condition_to_name
 from . import cio
 from . import cards as cardops
 from . import decks as deckops
 from . import deckbox as deckboxops
+from . import scryfall as scryfallops
 from .errors import DataConflictError, UserCancelledError
 from .db import schema, deckdb, carddb, DBError, NotFoundError
 
@@ -503,7 +504,19 @@ def cards_master_menu(s: Session):
         cio.clear()
         if action == 'SELECT':
             s.inven_cat_state = cat_state
-            cards_detail_menu(s, card)
+
+            # grab scryfall data if we can
+            scryfall_data: ScryfallCardData = None
+            try:
+                scryfall_data = scryfallops.get_card_data(s.db_filename, card)
+            except Exception as e:
+                print("WARN: Get Scryfall Data: {!s}".format(e))
+                cio.pause()
+            else:
+                if card.scryfall_id is None:
+                    card.scryfall_id = scryfall_data.id
+
+            cards_detail_menu(s, card, scryfall_data)
         elif action == 'ADD':
             s.inven_cat_state = cat_state
             cards_add(s)
@@ -515,7 +528,7 @@ def cards_master_menu(s: Session):
             break
 
 
-def card_detail_header(c: CardWithUsage, final_bar=True) -> str:
+def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar=True) -> str:
     deck_used_states = ['P', 'C']
     wishlist_total = sum([u.wishlist_count for u in c.usage])
     in_decks = sum([u.count for u in c.usage])
@@ -541,10 +554,10 @@ def card_detail_header(c: CardWithUsage, final_bar=True) -> str:
     return hdr
 
 
-def cards_detail_menu(s: Session, card: CardWithUsage):
+def cards_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None):
     while True:
         cio.clear()
-        print(card_detail_header(card))
+        print(card_detail_header(card, scryfall_data))
 
         actions = [
             ('D', 'DECKS', 'View decks this card is in'),
@@ -557,13 +570,13 @@ def cards_detail_menu(s: Session, card: CardWithUsage):
         cio.clear()
 
         if action == 'DECKS':
-            card_decks_menu(s, card)
+            card_decks_menu(s, card, scryfall_data)
         elif action == 'COND':
-            card = card_set_condition(s, card)
+            card = card_set_condition(s, card, scryfall_data)
         elif action == 'ADD':
-            card = card_add_single(s, card)
+            card = card_add_single(s, card, scryfall_data)
         elif action == 'REMOVE':
-            card = card_remove_single(s, card)
+            card = card_remove_single(s, card, scryfall_data)
 
             # if user just cleared the entry, break out
             if card is None:
@@ -572,9 +585,9 @@ def cards_detail_menu(s: Session, card: CardWithUsage):
             break
 
 
-def card_decks_menu(s: Session, c: CardWithUsage):
+def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None):
     while True:
-        menu_lead = card_detail_header(c) + "\nUSAGE"
+        menu_lead = card_detail_header(c, scryfall_data) + "\nUSAGE"
         cat_items = []
         for u in c.usage:
             if u.count > 0:
@@ -592,8 +605,8 @@ def card_decks_menu(s: Session, c: CardWithUsage):
             break
 
 
-def card_remove_single(s: Session, c: CardWithUsage) -> CardWithUsage | None:
-    print(card_detail_header(c))
+def card_remove_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage | None:
+    print(card_detail_header(c, scryfall_data))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         return c
     
@@ -616,8 +629,8 @@ def card_remove_single(s: Session, c: CardWithUsage) -> CardWithUsage | None:
     return c
 
 
-def card_set_condition(s: Session, c: CardWithUsage) -> CardWithUsage:
-    print(card_detail_header(c))
+def card_set_condition(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage:
+    print(card_detail_header(c, scryfall_data))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         return c
 
@@ -632,8 +645,8 @@ def card_set_condition(s: Session, c: CardWithUsage) -> CardWithUsage:
     return c
 
 
-def card_add_single(s: Session, c: CardWithUsage) -> CardWithUsage:
-    print(card_detail_header(c))
+def card_add_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage:
+    print(card_detail_header(c, scryfall_data))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         return c
     
