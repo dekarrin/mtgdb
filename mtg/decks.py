@@ -203,6 +203,10 @@ def import_csv(db_filename, csv_filenames):
                     printing_id = row[14]
                     printing_note = row[15]
 
+                    scryfall_id = None
+                    if len(row) > 16:
+                        scryfall_id = row[16]
+
                     if owned_count_in_deck == 0 and wishlist_count_in_deck == 0:
                         # if it's not owned and not wishlisted, we can just skip it
                         print("WARN: {:s}:{:d}: card {!r} is not owned or wishlisted; skipping".format(csv_filename, lineno, name), file=sys.stderr)
@@ -232,7 +236,8 @@ def import_csv(db_filename, csv_filenames):
                             promo=promo,
                             textless=textless,
                             printing_id=printing_id,
-                            printing_note=printing_note
+                            printing_note=printing_note,
+                            scryfall_id=scryfall_id
                         )
 
                         card.id = carddb.insert(db_filename, card)
@@ -283,21 +288,43 @@ def export_csv(db_filename: str, path: str, filename_pattern: str):
             csvw.writerow(['Deck Name', 'Deck State'])
             csvw.writerow([deck.name, deck.state])
             csvw.writerow([
-                'Owned Count', 'Wishlist Count',
-                'Name', 'Edition', 'Card Number',
-                'Condition', 'Language', 'Foil',
-                'Signed', 'Artist Proof', 'Altered Art',
-                'Misprint', 'Promo', 'Textless',
-                'Printing ID', 'Printing Note'
+                'Owned Count',
+                'Wishlist Count',
+                'Name',
+                'Edition',
+                'Card Number',
+                'Condition',
+                'Language',
+                'Foil',
+                'Signed',
+                'Artist Proof',
+                'Altered Art',
+                'Misprint',
+                'Promo',
+                'Textless',
+                'Printing ID',
+                'Printing Note',
+                'Scryfall ID'
             ])
             for card in deck.cards:
                 csvw.writerow([
-                    card.deck_count, card.deck_wishlist_count,
-                    card.name, card.edition, card.tcg_num,
-                    card.condition, card.language, card.foil,
-                    card.signed, card.artist_proof, card.altered_art,
-                    card.misprint, card.promo, card.textless,
-                    card.printing_id, card.printing_note
+                    card.deck_count,
+                    card.deck_wishlist_count,
+                    card.name,
+                    card.edition,
+                    card.tcg_num,
+                    card.condition,
+                    card.language,
+                    card.foil,
+                    card.signed,
+                    card.artist_proof,
+                    card.altered_art,
+                    card.misprint,
+                    card.promo,
+                    card.textless,
+                    card.printing_id,
+                    card.printing_note,
+                    card.scryfall_id if card.scryfall_id is not None else ''
                 ])
 
     cumulative_decks = len(deck_listings)

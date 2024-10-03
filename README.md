@@ -18,12 +18,14 @@ To save elsewhere, use `export-decks` to get decklist CSVs that can be saved and
 viewed elsewhere. You can use `import-decks` to bring them back in.
 
 Subcommands:
+* (none) - Begin an interactive mode session.
 * `init-db` - Will create the new DB. If pointing at an existing one, it
 will be overwritten.
 * `import` - Will take an exported decklist csv file and insert into
 inventory database, excluding any that already exist and only updating count
 for cases where that is the only thing that difers.
 * `create-deck` - Create a new deck with name.
+* `delete-deck` - Remove a deck.
 * `set-deck-state` - Set the deck state to something.
 * `set-deck-name` - Set the deck name.
 * `list-decks` - Show all decks and card count currently within.
@@ -31,28 +33,17 @@ for cases where that is the only thing that difers.
 * `add` - Add a card from inventory to a deck
 * `remove` - Remove a card from deck
 * `show-deck` - Show all cards in a particular deck, with filters available
+* `export-decks` - Export decklists in MTGDB CSV format.
+* `import-decks` - Import decklist files in MTGDB CSV format.
+* `add-inven` - Update inventory owned count, and/or create a new inventory
+entry manually.
+* `remove-inven` - Decrement inventory owned count, and delete it if owned and
+wishlisted count goes to 0.
+* `add-wish` - Add a card to a deck's wishlist.
+* `remove-wish` - Remove a card from a deck's wishlist.
 
-
------
-Update ALL card imports to include scryfall_id.
-Update ALL card exports to include scryfall_id.
 
 Possible Enhancements:
 ------------------------
-
 - actually test import wishlist modification.
-- all functions except CLI invocation raise error rather than quit
-- all functions accept their exact args and an intermediate func translates the args object to actual args.
-- force deck names to contain at least one non-numeric char to allow flexible interpretation of args.
-
-Interactive mode
-
-Others:
-* `add-inv` - Manually add a new card entry to the inventory. Warns that backing
-store such as deckbox will not be updated to match. Uses a table to track all
-non-imported modifications. Considered 'wishlisted' by default.
-* `delete-inv` - Manually remove a card entry from inventory. Warns that backing
-store such as deckbox will not be updated to match. Uses a table to track all
-non-imported modifications.
-* stop making db layer do the work of error reporting
-* pull out prompting from db layer
+- force deck names to contain at least one non-numeric char to allow flexible interpretation of args

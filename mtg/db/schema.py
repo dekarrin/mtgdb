@@ -11,6 +11,7 @@ def init(db_filename):
     # drop old tables
     cur.execute(sql_drop_deck_cards)
     cur.execute(sql_drop_inventory)
+    cur.execute(sql_drop_scryfall)
     cur.execute(sql_drop_editions)
     cur.execute(sql_drop_decks)
     cur.execute(sql_drop_deck_states)
@@ -23,6 +24,7 @@ def init(db_filename):
     cur.execute(sql_create_deck_states)
     cur.execute(sql_create_decks)
     cur.execute(sql_create_editions)
+    cur.execute(sql_create_scryfall)
     cur.execute(sql_create_inventory)
     cur.execute(sql_create_deck_cards)
     
@@ -97,6 +99,26 @@ CREATE TABLE "editions" (
 )
 '''
 
+sql_drop_scryfall = '''
+DROP TABLE IF EXISTS "scryfall";
+'''
+
+sql_create_scryfall = '''
+CREATE TABLE "scryfall" (
+    "id"           TEXT NOT NULL,
+    "face_index"   INTEGER NOT NULL,
+    "web_uri"      TEXT NOT NULL,
+    "rarity"       TEXT NOT NULL,
+    "updated_at"   TEXT NOT NULL,
+    "name"         TEXT NOT NULL,
+    "cost"         TEXT NOT NULL,
+    "type"         TEXT NOT NULL,
+    "power"        TEXT,
+    "toughness"    TEXT,
+    "text"         TEXT,
+    PRIMARY KEY ("id", "face_index");
+'''
+
 sql_drop_inventory = '''
 DROP TABLE IF EXISTS "inventory";
 '''
@@ -122,7 +144,7 @@ CREATE TABLE "inventory" (
     "scryfall_id"     INTEGER,
     FOREIGN KEY("condition") REFERENCES "conditions"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     FOREIGN KEY("edition") REFERENCES "editions"("code") ON DELETE NO ACTION ON UPDATE CASCADE,
-    FOREIGN KEY("scryfall_id") REFERENCES "gameplay_data"("scryfall_id") ON DELETE NO ACTION ON UPDATE CASCADE,
+    FOREIGN KEY("scryfall_id") REFERENCES "scryfall"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     PRIMARY KEY("id" AUTOINCREMENT)
 )
 '''
@@ -143,24 +165,6 @@ CREATE TABLE "deck_cards" (
 );
 '''
 
-sql_drop_gameplay_data = '''
-DROP TABLE IF EXISTS "gameplay_data";
-'''
-
-sql_create_gameplay_data = '''
-CREATE TABLE "gameplay_data" (
-    "scryfall_id"  TEXT NOT NULL,
-    "face_index"   INTEGER NOT NULL,
-    "rarity"       TEXT NOT NULL,
-    "updated_at"   TEXT NOT NULL,
-    "name"         TEXT NOT NULL,
-    "cost"         TEXT NOT NULL,
-    "type"         TEXT NOT NULL,
-    "power"        TEXT,
-    "toughness"    TEXT,
-    "text"         TEXT,
-    PRIMARY KEY ("scryfall_id", "face_index");
-'''
 
 sql_insert_conditions = '''
 INSERT INTO "conditions"

@@ -71,6 +71,9 @@ class Face:
             return "{:s} - {:s}/{:s} {:s} {:s}".format(self.name, self.power, self.toughness, self.cost, self.type)
         else:
             return "{:s} - {:s} {:s}".format(self.name, self.cost, self.type)
+        
+    def __repr__(self):
+        return "Face(name={!r}, type={!r}, cost={!r}, text={!r}, power={!r}, toughness={!r}, index={!r})".format(self.name, self.type, self.cost, self.text, self.power, self.toughness, self.index)
     
     def _identity_tuple(self):
         return (self.index, self.name, self.cost, self.type, self.text, self.power, self.toughness)
@@ -80,10 +83,11 @@ class Face:
 
 
 class CardGameData:
-    def __init__(self, *faces: Face, scryfall_id: str, rarity: str, last_updated: datetime.datetime):
+    def __init__(self, *faces: Face, scryfall_id: str, rarity: str, scryfall_uri: str, last_updated: datetime.datetime):
         self.scryfall_id = scryfall_id
         self.faces: list[Face] = list()
         self.rarity = rarity
+        self.scryfall_uri = scryfall_uri
         self.last_updated = last_updated
         for f in faces:
             self.faces.append(f)
@@ -132,7 +136,13 @@ class CardGameData:
         return ' // '.join(f.toughness for f in self.faces)
     
     def clone(self) -> 'CardGameData':
-        return CardGameData(*[f.clone() for f in self.faces], scryfall_id=self.scryfall_id, rarity=self.rarity, last_updated=self.last_updated)
+        return CardGameData(*[f.clone() for f in self.faces], scryfall_id=self.scryfall_id, rarity=self.rarity, scryfall_uri=self.scryfall_uri, last_updated=self.last_updated)
+    
+    def __str__(self):
+        return "{:s} - {:s} {:s}".format(self.name, self.cost, self.type)
+    
+    def __repr__(self):
+        return "CardGameData(scryfall_id={!r}, rarity={!r}, scryfall_uri={!r}, last_updated={!r}, faces=*{!r})".format(self.scryfall_id, self.rarity, self.scryfall_uri, self.last_updated.isoformat(), self.faces)
 
 
 class Card:

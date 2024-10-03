@@ -159,7 +159,24 @@ def insert_multiple(db_filename: str, cards: list[Card]):
     insert_data = list()
     
     for c in cards:
-        insert_row = (c.count, c.name, c.edition, c.tcg_num, c.condition, c.language, c.foil, c.signed, c.artist_proof, c.altered_art, c.misprint, c.promo, c.textless, c.printing_id, c.printing_note, c.scryfall_id)
+        insert_row = (
+            c.count,
+            c.name,
+            c.edition,
+            c.tcg_num,
+            c.condition,
+            c.language,
+            c.foil,
+            c.signed,
+            c.artist_proof,
+            c.altered_art,
+            c.misprint,
+            c.promo,
+            c.textless,
+            c.printing_id,
+            c.printing_note,
+            c.scryfall_id
+        )
         insert_data.append(insert_row)
     
     con = util.connect(db_filename)
@@ -174,7 +191,24 @@ def insert(db_filename: str, card: Card) -> int:
     con = util.connect(db_filename)
     cur = con.cursor()
     last_id = None
-    for r in cur.execute(sql_insert_single, (card.count, card.name, card.edition, card.tcg_num, card.condition, card.language, card.foil, card.signed, card.artist_proof, card.altered_art, card.misprint, card.promo, card.textless, card.printing_id, card.printing_note, card.scryfall_id)):
+    for r in cur.execute(sql_insert_single, (
+        card.count,
+        card.name,
+        card.edition,
+        card.tcg_num,
+        card.condition,
+        card.language,
+        card.foil,
+        card.signed,
+        card.artist_proof,
+        card.altered_art,
+        card.misprint,
+        card.promo,
+        card.textless,
+        card.printing_id,
+        card.printing_note,
+        card.scryfall_id
+    )):
         last_id = r[0]
     con.commit()
     con.close()

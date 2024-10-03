@@ -20,7 +20,8 @@ _log.setLevel(logging.DEBUG)
 
 _default_http_headers = {
 	"User-Agent": 'Mozilla/5.0',
-	"Accept-Encoding": "deflate,gzip,identity"
+	"Accept-Encoding": "deflate,gzip,identity",
+	"Accept": "application/json;q=0.9,*/*;q=0.8"
 }
 
 
@@ -97,8 +98,10 @@ class HttpAgent(object):
 		:param auth_func: Adds authentication info to a request. Should not be used for plain HTML form authorization,
 		but rather for methods inherent to HTTP, e.g. basic auth, bearer tokens, or signed digest.
 		:param antiflood_secs: Number of seconds to wait between requests. Set to
-		less than 1 to disable anti-flood (the default). Can be fractional seconds
-		for milliseconds; e.g. 0.2 would be 200 milliseconds.
+		<= 0 to disable anti-flood (the default). Can be fractional seconds
+		for milliseconds; e.g. 0.2 would be 200 milliseconds. This antiflood
+		protection only applies to synchronous requests; async requests are sent
+		as soon as possible.
 		"""
 		self._host = host.rstrip('/')
 		if request_payload != 'json' and request_payload != 'form':
@@ -204,6 +207,7 @@ class HttpAgent(object):
 		":type : list"
 
 		futures = []
+		
 		for req, uri, host, auth, decode, ignored in self._async_http_requests:
 			if host is None:
 				host = self._host

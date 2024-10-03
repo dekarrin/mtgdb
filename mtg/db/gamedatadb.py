@@ -6,37 +6,42 @@ from .errors import NotFoundError
 from ..types import CardGameData, Face
 
 
-def get_one(db_filename: str, scryfall_id: str) -> CardGameData:
+def get_one(db_filename: str, id: str) -> CardGameData:
     con = util.connect(db_filename)
     cur = con.cursor()
     
     faces: list[Face] = list()
     rarity: str = ''
+    uri: str = ''
     last_updated: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
-    for r in cur.execute(sql_get_gameplay_faces, (scryfall_id,)):
+    for r in cur.execute(sql_get_gameplay_faces, (id,)):
         if r[0] != '' and rarity == '':
             rarity = r[0]
 
         if r[1] != '':
-            last_updated = datetime.datetime.fromisoformat(r[1])
+            uri = r[1]
+
+        if r[2] != '':
+            last_updated = datetime.datetime.fromisoformat(r[2])
         
         faces.append(Face(
-            index=r[2],
-            name=r[3],
-            cost=r[4],
-            type=r[5],
-            power=r[6],
-            toughness=r[7],
-            text=r[8]
+            index=r[3],
+            name=r[4],
+            cost=r[5],
+            type=r[6],
+            power=r[7],
+            toughness=r[8],
+            text=r[9]
         ))
     con.close()
 
     if len(faces) == 0:
-        raise NotFoundError("No gameplay data found for card with scryfall_id {!r}".format(scryfall_id))
+        raise NotFoundError("No gameplay data found for card with scryfall_id {!r}".format(id))
 
     gamedata = CardGameData(
-        scryfall_id=scryfall_id,
+        scryfall_id=id,
         rarity=rarity,
+        scryfall_uri=uri,
         last_updated=last_updated,
         *faces
     )
@@ -59,6 +64,7 @@ def insert(db_filename: str, gamedata: CardGameData):
             gamedata.scryfall_id,
             idx,
             gamedata.rarity,
+            gamedata.scryfall_uri,
             gamedata.last_updated.isoformat(),
             f.name,
             f.cost,
@@ -78,6 +84,7 @@ def insert(db_filename: str, gamedata: CardGameData):
 sql_get_gameplay_faces_base = '''
 SELECT
     rarity,
+    web_uri,
     updated_at,
     face_index,
     name,
@@ -91,14 +98,15 @@ FROM gameplay_data
 
 
 sql_get_gameplay_faces = sql_get_gameplay_faces_base + '''
-WHERE scryfall_id = ?
+WHERE id = ?
 '''
 
 sql_insert_gameplay_faces = '''
 INSERT INTO gameplay_data (
-    scryfall_id,
+    id,
     face_index,
     rarity,
+    web_uri,
     updated_at,
     name,
     cost,
@@ -106,5 +114,5 @@ INSERT INTO gameplay_data (
     power,
     toughness,
     text
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 '''

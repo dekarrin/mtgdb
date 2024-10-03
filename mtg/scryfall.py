@@ -123,7 +123,7 @@ def get_game_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
 
 
 def fetch_card_data_by_id(scryfall_id: str, scryfall_host='api.scryfall.com') -> Tuple[CardGameData, dict]:
-    client = HttpAgent(scryfall_host, ssl=True, antiflood_secs=0.2, ignored_errors=[400, 401, 403, 404, 422, 500], log_full_response=False)
+    client = _get_http_client(scryfall_host)
 
     params = {
         'pretty': False,
@@ -141,7 +141,7 @@ def fetch_card_data_by_id(scryfall_id: str, scryfall_host='api.scryfall.com') ->
 
 
 def fetch_card_data_by_name(name: str, fuzzy: bool=False, set: str='', scryfall_host='api.scryfall.com') -> Tuple[CardGameData, dict]:
-    client = HttpAgent(scryfall_host, ssl=True, antiflood_secs=0.2, ignored_errors=[400, 401, 403, 404, 422, 500], log_full_response=False)
+    client = _get_http_client(scryfall_host)
 
     params = {
         'pretty': False,
@@ -170,6 +170,7 @@ def _parse_resp_card_game_data(resp: dict[str, Any]) -> CardGameData:
     c = CardGameData(
         scryfall_id=resp['id'],
         rarity=resp['rarity'],
+        scryfall_uri=resp['scryfall_uri'],
         last_updated=datetime.datetime.now(tz=datetime.timezone.utc),
     )
 
@@ -202,3 +203,14 @@ def _parse_resp_face(f: dict[str, Any]) -> Face:
     )
 
     return face
+
+
+_client: HttpAgent = None
+
+def _get_http_client(scryfall_host='api.scryfall.com') -> HttpAgent:
+    global _client
+
+    if _client is None:
+        _client = HttpAgent(scryfall_host, ssl=True, antiflood_secs=0.2, ignored_errors=[400, 401, 403, 404, 422, 429, 500], log_full_response=False)
+
+    return _client
