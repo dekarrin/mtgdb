@@ -1,6 +1,6 @@
 import datetime
 
-from typing import Sequence, Any
+from typing import Sequence, Any, Tuple
 
 from .types import Card, CardGameData, Face, CardWithUsage
 from .http import HttpAgent
@@ -83,48 +83,66 @@ def get_game_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
         if card.scryfall_id is None:
             db_cards: list[CardWithUsage] = None
             try:
-                db_cards = carddb.find(db_filename, name=card.name, card_num=card.cardnum, edition_codes=[card.edition])
+                db_cards = carddb.find(db_filename, name=card.name, card_num=card.cardnum)
             except NotFoundError:
                 pass
 
             if db_cards is not None and any([c.scryfall_id is not None for c in db_cards]):
                 scryfall_id = [c.scryfall_id for c in db_cards if c.scryfall_id is not None][0]
             else:
-                gamedata = fetch_card_data_by_name(card.name, set=card.edition)
+                gamedata, _ = fetch_card_data_by_name(card.name, set=card.edition)
+                gamedata.last_updated = datetime.datetime.now(tz=datetime.timezone.utc)
                 gamedatadb.insert(db_filename, gamedata)
-
-                # for each match of db card, update the scryfall_id
+                if db_cards is not None:
+                    for c in db_cards:
+                        carddb.update_scryfall_id(db_filename, c.id, gamedata.scryfall_id)
+                return gamedata
             
-            # check in our DB for the card by name, the scryfall id MAY be there.
-            # carddb has entry with scryfall_id:
-                # we have scryfall_id
-            # carddb has entry without scryfall_id:
-                # retrieve entire card from scryfall
-                # save to gamedatadb.
-                # save scryfall_id to carddb.
-                # early return
-            # carddb has no entry:
-                # NOT POSSIBLE. raise exception.
+    # if we are at this point, scryfall_id is set to a valid value
 
-        # else:
-            # we have scryfall_id
+    gamedata = None
+    try:
+        gamedata = gamedatadb.get_one(db_filename, scryfall_id)
+        if datetime.datetime.now(tz=datetime.timezone.utc) - gamedata.last_updated > datetime.timedelta(months=3):
+            gamedata = None
+    except NotFoundError:
+        pass
 
-    # else:
-        # we have scryfall_id
-
-    # check gamedatadb for scryfall_id
-    # if found, AND not too old, use that as return value.
-    # else:
-       # if not found, fetch from scryfall
-
-    # prior to returning, verify that the scryfall_id is set in carddb. If not,
-    # set it.
-
+    if gamedata is None:
+        gamedata, raw_resp = fetch_card_data_by_id(scryfall_id)
+        gamedata.last_updated = datetime.datetime.now(tz=datetime.timezone.utc)
+        gamedatadb.insert(db_filename, gamedata)
+        name = raw_resp['name']
+        card_num = raw_resp['set'] + '-' + int(raw_resp['collector_number'])
+        db_cards = carddb.find(db_filename, name=name, card_num=card_num)
+        if db_cards is not None:
+            for c in db_cards:
+                carddb.update_scryfall_id(db_filename, c.id, gamedata.scryfall_id)
     
     return gamedata
 
 
-def fetch_card_data_by_name(name: str, fuzzy: bool=False, set: str='', scryfall_host='api.scryfall.com') -> CardGameData:
+def fetch_card_data_by_id(scryfall_id: str, scryfall_host='api.scryfall.com') -> Tuple[CardGameData, dict]:
+    client = HttpAgent(scryfall_host, ssl=True, antiflood_secs=0.2, ignored_errors=[400, 401, 403, 404, 422, 500], log_full_response=False)
+
+    params = {
+        'pretty': False,
+        'format': 'json',
+    }
+
+    path = '/cards/{:s}'.format(scryfall_id)
+    status, resp = client.request('GET', path, query=params)
+    if status >= 400:
+        err = APIError.parse(resp)
+        raise err
+    
+    data = _parse_resp_card_game_data(resp)
+    return data, resp
+
+
+def fetch_card_data_by_name(name: str, fuzzy: bool=False, set: str='', scryfall_host='api.scryfall.com') -> Tuple[CardGameData, dict]:
+    client = HttpAgent(scryfall_host, ssl=True, antiflood_secs=0.2, ignored_errors=[400, 401, 403, 404, 422, 500], log_full_response=False)
+
     params = {
         'pretty': False,
         'format': 'json',
@@ -134,21 +152,21 @@ def fetch_card_data_by_name(name: str, fuzzy: bool=False, set: str='', scryfall_
         params['fuzzy'] = name
     else:
         params['exact'] = name
-            
+    
     if len(set) > 0:
         params['set'] = set.lower()
-
-    client = HttpAgent(scryfall_host, ssl=True, antiflood_secs=0.2, ignored_errors=[400, 401, 403, 404, 422, 500], log_full_response=False)
-    status, resp = client.request('GET', '/cards/named', query=params)
+    
+    path = '/cards/named'
+    status, resp = client.request('GET', path, query=params)
     if status >= 400:
         err = APIError.parse(resp)
         raise err
     
-    data = _parse_resp_card_data(resp)
-    return data
+    data = _parse_resp_card_game_data(resp)
+    return data, resp
 
 
-def _parse_resp_card_data(resp: dict[str, Any]) -> CardGameData:
+def _parse_resp_card_game_data(resp: dict[str, Any]) -> CardGameData:
     c = CardGameData(
         scryfall_id=resp['id'],
         rarity=resp['rarity'],

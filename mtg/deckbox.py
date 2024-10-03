@@ -17,14 +17,31 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
 
     new_cards = list()
     for data in new_cards_data:
-        c = Card(count=data['count'], name=data['name'], edition=data['edition'], tcg_num=data['tcg_num'], condition=data['condition'], language=data['language'], foil=data['foil'], signed=data['signed'], artist_proof=data['artist_proof'], altered_art=data['altered_art'], misprint=data['misprint'], promo=data['promo'], textless=data['textless'], printing_id=data['printing_id'], printing_note=data['printing_note'])
+        c = Card(
+            count=data['count'],
+            name=data['name'],
+            edition=data['edition'],
+            tcg_num=data['tcg_num'],
+            condition=data['condition'],
+            language=data['language'],
+            foil=data['foil'],
+            signed=data['signed'],
+            artist_proof=data['artist_proof'],
+            altered_art=data['altered_art'],
+            misprint=data['misprint'],
+            promo=data['promo'],
+            textless=data['textless'],
+            printing_id=data['printing_id'],
+            printing_note=data['printing_note'],
+            scryfall_id=data['scryfall_id']
+        )
         new_cards.append(c)
     
     # then pull everyfin from the db
     existing_cards = carddb.get_all(db_filename)
     
     # eliminate dupes that already exist
-    new_imports, count_updates, deck_removals, deck_wl_to_owneds, deck_owned_to_wls = analyze_changes(db_filename, new_cards, existing_cards)
+    new_imports, scryfall_id_updates, count_updates, deck_removals, deck_wl_to_owneds, deck_owned_to_wls = analyze_changes(db_filename, new_cards, existing_cards)
     
     if len(new_imports) == 0 and len(count_updates) == 0:
         print("No new cards to import and no counts need updating", file=sys.stderr)
@@ -36,6 +53,12 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
             print("New cards to import:")
             for card in new_imports:
                 print("{:d}x {:s}".format(card.count, str(card)))
+            print("")
+
+        if len(scryfall_id_updates) > 0:
+            print("Scryfall ID updates:")
+            for upd8 in scryfall_id_updates:
+                print("{:s} -> {:s} in {:s}".format(upd8.old_scryfall_id, upd8.card.scryfall_id, str(card)))
             print("")
         
         if len(count_updates) > 0:
@@ -64,11 +87,13 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
         
         s_count = 's' if len(count_updates) != 1 else ''
         s_card = 's' if len(new_imports) != 1 else ''
+        s_scryfall = 's' if len(scryfall_id_updates) != 1 else ''
         s_remove = 's' if len(deck_removals) != 1 else ''
         s_o_to_wl = 's' if len(deck_owned_to_wls) != 1 else ''
         s_wl_to_o = 's' if len(deck_wl_to_owneds) != 1 else ''
         
         summary = "{:d} new card{:s} will be imported\n".format(len(new_imports), s_card)
+        summary += "{:d} scryfall ID{:s} will be updated\n".format(len(scryfall_id_updates), s_scryfall)
         summary += "{:d} count{:s} will be updated\n".format(len(count_updates), s_count)
         summary += "{:d} card{:s} will be removed from decks\n".format(len(deck_removals), s_remove)
         summary += "{:d} card{:s} will be moved from owned to wishlisted\n".format(len(deck_owned_to_wls), s_o_to_wl)
@@ -83,6 +108,7 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
     # if the card is moved entirely to wishlist, the count update will probably go to 0. We don't remove
     # 0's at this time, but if we do, we need to make shore that any such are not there due to wishlist.
     carddb.insert_multiple(db_filename, new_imports)
+    carddb.update_multiple_scryfall_ids(db_filename, [x.card for x in scryfall_id_updates])
     carddb.update_multiple_counts(db_filename, [x.card for x in count_updates])
     carddb.remove_amount_from_decks(db_filename, deck_removals)
     carddb.move_amount_from_owned_to_wishlist_in_decks(db_filename, deck_owned_to_wls)
@@ -90,16 +116,22 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
     
 
 class CountUpdate:
-    def __init__(self, card, old_count):
+    def __init__(self, card: Card, old_count: int):
         self.card = card
         self.old_count = old_count
+
+class ScryfallIDUpdate:
+    def __init__(self, card: Card, old_scryfall_id: str):
+        self.card = card
+        self.old_scryfall_id = old_scryfall_id
     
 # returns the set of de-duped (brand-new) card listings and the set of those that difer only in
 # count.
 # TODO: due to nested card check this is O(n^2) and could be improved to O(n) by just doing a lookup of each card
 # which is already implemented for purposes of deck importing.
-def analyze_changes(db_filename: str, importing: list[Card], existing: list[CardWithUsage]) -> tuple[list[Card], list[CountUpdate], list[DeckChangeRecord], list[DeckChangeRecord], list[DeckChangeRecord]]:
+def analyze_changes(db_filename: str, importing: list[Card], existing: list[CardWithUsage]) -> tuple[list[Card], list[ScryfallIDUpdate], list[CountUpdate], list[DeckChangeRecord], list[DeckChangeRecord], list[DeckChangeRecord]]:
     no_dupes: list[Card] = list()
+    scryfall_updates: list[ScryfallIDUpdate] = list()
     count_only: list[CountUpdate] = list()
     remove_from_deck: list[DeckChangeRecord] = list()
     wishlist_to_owned: list[DeckChangeRecord] = list()
@@ -107,6 +139,7 @@ def analyze_changes(db_filename: str, importing: list[Card], existing: list[Card
     for card in importing:
         already_exists = False
         update_count = False
+        update_scryfall_id = False
         existing_id = 0
         existing_count = 0
         for check in existing:
@@ -159,8 +192,15 @@ def analyze_changes(db_filename: str, importing: list[Card], existing: list[Card
                     removals, moves = cardutil.get_deck_owned_changes(card, check)
                     remove_from_deck.extend(removals)
                     owned_to_wishlist.extend(moves)
-            else:
-                print("{:s} already exists (MTGDB ID {:d}) with same count; skipping".format(str(card), check.id), file=sys.stderr)
+            if card.scryfall_id is not None and card.scryfall_id != check.scryfall_id:
+                action = '{:s} will be added'.format(card.scryfall_id)
+                if check.scryfall_id is not None:
+                    action = 'will be updated from {:s} to {:s}'.format(check.scryfall_id, card.scryfall_id)
+                print("{:s} already exists (MTGDB ID {:d}), but scryfall_id {:s}".format(str(card), check.id, action, file=sys.stderr))
+                update_scryfall_id = True
+
+            if not update_count and not update_scryfall_id:
+                print("{:s} already exists (MTGDB ID {:d}) with no changes; skipping".format(str(card), check.id), file=sys.stderr)
                 
             # stop checking other cards, if we are here it is time to stop
             break
@@ -169,10 +209,13 @@ def analyze_changes(db_filename: str, importing: list[Card], existing: list[Card
             if update_count:
                 card.id = existing_id
                 count_only.append(CountUpdate(card, existing_count))
+            if update_scryfall_id:
+                card.id = existing_id
+                scryfall_updates.append(ScryfallIDUpdate(card, check.scryfall_id))
         else:
             no_dupes.append(card)
             
-    return no_dupes, count_only, remove_from_deck, wishlist_to_owned, owned_to_wishlist
+    return no_dupes, scryfall_updates, count_only, remove_from_deck, wishlist_to_owned, owned_to_wishlist
 
 
 
@@ -253,6 +296,11 @@ def dollars_to_cents(text):
     total = (dollars * 100) + cents
     return total
 
+def empty_str_to_none(text):
+    if text is not None and text == '':
+        return None
+    return text
+
 deckbox_column_parsers = {
     'count': int,
     'tradelist_count': int,
@@ -273,7 +321,7 @@ deckbox_column_parsers = {
     'printing_note': str,
     'tags': str,
     'my_price': dollars_to_cents,
-    'scryfall_id': str,
+    'scryfall_id': empty_str_to_none,
 }
 
 def parse_deckbox_csv(filename: str, row_limit: int=0) -> list[dict]:
@@ -309,6 +357,8 @@ def parse_deckbox_csv(filename: str, row_limit: int=0) -> list[dict]:
                 raise DataConflictError("First column was expected to be 'count' but is {!r}; are you sure this is in deckbox format?".format(headers[0]))
             if rn == 0 and not hit_scryfall_id:
                 print("No scryfall_id column found; this import will not be able to update scryfall_id values", file=sys.stderr)
+            if hit_scryfall_id and rn > 0 and 'scryfall_id' not in row_data:
+                row_data['scryfall_id'] = None
                 
             if rn > 0 and len(row_data) > 0:
                 data.append(row_data)

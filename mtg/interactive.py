@@ -503,8 +503,7 @@ def cards_master_menu(s: Session):
         cio.clear()
         if action == 'SELECT':
             s.inven_cat_state = cat_state
-            card_usage = carddb.get_one(s.db_filename, card.id)
-            cards_detail_menu(s, card_usage)
+            cards_detail_menu(s, card)
         elif action == 'ADD':
             s.inven_cat_state = cat_state
             cards_add(s)
@@ -591,8 +590,6 @@ def card_decks_menu(s: Session, c: CardWithUsage):
 
         if action is None:
             break
-
-
 
 
 def card_remove_single(s: Session, c: CardWithUsage) -> CardWithUsage | None:

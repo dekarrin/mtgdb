@@ -232,6 +232,31 @@ def update_condition(db_filename: str, cid: int, cond: str):
     con.close()
 
 
+def update_scryfall_id(db_filename: str, cid: int, scryfall_id: int):
+    query = sql_update_scryfall_id
+    params = (scryfall_id, cid)
+
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute(query, params)
+    con.commit()
+    con.close()
+
+
+def update_multiple_scryfall_ids(db_filename: str, cards: list[Card]):
+    update_data = list()
+    
+    for c in cards:
+        row_values = (c.scryfall_id, c.id)
+        update_data.append(row_values)
+
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.executemany(sql_update_scryfall_id, update_data)
+    con.commit()
+    con.close()
+
+
 def delete(db_filename, cid):
     con = util.connect(db_filename)
     cur = con.cursor()
@@ -483,6 +508,16 @@ SET
 WHERE
     id=?
 RETURNING count;
+'''
+
+sql_update_scryfall_id = '''
+UPDATE
+    inventory
+SET
+    scryfall_id=?
+WHERE
+    id=?
+RETURNING scryfall_id;
 '''
 
 
