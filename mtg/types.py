@@ -132,14 +132,20 @@ class ScryfallCardData:
         if len(self.faces) < 1:
             return None
         
-        return ' // '.join(f.power for f in self.faces)
+        s = ' // '.join((f.power if f.power is not None else '') for f in self.faces)
+        if len(s) == 0:
+            return None
+        return s
     
     @property
     def toughness(self) -> str | None:
         if len(self.faces) < 1:
             return None
         
-        return ' // '.join(f.toughness for f in self.faces)
+        s = ' // '.join((f.toughness if f.toughness is not None else '') for f in self.faces)
+        if len(s) == 0:
+            return None
+        return s
     
     def clone(self) -> 'ScryfallCardData':
         return ScryfallCardData(*[f.clone() for f in self.faces], id=self.id, rarity=self.rarity, uri=self.uri, last_updated=self.last_updated)
@@ -174,8 +180,18 @@ class Card:
         self.scryfall_id = scryfall_id
     
     def __str__(self):
-        card_str = "{:s}-{:03d} {!r}".format(self.edition, self.tcg_num, self.name)
-        
+        card_str = "{:s}-{:03d} {:s}".format(self.edition, self.tcg_num, self.name)
+            
+        if len(self.special_print_items) > 0:
+            card_str += ' (' + self.special_print_items + ')'
+            
+        return card_str
+    
+    def clone(self) -> 'Card':
+        return Card(self.id, self.count, self.name, self.edition, self.tcg_num, self.condition, self.language, self.foil, self.signed, self.artist_proof, self.altered_art, self.misprint, self.promo, self.textless, self.printing_id, self.printing_note, self.scryfall_id)
+    
+    @property
+    def special_print_items(self) -> str:
         special_print_items = list()
         if self.foil:
             special_print_items.append('F')
@@ -195,12 +211,9 @@ class Card:
             special_print_items.append(self.printing_note)
             
         if len(special_print_items) > 0:
-            card_str += ' (' + ','.join(special_print_items) + ')'
-            
-        return card_str
-    
-    def clone(self) -> 'Card':
-        return Card(self.id, self.count, self.name, self.edition, self.tcg_num, self.condition, self.language, self.foil, self.signed, self.artist_proof, self.altered_art, self.misprint, self.promo, self.textless, self.printing_id, self.printing_note, self.scryfall_id)
+            return ','.join(special_print_items)
+        else:
+            return ''
     
     @property
     def cardnum(self) -> str:

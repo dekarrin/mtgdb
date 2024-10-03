@@ -113,7 +113,7 @@ SELECT
     s.rarity,
     s.web_uri,
     s.updated_at,
-    f.index,
+    f."index",
     f.name,
     f.cost,
     f.type,
@@ -122,6 +122,7 @@ SELECT
     f.text
 FROM scryfall AS s
 INNER JOIN scryfall_faces AS f ON s.id = f.scryfall_id
+WHERE s.id = ?
 '''
 
 sql_insert_scryfall_card_data = '''

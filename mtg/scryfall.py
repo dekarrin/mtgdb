@@ -1,6 +1,6 @@
 import datetime
 
-from typing import Sequence, Any, Tuple
+from typing import Sequence, Any, Tuple, Callable
 
 from .types import Card, ScryfallCardData, ScryfallFace, CardWithUsage
 from .http import HttpAgent
@@ -64,7 +64,7 @@ class APIError(Exception):
         return APIError(details, status, warnings)
     
 
-def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='') -> ScryfallCardData:
+def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='', http_pre_wait_fn: Callable[[], None] | None=None) -> ScryfallCardData:
     """
     Get gameplay data for a card from the database. Input can be either card or
     scryfall_id. At least one must be given, and if both are given, only
@@ -90,6 +90,8 @@ def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
             if db_cards is not None and any([c.scryfall_id is not None for c in db_cards]):
                 scryfall_id = [c.scryfall_id for c in db_cards if c.scryfall_id is not None][0]
             else:
+                if http_pre_wait_fn is not None:
+                    http_pre_wait_fn()
                 card_data, _ = fetch_card_data_by_name(card.name, set=card.edition)
                 card_data.last_updated = datetime.datetime.now(tz=datetime.timezone.utc)
 
@@ -104,19 +106,23 @@ def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='')
                     for c in db_cards:
                         carddb.update_scryfall_id(db_filename, c.id, card_data.id)
                 return card_data
+        else:
+            scryfall_id = card.scryfall_id
             
     # if we are at this point, scryfall_id is set to a valid value
 
     card_data = None
     try:
         card_data = scryfalldb.get_one(db_filename, scryfall_id)
-        if datetime.datetime.now(tz=datetime.timezone.utc) - card_data.last_updated > datetime.timedelta(months=3):
+        if datetime.datetime.now(tz=datetime.timezone.utc) - card_data.last_updated > datetime.timedelta(days=30*3):
             card_data = None
             scryfalldb.delete_one(db_filename, scryfall_id)
     except NotFoundError:
         pass
 
     if card_data is None:
+        if http_pre_wait_fn is not None:
+            http_pre_wait_fn()
         card_data, raw_resp = fetch_card_data_by_id(scryfall_id)
         card_data.last_updated = datetime.datetime.now(tz=datetime.timezone.utc)
         scryfalldb.insert(db_filename, card_data)

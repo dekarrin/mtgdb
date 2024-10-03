@@ -8,6 +8,8 @@ import sys
 # IMPORTING HAS SIDE EFFECTS; DO NOT REMOVE
 import readline
 
+import textwrap
+
 import traceback
 
 from typing import Optional, Callable
@@ -506,15 +508,9 @@ def cards_master_menu(s: Session):
             s.inven_cat_state = cat_state
 
             # grab scryfall data if we can
-            scryfall_data: ScryfallCardData = None
-            try:
-                scryfall_data = scryfallops.get_card_data(s.db_filename, card)
-            except scryfallops.APIError as e:
-                print("WARN: Get Scryfall Data: {!s}".format(e))
-                cio.pause()
-            else:
-                if card.scryfall_id is None:
-                    card.scryfall_id = scryfall_data.id
+            scryfall_data = retrieve_scryfall_data(s, card)
+            if scryfall_data is not None and card.scryfall_id is None:
+                card.scryfall_id = scryfall_data.id
 
             cards_detail_menu(s, card, scryfall_data)
         elif action == 'ADD':
@@ -528,6 +524,40 @@ def cards_master_menu(s: Session):
             break
 
 
+def retrieve_scryfall_data(s: Session, card: Card) -> ScryfallCardData | None:
+    scryfall_data: ScryfallCardData = None
+    api_waited = False
+    def wait_msg():
+        print("Fetching details from Scryfall...")
+        nonlocal api_waited
+        api_waited = True
+    
+    try:
+        scryfall_data = scryfallops.get_card_data(s.db_filename, card, http_pre_wait_fn=wait_msg)
+    except scryfallops.APIError as e:
+        if api_waited:
+            cio.clear()
+        print("WARN: Get Scryfall Data: {!s}".format(e))
+        cio.pause()
+    else:
+        if api_waited:
+            cio.clear()
+
+    return scryfall_data
+
+
+def wrap_preformatted_text(text: str, width: int) -> str:
+    parts = text.splitlines()
+    wrapped = []
+    for i, p in enumerate(parts):
+        wrapped.extend(textwrap.wrap(p, width=width, replace_whitespace=False, break_long_words=False))
+
+        if i < len(parts) - 1:
+            wrapped.append('')
+
+    return '\n'.join(wrapped)
+
+
 def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar=True) -> str:
     deck_used_states = ['P', 'C']
     wishlist_total = sum([u.wishlist_count for u in c.usage])
@@ -535,9 +565,52 @@ def card_detail_header(c: CardWithUsage, scryfall_data: ScryfallCardData | None,
     in_decks_unfree = sum([u.count for u in c.usage if u.deck_state in deck_used_states])
     free = c.count - in_decks_unfree
 
+    text_wrap_width = 40
+
     hdr = "CARD\n"
     hdr += "-" * 22 + "\n"
-    hdr += "{:s} (ID {:d})\n".format(str(c), c.id)
+    if scryfall_data is not None:
+        hdr += "{:s}".format(c.name)
+        amt = text_wrap_width - len(scryfall_data.name)
+        cost = scryfall_data.cost
+        spaces = amt - len(cost)
+        hdr += "{:s}{:s}\n".format(' ' * spaces, cost)
+
+        if len(c.special_print_items) > 0:
+            hdr += "({:s})\n".format(','.join(c.special_print_items))
+        else:
+            hdr += "\n"
+        
+        hdr += "{:s}\n".format(scryfall_data.type)
+        hdr += "\n"
+
+        if len(scryfall_data.faces) > 1:
+            if any([f.text is not None and len(f.text) > 0 for f in scryfall_data.faces]) or any ([f.power is not None and len(f.power) > 0 for f in scryfall_data.faces]):
+                for i, f in enumerate(scryfall_data.faces):
+                    hdr += "FACE {:d}:\n".format(i + 1)
+                    if f.text is not None and len(f.text) > 0:
+                        text = wrap_preformatted_text(f.text, text_wrap_width)
+                        hdr += "{:s}\n".format(text)
+                    if f.power is not None and len(f.power) > 0:
+                        hdr += "{:s}/{:s}\n".format(f.power, f.toughness)
+                    hdr += "\n"
+        else:
+            text = wrap_preformatted_text(scryfall_data.text, text_wrap_width)
+            hdr += "{:s}\n\n".format(text)
+        
+        hdr += "{:s}".format(c.cardnum)
+        if len(scryfall_data.faces) < 2 and scryfall_data.power is not None and len(scryfall_data.power) > 0:
+            amt = text_wrap_width - len(c.cardnum)
+            st = "{:s}/{:s}".format(scryfall_data.power, scryfall_data.toughness)
+            spaces = amt - len(st)
+            hdr += "{:s}{:s}\n".format(' ' * spaces, st)
+        else:
+            hdr += "\n"
+        
+        hdr += "-" * 22 + "\n"
+    else:
+        hdr += "{:s}\n".format(str(c))
+    hdr += "Inventory ID: {:d}\n".format(c.id)
     hdr += "{:s} ({:s}), {:s}\n".format(card_condition_to_name(c.condition), c.condition, c.language)
     hdr += "{:d}x owned\n".format(c.count)
 
