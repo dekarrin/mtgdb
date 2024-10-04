@@ -1,0 +1,22 @@
+on:
+  release:
+    types: [published]
+
+jobs:
+  create-releases:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ['windows-latest']
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install -r requirements.txt pyinstaller
+      - run: pyinstaller mtgdb.py -F
+      - run: $v = ./dist/mtgdb.exe -V ; $v = ($v -split '\s+')[0] ; $arch = "${{ runner.arch }}".ToLower() ; $os = "${{ runner.os }}".ToLower() ; mkdir ./dist/mtgdb-$v-$os-$arch ; mv ./dist/mtgdb.exe ./dist/mtgdb-$v-$os-$arch/mtgdb.exe
+
