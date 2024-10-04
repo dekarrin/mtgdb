@@ -2,6 +2,7 @@ import sqlite3
 import sys
 
 from ..types import Card
+from .errors import DBOpenError
 
 
 def none_to_empty_str(data):
@@ -18,11 +19,16 @@ def connect(db_filename):
     try:
         con = sqlite3.connect("file:" + db_filename + "?mode=rw", uri=True)
     except sqlite3.OperationalError as e:
-        if (e.sqlite_errorcode & 0xff) == 0x0e:
-            print("ERROR: Cannot open DB file {!r}; does it exist?".format(db_filename), file=sys.stderr)
+        cant_open = False
+        if sys.version_info[0] >= 3 and sys.version_info[1] >= 11:
+            cant_open = (e.sqlite_errorcode & 0xff) == 0x0e
         else:
-            print("ERROR: SQLITE returned an error opening DB: {:s}({:d})".format(e.sqlite_errorname, e.sqlite_errorcode), file=sys.stderr)
-        sys.exit(2)
+            cant_open = "unable to open database file" in str(e).lower()
+        
+        if cant_open:
+            raise DBOpenError("Cannot open DB file {!r}; does it exist?".format(db_filename))
+        else:
+            raise DBOpenError("SQLITE returned an error opening DB: {:s}({:d})".format(e.sqlite_errorname, e.sqlite_errorcode))
 
     con.execute(sql_enable_foreign_keys)
         

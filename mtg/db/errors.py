@@ -5,6 +5,11 @@ class DBError(Exception):
 
     def __str__(self):
         return self.msg
+    
+
+class DBOpenError(DBError):
+    def __init__(self, msg):
+        super().__init__(msg)
 
 
 class AlreadyExistsError(DBError):

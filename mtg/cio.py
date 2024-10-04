@@ -3,6 +3,13 @@ import os
 from contextlib import contextmanager
 
 
+def using_winpty() -> bool:
+    return os.name == 'nt' and '_' in os.environ and os.environ['_'].endswith('/winpty')
+
+def using_mintty() -> bool:
+    return os.name == 'nt' and 'TERM_PROGRAM' in os.environ and os.environ['TERM_PROGRAM'] == 'mintty'
+
+
 @contextmanager
 def alternate_screen_buffer():
     # if we are on windows, we need to enable virtual terminal processing. This
@@ -20,20 +27,20 @@ def alternate_screen_buffer():
         ctypes.windll.kernel32.SetConsoleMode(hOut, out_modes)
 
     try:
-        if os.name == 'nt':
+        if os.name == 'nt' and not using_mintty():
             print("\033[?1049h", end='', flush=True)
         else:
             os.system('tput smcup')
         yield
     finally:
-        if os.name == 'nt':
+        if os.name == 'nt' and not using_mintty():
             print("\033[?1049l", end='', flush=True)
         else:
             os.system('tput rmcup')
 
 
 def clear():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    os.system('cls' if os.name == 'nt' and not using_mintty() else 'clear')
 
 
 def pause(show_msg=True):
@@ -57,7 +64,7 @@ def select(prompt, options=None, non_number_choices=None, fill_to=0, default=Non
     if prompt is not None:
         if default is not None:
             prompt = "{:s} (default: {!r})".format(prompt, default)
-        print(prompt)
+        print(prompt, file=sys.stderr)
 
     printed_lines = 0
     if options is not None:
@@ -81,7 +88,7 @@ def select(prompt, options=None, non_number_choices=None, fill_to=0, default=Non
             printed_lines += 1
 
     while printed_lines < fill_to:
-        print()
+        print(file=sys.stderr)
         printed_lines += 1
         
     selected_idx = None

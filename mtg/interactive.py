@@ -5,8 +5,9 @@
 import os.path
 import sys
 
-# IMPORTING HAS SIDE EFFECTS; DO NOT REMOVE
-import readline
+if os.name != 'nt':
+    # IMPORTING HAS SIDE EFFECTS; DO NOT REMOVE
+    import readline
 
 import textwrap
 
@@ -21,7 +22,7 @@ from . import decks as deckops
 from . import deckbox as deckboxops
 from . import scryfall as scryfallops
 from .errors import DataConflictError, UserCancelledError
-from .db import schema, deckdb, carddb, DBError, NotFoundError
+from .db import schema, deckdb, carddb, DBError, NotFoundError, DBOpenError
 
 class Session:
     def __init__(self, db_filename: str):
@@ -34,18 +35,38 @@ class Session:
 def start(db_filename):
     s = Session(db_filename)
 
-
     try:
-        with cio.alternate_screen_buffer():
+        warn_mintty()
+    except KeyboardInterrupt:
+        sys.exit(0)
+
+    fatal_msg = None
+    with cio.alternate_screen_buffer():
+        try:
             show_splash_screen(s)
             main_menu(s)
-    except KeyboardInterrupt:
-        pass
-    except:
+        except KeyboardInterrupt:
+            pass
+        except:
+            fatal_msg = traceback.format_exc()
+        
+        if cio.using_mintty():
+            # final call to clear the alt screen buffer because it will be
+            # printed when program exits (yeah idk why glub)
+            cio.clear()
+
+    if fatal_msg is not None:
         print("A fatal error occurred:")
-        print(traceback.format_exc())
+        print(fatal_msg)
         sys.exit(1)
 
+
+def warn_mintty():
+    if cio.using_mintty():
+        print("WARNING: You appear to be executing in windows git-bash or other mintty env")
+        print("WARNING: Ctrl-C and alternate screen buffers will not work as expected")
+        print("WARNING: To abort launch and preserve the scrollback buffer, do Ctrl-C <ENTER>")
+        cio.pause()
 
 def show_splash_screen(s: Session):
     cio.clear()
@@ -76,9 +97,17 @@ def main_menu(s: Session):
             cio.clear()
 
         if item == 'cards':
-            cards_master_menu(s)
+            try:
+                cards_master_menu(s)
+            except DBOpenError:
+                print("ERROR: DB must be initialized before managing cards")
+                cio.pause()
         elif item == 'decks':
-            decks_master_menu(s)
+            try:
+                decks_master_menu(s)
+            except DBOpenError:
+                print("ERROR: DB must be initialized before managing decks")
+                cio.pause()
         elif item == 'change-db':
             change_db(s)
             cio.pause()
