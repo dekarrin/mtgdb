@@ -5,13 +5,14 @@ import argparse
 
 import mtg.db
 
-from mtg import cards, deckbox, decks, ArgumentError, types, interactive
+from mtg import cards, deckbox, decks, ArgumentError, types, interactive, version
 from mtg.db import schema
 
 
 def main():
     parser = argparse.ArgumentParser(prog='mtgdb.py', description='Import card lists and manage membership of cards within decks using export data from services that believe they have the right to charge me monthly for the same service for some reason.')
     parser.add_argument('-D', '--db-filename', default='inv.db', help="path to sqlite3 inventory DB file")
+    parser.add_argument('-V', '--version', action='store_true', help="print version and exit")
     parser.set_defaults(func=invoke_interactive_mode)
     subs = parser.add_subparsers(title='SUBCOMMANDS', required=False, metavar='SUBCOMMAND')
 
@@ -130,6 +131,10 @@ def main():
 
     args = parser.parse_args()
 
+    if args.version:
+        print("mtgdb v" + version.Version)
+        sys.exit(0)
+
     try:
         args.func(args)
     except mtg.db.DBError as e:
@@ -141,7 +146,7 @@ def main():
 
 
 def invoke_interactive_mode(args):
-    mtg.interactive.start(args.db_filename)
+    interactive.start(args.db_filename)
 
 
 def invoke_init_db(args):

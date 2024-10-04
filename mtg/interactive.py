@@ -33,23 +33,27 @@ class Session:
 
 def start(db_filename):
     s = Session(db_filename)
+
+
+    try:
+        with cio.alternate_screen_buffer():
+            show_splash_screen(s)
+            main_menu(s)
+    except KeyboardInterrupt:
+        pass
+    except:
+        print("A fatal error occurred:")
+        print(traceback.format_exc())
+        sys.exit(1)
+
+
+def show_splash_screen(s: Session):
     cio.clear()
     print("MTGDB Interactive Mode")
     print("======================")
     print("Using database {:s}".format(s.db_filename))
     print("----------------------")
     cio.pause()
-
-    try:
-        main_menu(s)
-    except KeyboardInterrupt:
-        print()
-    except:
-        print("A fatal error occurred:")
-        print(traceback.format_exc())
-        sys.exit(1)
-
-    print("Goodbye!")
 
 
 def main_menu(s: Session):

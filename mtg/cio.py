@@ -1,5 +1,35 @@
 import sys
 import os
+from contextlib import contextmanager
+
+
+@contextmanager
+def alternate_screen_buffer():
+    # if we are on windows, we need to enable virtual terminal processing. This
+    # *should* be supported on at least windows 10, if not, then it is not glub.
+    # this solution comes from SO answer at
+    # https://stackoverflow.com/questions/62267123/alternate-screen-buffer-for-the-windows-console
+
+    if os.name == 'nt':
+        import ctypes
+        hOut = ctypes.windll.kernel32.GetStdHandle(-11)
+        out_modes = ctypes.c_uint32()
+        ENABLE_VT_PROCESSING = ctypes.c_uint32(0x0004)
+        ctypes.windll.kernel32.GetConsoleMode(hOut, ctypes.byref(out_modes))
+        out_modes = ctypes.c_uint32(out_modes.value | ENABLE_VT_PROCESSING.value)
+        ctypes.windll.kernel32.SetConsoleMode(hOut, out_modes)
+
+    try:
+        if os.name == 'nt':
+            print("\033[?1049h", end='', flush=True)
+        else:
+            os.system('tput smcup')
+        yield
+    finally:
+        if os.name == 'nt':
+            print("\033[?1049l", end='', flush=True)
+        else:
+            os.system('tput rmcup')
 
 
 def clear():
