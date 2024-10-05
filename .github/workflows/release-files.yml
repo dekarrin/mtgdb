@@ -7,7 +7,7 @@ permissions:
 
 jobs:
   collect-source-and-docs:
-    runs-on: linux-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Create Source Archive
@@ -36,8 +36,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: exit 1
-
       - name: Install Pyinstaller
         run: pip install -r requirements.txt pyinstaller
       - name: Build with Pyinstaller
@@ -57,7 +55,7 @@ jobs:
           echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> "$GITHUB_ENV"
       - name: Confirm Vars (Delete When Done)
         run: |
-          echo  "filename: %GITHUB_ENV%"
+          echo  "filename: $env:GITHUB_ENV"
           echo "individual vars:"
           echo "BINARY_PATH=$BINARY_PATH"
           echo "WINDOWS_RELEASE_NAME=%WINDOWS_RELEASE_NAME%"
@@ -110,13 +108,3 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: gh release upload ${{ github.ref }} archives/*
-
-  cancel-on-build-failure:
-    needs: [collect-source-and-docs, build-windows]
-    runs-on: ubuntu-latest
-    if: failure()
-    steps:
-      - env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: gh run cancel ${{ github.RUN_ID }}
