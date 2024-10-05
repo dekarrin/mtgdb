@@ -2,6 +2,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  actions: write
+
 jobs:
   collect-source-and-docs:
     runs-on: linux-latest
@@ -59,6 +62,8 @@ jobs:
           echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> $GITHUB_ENV
       - name: Confirm Vars (Delete When Done)
         run: |
+          cat "$GITHUB_ENV"
+          echo "individual vars:"
           echo "BINARY_PATH=$BINARY_PATH"
           echo "WINDOWS_RELEASE_NAME=$WINDOWS_RELEASE_NAME"
           echo "WINDOWS_ARTIFACT_NAME=$WINDOWS_ARTIFACT_NAME"
