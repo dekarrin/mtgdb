@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Create Source Archive
         run: |
-          source_dir=mtgdb-${{ github.ref }}-source
+          source_dir=mtgdb-${{ github.ref_name }}-source
           git archive --format=tar --prefix="$source_dir/" HEAD | tar xf -
           tar czf "source.tar.gz" "$source_dir"
           rm -rf "$source_dir"
