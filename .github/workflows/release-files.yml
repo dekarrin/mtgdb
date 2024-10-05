@@ -31,10 +31,10 @@ jobs:
     steps:
       - run: echo v0.0.1 > version
       - uses: actions/checkout@v4
-      - name: Retrieve Version
-        uses: actions/download-artifact@v4
-        with:
-          name: version
+      # - name: Retrieve Version
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: version
       - name: Create Source Archive
         run: |
           version="$(cat ./version)"
@@ -62,10 +62,10 @@ jobs:
     steps:
       - run: echo v0.0.1 > version
       - uses: actions/checkout@v4
-      - name: Retrieve Version
-        uses: actions/download-artifact@v4
-        with:
-          name: version
+      # - name: Retrieve Version
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: version
       # - uses: actions/setup-python@v5
       #   with:
       #     python-version: '3.11'
