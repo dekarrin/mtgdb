@@ -152,7 +152,6 @@ jobs:
       - name: Package Windows
         run: |
           mkdir -p "dist/$WINDOWS_RELEASE_NAME"
-          mkdir -p archives/
           mv "builds/$WINDOWS_RELEASE_NAME.exe" "dist/$WINDOWS_RELEASE_NAME/mtgdb.exe"
           cp -R common-assets/* "dist/$WINDOWS_RELEASE_NAME"
           cd dist
@@ -164,7 +163,8 @@ jobs:
       - name: Package Linux
         run: |
           mkdir -p "dist/$LINUX_RELEASE_NAME"
-          mkdir -p archives/
+          echo "DEBUG Archive Pre Move Contents"
+          ls -la "dist/$LINUX_RELEASE_NAME"
           mv "builds/$LIUNX_RELEASE_NAME" "dist/$LINUX_RELEASE_NAME/mtgdb"
           cp -R common-assets/* "dist/$LINUX_RELEASE_NAME"
           cd "dist/$LINUX_RELEASE_NAME"
