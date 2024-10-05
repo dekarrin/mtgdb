@@ -3,12 +3,8 @@ on:
     types: [published]
 
 jobs:
-  create-releases:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ['windows-latest']
+  create-windows-release:
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -16,7 +12,30 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: pip install -r requirements.txt pyinstaller
-      - run: pyinstaller mtgdb.py -F
-      - run: $v = ./dist/mtgdb.exe -V ; $v = ($v -split '\s+')[0] ; $arch = "${{ runner.arch }}".ToLower() ; $os = "${{ runner.os }}".ToLower() ; mkdir ./dist/mtgdb-$v-$os-$arch ; mv ./dist/mtgdb.exe ./dist/mtgdb-$v-$os-$arch/mtgdb.exe
-
+      - name: Install Pyinstaller
+        run: pip install -r requirements.txt pyinstaller
+      - name: Build with Pyinstaller
+        run: pyinstaller mtgdb.py -F
+      - name: Prepare Artifacts
+        run: |
+          $v = ./dist/mtgdb.exe -V
+          $v = ($v -split '\s+')[0]
+          $arch = "${{ runner.arch }}".ToLower()
+          $os = "${{ runner.os }}".ToLower()
+          mkdir ./dist/mtgdb-$v-$os-$arch
+          mv ./dist/mtgdb.exe ./dist/mtgdb-$v-$os-$arch/mtgdb.exe
+          echo "BINARY_PATH=./dist/mtgdb-$v-$os-$arch/mtgdb.exe" >> $GITHUB_ENV
+          echo "WINDOWS_RELEASE_NAME=mtgdb-$v-$os-$arch" >> ./windows-build-info.txt
+          echo "WINDOWS_RELEASE_NAME=mtgdb-$v-$os-$arch" >> $GITHUB_ENV
+          echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> ./windows-build-info.txt
+          echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> $GITHUB_ENV
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.WINDOWS_ARTIFACT_NAME }}
+          path: ${{ env.BINARY_PATH }}
+      - name: Upload Build Info Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-info.txt
+          path: ./windows-build-info.txt
