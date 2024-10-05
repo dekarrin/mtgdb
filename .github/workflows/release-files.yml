@@ -72,33 +72,9 @@ jobs:
         run: pip install -r requirements.txt pyinstaller
       - name: Build with Pyinstaller
         run: pyinstaller mtgdb.py -F
-      - name: Debug Check Names (Delete When Done)
-        shell: bash
-        run: |
-          echo "GITHUB_ENV=$GITHUB_ENV"
-          echo "-------"
-          printenv
-          echo "-------"
-          echo dist:
-          ls dist
       - name: Prepare Artifacts
         shell: bash
         run: scripts/ci/prepare-artifacts.sh "${{ runner.os }}" "${{ runner.arch }}"
-      - name: Check (bash)
-        shell: bash
-        run: |
-          echo "bin-path:"
-          stat $BINARY_PATH
-      - name: Confirm Vars (Delete When Done)
-        run: |
-          echo  "filename: $env:GITHUB_ENV"
-          cat "$env:GITHUB_ENV"
-          echo "individual vars:"
-          echo BINARY_PATH=$env:BINARY_PATH
-          echo WINDOWS_RELEASE_NAME=$env:WINDOWS_RELEASE_NAME
-          echo WINDOWS_ARTIFACT_NAME=${{ env.WINDOWS_ARTIFACT_NAME }}
-          echo info-file:
-          cat ./windows-build-info.txt
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -137,10 +113,6 @@ jobs:
           name: common-assets.tar
       - name: Expand Common Assets
         run: tar xf common-assets.tar
-      - name: Debug Checks (Delete When Done)
-        run: |
-          printenv
-          ls builds
       - name: Package Windows
         run: |
           mkdir -p "dist/$WINDOWS_RELEASE_NAME"
@@ -148,14 +120,9 @@ jobs:
           mv "builds/$WINDOWS_RELEASE_NAME.exe" "dist/$WINDOWS_RELEASE_NAME"
           cp -R common-assets/* "dist/$WINDOWS_RELEASE_NAME"
           cd dist
-          zip "$WINDOWS_RELEASE_NAME.zip" "$WINDOWS_RELEASE_NAME"/*
+          zip "$WINDOWS_RELEASE_NAME.zip" "$WINDOWS_RELEASE_NAME"/* -j
           cd ..
           mv "dist/$WINDOWS_RELEASE_NAME.zip" archives/
-      - name: Debug Checks (Delete When Done)
-        run: |
-          ls archives
-          ls dist/*
-          printenv
       - name: Upload To Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -11,11 +11,9 @@ os="${1,,}"
 arch="${2,,}"
 
 v="$(cat ./version)"
-echo "VERSION: $v"
 release="mtgdb-$v-$os-$arch"
 echo "RELEASE: $release"
 mv ./dist/mtgdb.exe "./dist/$release.exe"
-ls -la "dist"
 
 # print out env vars
 echo "BINARY_PATH=dist/$release.exe" >> "$GITHUB_ENV"
