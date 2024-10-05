@@ -79,7 +79,7 @@ jobs:
           printenv
       - name: Prepare Artifacts
         shell: bash
-        run: |
+        run: scripts/ci/prepare-artifacts.sh "${{ runner.os }}" "${{ runner.arch }}"
           v="$(cat ./version)"
           arch="${{ runner.arch }}" ; arch="${arch,,}"
           os="${{ runner.os }} ; os="${os,,}"
@@ -98,6 +98,8 @@ jobs:
           echo BINARY_PATH=$env:BINARY_PATH
           echo WINDOWS_RELEASE_NAME=$env:WINDOWS_RELEASE_NAME
           echo WINDOWS_ARTIFACT_NAME=${{ env.WINDOWS_ARTIFACT_NAME }}
+          echo info-file:
+          cat ./windows-build-info.txt
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
         with:
