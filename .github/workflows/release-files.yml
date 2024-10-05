@@ -71,16 +71,23 @@ jobs:
         run: pip install -r requirements.txt pyinstaller
       - name: Build with Pyinstaller
         run: pyinstaller mtgdb.py -F
-      - name: Prepare Artifacts
+      - name: Debug Check Names (Delete When Done)
+        shell: bash
         run: |
-          $v = Get-Content ./version
-          $arch = "${{ runner.arch }}".ToLower()
-          $os = "${{ runner.os }}".ToLower()
-          mkdir ./dist/mtgdb-$v-$os-$arch
-          mv ./dist/mtgdb.exe ./dist/mtgdb-$v-$os-$arch.exe
-          echo "BINARY_PATH=\"./dist/mtgdb-$v-$os-$arch.exe\"" >> "$env:GITHUB_ENV"
+          echo "GITHUB_ENV=$GITHUB_ENV"
+          echo "-------"
+          printenv
+      - name: Prepare Artifacts
+        shell: bash
+        run: |
+          v="$(cat ./version)"
+          arch="${{ runner.arch }}" ; arch="${arch,,}"
+          os="${{ runner.os }} ; os="${os,,}"
+          mkdir "./dist/mtgdb-$v-$os-$arch"
+          mv "./dist/mtgdb.exe" "./dist/mtgdb-$v-$os-$arch.exe"
+          echo "BINARY_PATH=\"dist/mtgdb-$v-$os-$arch.exe\"" >> "$GITHUB_ENV"
           echo "WINDOWS_RELEASE_NAME=\"mtgdb-$v-$os-$arch\"" >> ./windows-build-info.txt
-          echo "WINDOWS_RELEASE_NAME=\"mtgdb-$v-$os-$arch\"" >> "$env:GITHUB_ENV"
+          echo "WINDOWS_RELEASE_NAME=\"mtgdb-$v-$os-$arch\"" >> "$GITHUB_ENV"
           echo "WINDOWS_ARTIFACT_NAME=\"mtgdb-$v-$os-$arch.exe\"" >> ./windows-build-info.txt
           echo "WINDOWS_ARTIFACT_NAME=\"mtgdb-$v-$os-$arch.exe\"" >> "$env:GITHUB_ENV"
       - name: Confirm Vars (Delete When Done)
