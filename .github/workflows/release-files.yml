@@ -26,8 +26,8 @@ jobs:
   #         retention-days: 1
           
   collect-source-and-docs:
- #   runs-on: ubuntu-latest
-    needs: get-version
+    runs-on: ubuntu-latest
+#    needs: get-version
     steps:
       - run: echo v0.0.1 > version
       - uses: actions/checkout@v4
