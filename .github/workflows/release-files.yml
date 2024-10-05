@@ -4,6 +4,7 @@ on:
 
 permissions:
   actions: write
+  contents: write
 
 jobs:
   # get-version:
