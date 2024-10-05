@@ -78,11 +78,11 @@ jobs:
           $os = "${{ runner.os }}".ToLower()
           mkdir ./dist/mtgdb-$v-$os-$arch
           mv ./dist/mtgdb.exe ./dist/mtgdb-$v-$os-$arch.exe
-          echo "BINARY_PATH=./dist/mtgdb-$v-$os-$arch.exe" >> "$env:GITHUB_ENV"
-          echo "WINDOWS_RELEASE_NAME=mtgdb-$v-$os-$arch" >> ./windows-build-info.txt
-          echo "WINDOWS_RELEASE_NAME=mtgdb-$v-$os-$arch" >> "$env:GITHUB_ENV"
-          echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> ./windows-build-info.txt
-          echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> "$env:GITHUB_ENV"
+          echo "BINARY_PATH=\"./dist/mtgdb-$v-$os-$arch.exe\"" >> "$env:GITHUB_ENV"
+          echo "WINDOWS_RELEASE_NAME=\"mtgdb-$v-$os-$arch\"" >> ./windows-build-info.txt
+          echo "WINDOWS_RELEASE_NAME=\"mtgdb-$v-$os-$arch\"" >> "$env:GITHUB_ENV"
+          echo "WINDOWS_ARTIFACT_NAME=\"mtgdb-$v-$os-$arch.exe\"" >> ./windows-build-info.txt
+          echo "WINDOWS_ARTIFACT_NAME=\"mtgdb-$v-$os-$arch.exe\"" >> "$env:GITHUB_ENV"
       - name: Confirm Vars (Delete When Done)
         run: |
           echo  "filename: $env:GITHUB_ENV"
@@ -115,7 +115,7 @@ jobs:
           pattern: '*-build-info.txt'
           merge-multiple: true
       - name: Load Build Info
-        run: cat build-info/* >> $GITHUB_ENV
+        run: cat build-info/* | tee /dev/stdout >> $GITHUB_ENV
       - name: Download Builds
         uses: actions/download-artifact@v4
         with:
