@@ -20,7 +20,7 @@ release="mtgdb-$v-$os-$arch"
 echo "RELEASE: $release"
 echo "Available dists:"
 ls -la ./dist
-mv ./dist/mtgdb$ext"./dist/$release$ext"
+mv "./dist/mtgdb$ext" "./dist/$release$ext"
 
 # print out env vars
 echo "BINARY_PATH=dist/$release$ext" >> "$GITHUB_ENV"
