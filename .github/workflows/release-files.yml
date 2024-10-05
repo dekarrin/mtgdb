@@ -165,9 +165,9 @@ jobs:
           mkdir -p archives/
           mv "builds/$LIUNX_RELEASE_NAME" "dist/$LINUX_RELEASE_NAME/mtgdb"
           cp -R common-assets/* "dist/$LINUX_RELEASE_NAME"
-          cd dist
-          tar czf "$LINUX_RELEASE_NAME.tar.gz" "$LINUX_RELEASE_NAME"/*
-          cd ..
+          cd "dist/$LINUX_RELEASE_NAME"
+          tar czf "../$LINUX_RELEASE_NAME.tar.gz" ./*
+          cd ../..
           mv "dist/$LINUX_RELEASE_NAME.tar.gz" archives/
       - name: Upload To Release
         env:
