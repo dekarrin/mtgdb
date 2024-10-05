@@ -3,9 +3,34 @@ on:
     types: [published]
 
 jobs:
+  common-artifacts:
+    runs-on: linux-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Source Archive
+        run: |
+          source_dir=mtgdb-${{ github.ref }}-source
+          git archive --format=tar --prefix="$source_dir/" HEAD | tar xf -
+          tar czf "source.tar.gz" "$source_dir"
+          rm -rf "$source_dir"
+      - name: Upload Sources Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: source.tar.gz
+          path: ./source.tar.gz
+      - name: Upload Readme Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: README.md
+          path: ./README.md
+      - name: Upload License Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LICENSE.txt
+          path: ./LICENSE.txt
+  
   build-windows:
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,7 +66,7 @@ jobs:
           path: ./windows-build-info.txt
 
   package-releases:
-    needs: build-windows
+    needs: [build-windows, common-artifacts]
     runs-on: linux-latest
     steps:
       - name: Get Build Info Artifacts
@@ -60,4 +85,6 @@ jobs:
           merge-multiple: true
       - name: Package Windows
         run: |
-          mkdir -p dist
+          mkdir -p dist/${{ env.WINDOWS_RELEASE_NAME }}
+          mv builds/${{ env.WINDOWS_RELEASE_NAME }}.exe dist/${{ env.WINDOWS_RELEASE_NAME }}
+          
