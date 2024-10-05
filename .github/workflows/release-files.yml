@@ -18,7 +18,7 @@ jobs:
       - name: Test If Runnable
         run: python mtgdb.py -h
       - name: Version Command
-        run: python mtgdb.py -V | cut -f2 | tee version
+        run: python mtgdb.py -V | cut -d ' ' -f 2 | tee version
       - uses: actions/upload-artifact@v4
         with:
           name: version
