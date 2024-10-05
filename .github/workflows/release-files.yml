@@ -56,10 +56,11 @@ jobs:
       - name: Confirm Vars (Delete When Done)
         run: |
           echo  "filename: $env:GITHUB_ENV"
+          cat "$env:GITHUB_ENV"
           echo "individual vars:"
-          echo "BINARY_PATH=$BINARY_PATH"
-          echo "WINDOWS_RELEASE_NAME=$WINDOWS_RELEASE_NAME"
-          echo "WINDOWS_ARTIFACT_NAME=$WINDOWS_ARTIFACT_NAME"
+          echo BINARY_PATH=$env:BINARY_PATH
+          echo WINDOWS_RELEASE_NAME=$WINDOWS_RELEASE_NAME
+          echo WINDOWS_ARTIFACT_NAME=${{ env.WINDOWS_ARTIFACT_NAME }}
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
         with:
