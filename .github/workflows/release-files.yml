@@ -80,16 +80,6 @@ jobs:
       - name: Prepare Artifacts
         shell: bash
         run: scripts/ci/prepare-artifacts.sh "${{ runner.os }}" "${{ runner.arch }}"
-          v="$(cat ./version)"
-          arch="${{ runner.arch }}" ; arch="${arch,,}"
-          os="${{ runner.os }} ; os="${os,,}"
-          mkdir "./dist/mtgdb-$v-$os-$arch"
-          mv "./dist/mtgdb.exe" "./dist/mtgdb-$v-$os-$arch.exe"
-          echo "BINARY_PATH=\"dist/mtgdb-$v-$os-$arch.exe\"" >> "$GITHUB_ENV"
-          echo "WINDOWS_RELEASE_NAME=\"mtgdb-$v-$os-$arch\"" >> ./windows-build-info.txt
-          echo "WINDOWS_RELEASE_NAME=\"mtgdb-$v-$os-$arch\"" >> "$GITHUB_ENV"
-          echo "WINDOWS_ARTIFACT_NAME=\"mtgdb-$v-$os-$arch.exe\"" >> ./windows-build-info.txt
-          echo "WINDOWS_ARTIFACT_NAME=\"mtgdb-$v-$os-$arch.exe\"" >> "$env:GITHUB_ENV"
       - name: Confirm Vars (Delete When Done)
         run: |
           echo  "filename: $env:GITHUB_ENV"
