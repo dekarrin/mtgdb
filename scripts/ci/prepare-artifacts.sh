@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <os> <arch>"
     exit 1
@@ -19,4 +21,4 @@ mv ./dist/mtgdb.exe "./dist/$release.exe"
 echo "BINARY_PATH=\"dist/$release.exe\"" >> "$GITHUB_ENV"
 echo "${os^^}_RELEASE_NAME=\"$release\"" >> ./windows-build-info.txt
 echo "${os^^}_ARTIFACT_NAME=\"$release.exe\"" >> ./windows-build-info.txt
-cat ./windows-build-info.txt >> "$GITHUB_ENV"s
+cat ./windows-build-info.txt >> "$GITHUB_ENV"
