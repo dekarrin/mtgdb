@@ -77,8 +77,8 @@ jobs:
           $arch = "${{ runner.arch }}".ToLower()
           $os = "${{ runner.os }}".ToLower()
           mkdir ./dist/mtgdb-$v-$os-$arch
-          mv ./dist/mtgdb.exe ./dist/mtgdb-$v-$os-$arch/mtgdb.exe
-          echo "BINARY_PATH=./dist/mtgdb-$v-$os-$arch/mtgdb.exe" >> "$env:GITHUB_ENV"
+          mv ./dist/mtgdb.exe ./dist/mtgdb-$v-$os-$arch.exe
+          echo "BINARY_PATH=./dist/mtgdb-$v-$os-$arch.exe" >> "$env:GITHUB_ENV"
           echo "WINDOWS_RELEASE_NAME=mtgdb-$v-$os-$arch" >> ./windows-build-info.txt
           echo "WINDOWS_RELEASE_NAME=mtgdb-$v-$os-$arch" >> "$env:GITHUB_ENV"
           echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> ./windows-build-info.txt
