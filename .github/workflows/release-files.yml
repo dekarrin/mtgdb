@@ -68,7 +68,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install Pyinstaller
+      - name: Install Dependencies
         run: pip install -r requirements.txt pyinstaller
       - name: Build with Pyinstaller
         run: pyinstaller mtgdb.py -F
@@ -86,6 +86,38 @@ jobs:
         with:
           name: windows-build-info.txt
           path: ./windows-build-info.txt
+          retention-days: 1
+  
+  build-linux:
+    runs-on: ubuntu-latest
+    needs: get-version
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve Version
+        uses: actions/download-artifact@v4
+        with:
+          name: version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Dependencies
+        run: pip install -r requirements.txt pyinstaller
+      - name: Build with Pyinstaller
+        run: pyinstaller mtgdb.py -F
+      - name: Prepare Artifacts
+        shell: bash
+        run: scripts/ci/prepare-artifacts.sh "${{ runner.os }}" "${{ runner.arch }}"
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.LINUX_ARTIFACT_NAME }}
+          path: ${{ env.BINARY_PATH }}
+          retention-days: 1
+      - name: Upload Build Info Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-info.txt
+          path: ./linux-build-info.txt
           retention-days: 1
 
   package-releases:
@@ -113,6 +145,8 @@ jobs:
           name: common-assets.tar
       - name: Expand Common Assets
         run: tar xf common-assets.tar
+      - name: Create Archives Dir
+        run: mkdir -p dist archives
       - name: Package Windows
         run: |
           mkdir -p "dist/$WINDOWS_RELEASE_NAME"
@@ -123,6 +157,16 @@ jobs:
           zip "$WINDOWS_RELEASE_NAME.zip" "$WINDOWS_RELEASE_NAME"/* -j
           cd ..
           mv "dist/$WINDOWS_RELEASE_NAME.zip" archives/
+      - name: Package Linux
+        run: |
+          mkdir -p "dist/$LINUX_RELEASE_NAME"
+          mkdir -p archives/
+          mv "builds/$LIUNX_RELEASE_NAME" "dist/$LINUX_RELEASE_NAME/mtgdb"
+          cp -R common-assets/* "dist/$LINUX_RELEASE_NAME"
+          cd dist
+          tar czf "$LINUX_RELEASE_NAME.tar.gz" "$LINUX_RELEASE_NAME"/*
+          cd ..
+          mv "dist/$LINUX_RELEASE_NAME.tar.gz" archives/
       - name: Upload To Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

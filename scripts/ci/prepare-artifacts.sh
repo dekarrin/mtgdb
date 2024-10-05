@@ -10,13 +10,20 @@ fi
 os="${1,,}"
 arch="${2,,}"
 
+ext=""
+if [ "$os" == "windows" ]; then
+    ext=".exe"
+fi
+
 v="$(cat ./version)"
 release="mtgdb-$v-$os-$arch"
 echo "RELEASE: $release"
-mv ./dist/mtgdb.exe "./dist/$release.exe"
+echo "Available dists:"
+ls -la ./dist
+mv ./dist/mtgdb$ext"./dist/$release$ext"
 
 # print out env vars
-echo "BINARY_PATH=dist/$release.exe" >> "$GITHUB_ENV"
-echo "${os^^}_RELEASE_NAME=$release" >> ./windows-build-info.txt
-echo "${os^^}_ARTIFACT_NAME=$release.exe" >> ./windows-build-info.txt
-cat ./windows-build-info.txt >> "$GITHUB_ENV"
+echo "BINARY_PATH=dist/$release$ext" >> "$GITHUB_ENV"
+echo "${os^^}_RELEASE_NAME=$release" >> ./$os-build-info.txt
+echo "${os^^}_ARTIFACT_NAME=$release$ext" >> ./$os-build-info.txt
+cat ./$os-build-info.txt >> "$GITHUB_ENV"
