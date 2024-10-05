@@ -118,6 +118,7 @@ jobs:
     needs: [collect-source-and-docs, build-windows]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Get Build Info Artifacts
         uses: actions/download-artifact@v4
         with:
