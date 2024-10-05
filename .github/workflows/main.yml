@@ -3,7 +3,7 @@ on:
     types: [published]
 
 jobs:
-  common-artifacts:
+  collect-source-and-docs:
     runs-on: linux-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +63,7 @@ jobs:
           path: ./windows-build-info.txt
 
   package-releases:
-    needs: [build-windows, common-artifacts]
+    needs: [collect-source-and-docs, build-windows]
     runs-on: linux-latest
     steps:
       - name: Get Build Info Artifacts
@@ -80,14 +80,16 @@ jobs:
           path: builds
           pattern: mtgdb-*
           merge-multiple: true
-      - name: Get Docs Artifact
-        uses: actions/download-artifact@v
+      - name: Get Common Assets Artifact
+        uses: actions/download-artifact@v4
         with:
-          name: README.md
-      - name: Get License Artifact
-        uses: actions/download-artifact@v
+          name: common-assets.tar
+      - name: Expand Common Assets
+        run: tar xf common-assets.tar
       - name: Package Windows
         run: |
           mkdir -p dist/${{ env.WINDOWS_RELEASE_NAME }}
           mv builds/${{ env.WINDOWS_RELEASE_NAME }}.exe dist/${{ env.WINDOWS_RELEASE_NAME }}
+          cp -R common-assets/* dist/${{ env.WINDOWS_RELEASE_NAME }}
+          zip ${{ WINDOWS_RELEASE_NAME }}.zip dist/${{ env.WINDOWS_RELEASE_NAME }} -j
           
