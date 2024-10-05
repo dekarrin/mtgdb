@@ -18,7 +18,7 @@ mv ./dist/mtgdb.exe "./dist/$release.exe"
 ls -la "dist"
 
 # print out env vars
-echo "BINARY_PATH=\"dist/$release.exe\"" >> "$GITHUB_ENV"
-echo "${os^^}_RELEASE_NAME=\"$release\"" >> ./windows-build-info.txt
-echo "${os^^}_ARTIFACT_NAME=\"$release.exe\"" >> ./windows-build-info.txt
+echo "BINARY_PATH=dist/$release.exe" >> "$GITHUB_ENV"
+echo "${os^^}_RELEASE_NAME=$release" >> ./windows-build-info.txt
+echo "${os^^}_ARTIFACT_NAME=$release.exe" >> ./windows-build-info.txt
 cat ./windows-build-info.txt >> "$GITHUB_ENV"
