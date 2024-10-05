@@ -111,8 +111,8 @@ jobs:
         shell: bash
         run: gh release upload ${{ github.ref }} archives/*
 
-  cancel-on-failure:
-    needs: [collect-source-and-docs, build-windows, package-releases]
+  cancel-on-build-failure:
+    needs: [collect-source-and-docs, build-windows]
     runs-on: ubuntu-latest
     if: failure()
     steps:
