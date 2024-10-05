@@ -63,18 +63,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: echo v0.0.1 > version
-      # - name: Retrieve Version
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: version
-      # - uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.11'
-      # - name: Install Pyinstaller
-      #   run: pip install -r requirements.txt pyinstaller
-      # - name: Build with Pyinstaller
-      #   run: pyinstaller mtgdb.py -F
-      - run: mkdir -p dist ; touch dist/mtgdb.exe
+      - name: Retrieve Version
+        uses: actions/download-artifact@v4
+        with:
+          name: version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Pyinstaller
+        run: pip install -r requirements.txt pyinstaller
+      - name: Build with Pyinstaller
+        run: pyinstaller mtgdb.py -F
       - name: Debug Check Names (Delete When Done)
         shell: bash
         run: |
