@@ -3,7 +3,7 @@ on:
     types: [published]
 
 jobs:
-  create-windows-release:
+  build-windows:
     runs-on: windows-latest
 
     steps:
@@ -39,3 +39,25 @@ jobs:
         with:
           name: windows-build-info.txt
           path: ./windows-build-info.txt
+
+  package-releases:
+    needs: build-windows
+    runs-on: linux-latest
+    steps:
+      - name: Get Build Info Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: build-info
+          pattern: '*-build-info.txt'
+          merge-multiple: true
+      - name: Load Build Info
+        run: cat build-info/* >> $GITHUB_ENV
+      - name: Download Builds
+        uses: actions/download-artifact@v4
+        with:
+          path: builds
+          pattern: mtgdb-*
+          merge-multiple: true
+      - name: Package Windows
+        run: |
+          mkdir -p dist
