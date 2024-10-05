@@ -28,6 +28,7 @@ jobs:
         with:
           name: common-assets.tar
           path: ./common-assets.tar
+          retention-days: 1
   
   build-windows:
     runs-on: windows-latest
@@ -66,11 +67,13 @@ jobs:
         with:
           name: ${{ env.WINDOWS_ARTIFACT_NAME }}
           path: ${{ env.BINARY_PATH }}
+          retention-days: 1
       - name: Upload Build Info Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build-info.txt
           path: ./windows-build-info.txt
+          retention-days: 1
 
   package-releases:
     needs: [collect-source-and-docs, build-windows]
