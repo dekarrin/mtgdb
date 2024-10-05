@@ -77,6 +77,8 @@ jobs:
           echo "GITHUB_ENV=$GITHUB_ENV"
           echo "-------"
           printenv
+          echo "-------"
+          ls dist
       - name: Prepare Artifacts
         shell: bash
         run: scripts/ci/prepare-artifacts.sh "${{ runner.os }}" "${{ runner.arch }}"
@@ -90,6 +92,8 @@ jobs:
           echo WINDOWS_ARTIFACT_NAME=${{ env.WINDOWS_ARTIFACT_NAME }}
           echo info-file:
           cat ./windows-build-info.txt
+          echo bin-path:
+          ls $env:BINARY_PATH
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
         with:
