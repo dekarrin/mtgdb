@@ -55,14 +55,14 @@ jobs:
           $os = "${{ runner.os }}".ToLower()
           mkdir ./dist/mtgdb-$v-$os-$arch
           mv ./dist/mtgdb.exe ./dist/mtgdb-$v-$os-$arch/mtgdb.exe
-          echo "BINARY_PATH=./dist/mtgdb-$v-$os-$arch/mtgdb.exe" >> $GITHUB_ENV
+          echo "BINARY_PATH=./dist/mtgdb-$v-$os-$arch/mtgdb.exe" >> "$GITHUB_ENV"
           echo "WINDOWS_RELEASE_NAME=mtgdb-$v-$os-$arch" >> ./windows-build-info.txt
-          echo "WINDOWS_RELEASE_NAME=mtgdb-$v-$os-$arch" >> $GITHUB_ENV
+          echo "WINDOWS_RELEASE_NAME=mtgdb-$v-$os-$arch" >> "$GITHUB_ENV"
           echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> ./windows-build-info.txt
-          echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> $GITHUB_ENV
+          echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> "$GITHUB_ENV"
       - name: Confirm Vars (Delete When Done)
         run: |
-          cat "$GITHUB_ENV"
+          echo  "filename: $GITHUB_ENV"
           echo "individual vars:"
           echo "BINARY_PATH=$BINARY_PATH"
           echo "WINDOWS_RELEASE_NAME=$WINDOWS_RELEASE_NAME"
