@@ -7,7 +7,7 @@ permissions:
 
 jobs:
   collect-source-and-docs:
-    runs-on: linux-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Create Source Archive
@@ -28,12 +28,6 @@ jobs:
         with:
           name: common-assets.tar
           path: ./common-assets.tar
-      - name: Cancel Workflow On Failure
-        if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: gh run cancel ${{ github.RUN_ID }}
   
   build-windows:
     runs-on: windows-latest
@@ -62,11 +56,11 @@ jobs:
           echo "WINDOWS_ARTIFACT_NAME=mtgdb-$v-$os-$arch.exe" >> "$GITHUB_ENV"
       - name: Confirm Vars (Delete When Done)
         run: |
-          echo  "filename: $GITHUB_ENV"
+          echo  "filename: %GITHUB_ENV%"
           echo "individual vars:"
           echo "BINARY_PATH=$BINARY_PATH"
-          echo "WINDOWS_RELEASE_NAME=$WINDOWS_RELEASE_NAME"
-          echo "WINDOWS_ARTIFACT_NAME=$WINDOWS_ARTIFACT_NAME"
+          echo "WINDOWS_RELEASE_NAME=%WINDOWS_RELEASE_NAME%"
+          echo "WINDOWS_ARTIFACT_NAME=$WINDOWS_ARTIFACT_NAME%"
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -77,16 +71,10 @@ jobs:
         with:
           name: windows-build-info.txt
           path: ./windows-build-info.txt
-      - name: Cancel Workflow On Failure
-        if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: gh run cancel ${{ github.RUN_ID }}
 
   package-releases:
     needs: [collect-source-and-docs, build-windows]
-    runs-on: linux-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Get Build Info Artifacts
         uses: actions/download-artifact@v4
@@ -121,3 +109,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: gh release upload ${{ github.ref }} archives/*
+
+  cancel-on-failure:
+    runs-on: ubuntu-latest
+    if: failure()
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: gh run cancel ${{ github.RUN_ID }}
