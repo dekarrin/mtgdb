@@ -88,12 +88,12 @@ jobs:
         run: tar xf common-assets.tar
       - name: Package Windows
         run: |
-          mkdir -p dist/${{ env.WINDOWS_RELEASE_NAME }}
+          mkdir -p dist/$WINDOWS_RELEASE_NAME
           mkdir -p archives/
-          mv builds/${{ env.WINDOWS_RELEASE_NAME }}.exe dist/${{ env.WINDOWS_RELEASE_NAME }}
-          cp -R common-assets/* dist/${{ env.WINDOWS_RELEASE_NAME }}
-          zip ${{ WINDOWS_RELEASE_NAME }}.zip dist/${{ env.WINDOWS_RELEASE_NAME }} -j
-          mv ${{ WINDOWS_RELEASE_NAME }}.zip archives/
+          mv builds/$WINDOWS_RELEASE_NAME.exe dist/$WINDOWS_RELEASE_NAME
+          cp -R common-assets/* dist/$WINDOWS_RELEASE_NAME
+          zip $WINDOWS_RELEASE_NAME.zip dist/$WINDOWS_RELEASE_NAME -j
+          mv $WINDOWS_RELEASE_NAME.zip archives/
       - name: Upload To Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
