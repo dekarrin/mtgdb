@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <os> <arch>"
@@ -10,11 +10,12 @@ fi
 os="${1,,}"
 arch="${2,,}"
 
-echo "VERSION:"
-cat ./version
 v="$(cat ./version)"
+echo "VERSION: $v"
 release="mtgdb-$v-$os-$arch"
+echo "RELEASE: $release"
 mkdir "./dist/$release"
+ls -la "./dist"
 mv ./dist/mtgdb.exe "./dist/$release.exe"
 
 # print out env vars
