@@ -13,21 +13,18 @@ jobs:
           git archive --format=tar --prefix="$source_dir/" HEAD | tar xf -
           tar czf "source.tar.gz" "$source_dir"
           rm -rf "$source_dir"
-      - name: Upload Sources Artifact
+      - name: Create Common Assets Archive
+        run: |
+          mkdir common-assets
+          cp README.md common-assets/
+          cp LICENSE.txt common-assets/
+          cp source.tar.gz common-assets/
+          tar cf "common-assets.tar" common-assets
+      - name: Upload Common Assets Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: source.tar.gz
-          path: ./source.tar.gz
-      - name: Upload Readme Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: README.md
-          path: ./README.md
-      - name: Upload License Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: LICENSE.txt
-          path: ./LICENSE.txt
+          name: common-assets.tar
+          path: ./common-assets.tar
   
   build-windows:
     runs-on: windows-latest
@@ -83,6 +80,12 @@ jobs:
           path: builds
           pattern: mtgdb-*
           merge-multiple: true
+      - name: Get Docs Artifact
+        uses: actions/download-artifact@v
+        with:
+          name: README.md
+      - name: Get License Artifact
+        uses: actions/download-artifact@v
       - name: Package Windows
         run: |
           mkdir -p dist/${{ env.WINDOWS_RELEASE_NAME }}
