@@ -74,7 +74,6 @@ jobs:
         run: pip install -r requirements.txt pyinstaller
       - name: Build with Pyinstaller
         run: pyinstaller mtgdb.py -F
-      - run: mkdir -p dist ; touch dist/mtgdb.exe
       - name: Debug Check Names (Delete When Done)
         shell: bash
         run: |
