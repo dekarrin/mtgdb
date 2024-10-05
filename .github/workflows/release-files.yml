@@ -121,7 +121,7 @@ jobs:
           retention-days: 1
 
   package-releases:
-    needs: [collect-source-and-docs, build-windows]
+    needs: [collect-source-and-docs, build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
