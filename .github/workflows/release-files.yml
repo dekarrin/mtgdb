@@ -151,7 +151,7 @@ jobs:
           mv "builds/$WINDOWS_RELEASE_NAME.exe" "dist/$WINDOWS_RELEASE_NAME"
           cp -R common-assets/* "dist/$WINDOWS_RELEASE_NAME"
           cd dist
-          zip "$WINDOWS_RELEASE_NAME.zip" "$WINDOWS_RELEASE_NAME"
+          zip "$WINDOWS_RELEASE_NAME.zip" "$WINDOWS_RELEASE_NAME"/*
           cd ..
           mv "dist/$WINDOWS_RELEASE_NAME.zip" archives/
       - name: Debug Checks (Delete When Done)
