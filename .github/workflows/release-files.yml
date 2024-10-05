@@ -117,7 +117,7 @@ jobs:
         run: |
           mkdir -p "dist/$WINDOWS_RELEASE_NAME"
           mkdir -p archives/
-          mv "builds/$WINDOWS_RELEASE_NAME.exe" "dist/$WINDOWS_RELEASE_NAME"
+          mv "builds/$WINDOWS_RELEASE_NAME.exe" "dist/$WINDOWS_RELEASE_NAME/mtgdb.exe"
           cp -R common-assets/* "dist/$WINDOWS_RELEASE_NAME"
           cd dist
           zip "$WINDOWS_RELEASE_NAME.zip" "$WINDOWS_RELEASE_NAME"/* -j

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <os> <arch>"
