@@ -157,6 +157,15 @@ class ScryfallCardData:
         return "ScryfallCardData(id={!r}, rarity={!r}, uri={!r}, last_updated={!r}, faces=*{!r})".format(self.id, self.rarity, self.uri, self.last_updated.isoformat(), self.faces)
 
 
+class Edition:
+    """Edition is a Set release of MTG cards."""
+
+    def __init__(self, code: str, name: str, release_date: datetime.date):
+        self.code = code
+        self.name = name
+        self.release_date = release_date
+
+
 class Card:
     """Card is an entry in the inventory listing."""
 
