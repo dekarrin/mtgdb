@@ -150,7 +150,7 @@ jobs:
       - name: Create Archives Dir
         run: mkdir -p dist archives
       - name: Package Windows
-        run: scripts/ci/package-windows.sh
+        run: scripts/ci/package.sh "${{ runner.os }}" "${{ runner.arch }}" "$WINDOWS_RELEASE_NAME"
       - name: Package Linux
         run: scripts/ci/package.sh "${{ runner.os }}" "${{ runner.arch }}" "$LINUX_RELEASE_NAME"
       - name: Upload To Release
