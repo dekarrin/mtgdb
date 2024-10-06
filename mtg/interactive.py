@@ -58,6 +58,7 @@ def start(db_filename):
     if fatal_msg is not None:
         print("A fatal error occurred:")
         print(fatal_msg)
+        cio.pause()
         sys.exit(1)
 
 
