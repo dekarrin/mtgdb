@@ -16,7 +16,7 @@ import traceback
 from typing import Optional, Callable
 
 from .types import Deck, DeckCard, Card, CardWithUsage, ScryfallCardData, deck_state_to_name, parse_cardnum, card_condition_to_name
-from . import cio
+from . import cio, version
 from . import cards as cardops
 from . import decks as deckops
 from . import deckbox as deckboxops
@@ -70,10 +70,11 @@ def warn_mintty():
 
 def show_splash_screen(s: Session):
     cio.clear()
-    print("MTGDB Interactive Mode")
-    print("======================")
+    first_line = "MTGDB v{:s} Interactive Mode".format(version.Version)
+    print(first_line)
+    print("=" * len(first_line))
     print("Using database {:s}".format(s.db_filename))
-    print("----------------------")
+    print("-" * len(first_line))
     cio.pause()
 
 
