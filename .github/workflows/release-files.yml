@@ -152,7 +152,7 @@ jobs:
       - name: Package Windows
         run: scripts/ci/package-windows.sh
       - name: Package Linux
-        run: scripts/ci/prepare-artifacts.sh "${{ runner.os }}" "${{ runner.arch }}" "$LINUX_RELEASE_NAME"
+        run: scripts/ci/package.sh "${{ runner.os }}" "${{ runner.arch }}" "$LINUX_RELEASE_NAME"
       - name: Upload To Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
