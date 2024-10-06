@@ -16,17 +16,46 @@ if [ "$os" == "windows" ]; then
     ext=".exe"
 fi
 
-echo "Packaging mtgdb$ext for $os/$arch..."
+archive_name=""
+if [ "$os" == "linux" ]; then
+    archive_name="$release.tar.gz"
+elif [ "$os" == "windows" ]; then
+    archive_name="$release.zip"
+else
+    echo "Unsupported OS: $os"
+    exit 1
+fi
+
+function create_archive_linux() {
+    tar czvf "$archive_name" -C "$release" .
+}
+
+function create_archive_windows() {
+    zip "$archive_name" "$release"/* -j
+}
+
+function create_archive() {
+    if [ "$os" == "linux" ]; then
+        create_archive_linux
+    elif [ "$os" == "windows" ]; then
+        create_archive_windows
+    else
+        echo "Unsupported OS: $os"
+        exit 1
+    fi
+}
 
 binary_src="$release$ext"
 binary_dest="mtgdb$ext"
 
+echo "Packaging mtgdb$ext for $os/$arch..."
+
 mkdir -p "dist/$release"
 mv "builds/$binary_src" "dist/$release/$binary_dest"
-cp -R common-assets/* "dist/$LINUX_RELEASE_NAME"
-cd "dist/$LINUX_RELEASE_NAME"
+cp -R common-assets/* "dist/$release"
+cd dist
 echo "Archive Contents:"
-ls -la
-tar czf "../$LINUX_RELEASE_NAME.tar.gz" ./*
-cd ../..
-mv "dist/$LINUX_RELEASE_NAME.tar.gz" archives/
+ls -la "$release"
+create_archive
+cd ..
+mv "dist/$archive_name" archives/
