@@ -238,6 +238,7 @@ def update_deckbox_values_to_mtgdb(cards):
     ed_code_updates = {
         'IN': 'INV',
         'PO': 'POR',
+        'OD': 'ODY',
     }
     
     cond_codes = {
