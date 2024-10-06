@@ -247,5 +247,6 @@ VALUES
     ('MH1', 'Modern Horizons', '2019-06-14'),
     ('CN2', 'Conspiracy: Take the Crown', '2016-08-26'),
     ('POR', 'Portal', '1997-05-01'),
+    ('ODY', 'Odyssey', '2001-10-01'),
     ('8ED', 'Eighth Edition', '2003-07-28');
 '''
