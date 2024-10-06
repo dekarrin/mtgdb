@@ -10,7 +10,7 @@ ls -la "dist/$LINUX_RELEASE_NAME"
 echo 'DEBUG "file builds/$LINUX_RELEASE_NAME"'
 file "builds/$LINUX_RELEASE_NAME"
 echo 'DEBUG "file dist/$LINUX_RELEASE_NAME/mtgdb"'
-file "dist/$LINUX_RELEASE_NAME/mtgdb"
+file "dist/$LINUX_RELEASE_NAME/mtgdb" || echo "File Not Found; Expected"
 mv "builds/$LIUNX_RELEASE_NAME" "dist/$LINUX_RELEASE_NAME/mtgdb"
 echo "Archive Contents IMMEDIATE MOVE:"
 ls -la "dist/$LINUX_RELEASE_NAME"
