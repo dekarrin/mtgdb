@@ -2,14 +2,13 @@
 
 set -e
 
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 <os> <arch> <release-name>"
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <os> <release-name>"
     exit 1
 fi
 
 os="${1,,}"
-arch="${2,,}"
-release="$3"
+release="$2"
 
 ext=""
 if [ "$os" == "windows" ]; then
@@ -48,7 +47,7 @@ function create_archive() {
 binary_src="$release$ext"
 binary_dest="mtgdb$ext"
 
-echo "Packaging mtgdb$ext for $os/$arch..."
+echo "Packaging mtgdb$ext for $os..."
 
 mkdir -p "dist/$release"
 mv "builds/$binary_src" "dist/$release/$binary_dest"
