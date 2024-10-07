@@ -1,9 +1,26 @@
+import datetime
+
 from .types import *
 from .errors import *
 
-from .db import deckdb, carddb
+from .db import deckdb, carddb, editiondb
 
 from . import cardutil, cio
+
+
+_editions_cache = None
+_editions_cache_time = None
+
+
+def get_editions(db_filename: str) -> dict[str, Edition]:
+    global _editions_cache, _editions_cache_time
+
+    if _editions_cache is None or _editions_cache_time is None or _editions_cache_time < editiondb.last_update():
+        # refresh it
+        _editions_cache = editiondb.get_all(db_filename)
+        _editions_cache_time = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    return _editions_cache
 
 
 def deck_from_cli_arg(db_filename: str, arg: str) -> Deck:

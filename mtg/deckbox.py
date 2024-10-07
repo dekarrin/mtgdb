@@ -3,7 +3,7 @@ import sys
 
 from typing import List
 
-from . import cardutil, cio
+from . import cardutil, cio, get_editions
 from .db import carddb
 from .errors import UserCancelledError, DataConflictError
 from .types import Card, DeckChangeRecord, CardWithUsage
@@ -46,6 +46,18 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
     if len(new_imports) == 0 and len(count_updates) == 0:
         print("No new cards to import and no counts need updating", file=sys.stderr)
         return
+    
+    # if we get this far, verify that we actually have every single edition code
+    # on file or we will get nondescript Foreign Key failure errors on insert.
+    editions = get_editions(db_filename)
+    ed_err_msgs = []
+    for card in new_imports:
+        if card.edition.upper() not in editions:
+            ed_err_msgs.append("ERROR: {:s} - edition code is not in editions database".format(card.edition))
+    if len(ed_err_msgs) > 0:
+        full_msg = '\n'.join(ed_err_msgs)
+        raise DataConflictError(full_msg)
+
     
     # prep for db insertion by printing things out:
     if confirm_changes:
