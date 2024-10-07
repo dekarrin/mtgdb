@@ -50,12 +50,12 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
     # if we get this far, verify that we actually have every single edition code
     # on file or we will get nondescript Foreign Key failure errors on insert.
     editions = get_editions(db_filename)
-    ed_err_msgs = []
+    missing_codes = set()
     for card in new_imports:
         if card.edition.upper() not in editions:
-            ed_err_msgs.append("ERROR: {:s} - edition code is not in editions database".format(card.edition))
-    if len(ed_err_msgs) > 0:
-        full_msg = '\n'.join(ed_err_msgs)
+            missing_codes.add(card.edition.upper())
+    if len(missing_codes) > 0:
+        full_msg = 'Cards contain edition codes not in the database: {:s}'.format(', '.join(missing_codes))
         raise DataConflictError(full_msg)
 
     

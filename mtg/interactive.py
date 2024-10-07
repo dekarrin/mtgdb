@@ -890,6 +890,7 @@ def cards_import(s: Session):
     try:
         deckboxops.import_csv(s.db_filename, csv_file)
     except DataConflictError as e:
+        cio.clear()
         print("ERROR: {!s}".format(e))
     except UserCancelledError as e:
         return
