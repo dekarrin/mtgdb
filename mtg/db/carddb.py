@@ -227,6 +227,8 @@ def insert(db_filename: str, card: Card) -> int:
             editiondb.get_one_by_code(db_filename, card.edition)
         except NotFoundError:
             raise ForeignKeyError("card edition is not in DB", "edition", card.edition)
+        
+        raise e
     
     con.commit()
     con.close()
