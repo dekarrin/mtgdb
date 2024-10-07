@@ -161,7 +161,6 @@ CREATE TABLE "inventory" (
     "scryfall_id"     INTEGER,
     FOREIGN KEY("condition") REFERENCES "conditions"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     FOREIGN KEY("edition") REFERENCES "editions"("code") ON DELETE NO ACTION ON UPDATE CASCADE,
-    FOREIGN KEY("scryfall_id") REFERENCES "scryfall"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
     PRIMARY KEY("id" AUTOINCREMENT)
 )
 '''
