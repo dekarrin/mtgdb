@@ -43,6 +43,57 @@ def card_condition_to_name(cond: str) -> str:
         return 'Poor/Damaged'
     else:
         return '(' + cond + ')'
+    
+
+class Edition:
+    """Edition is a Set release of MTG cards."""
+
+    def __init__(self, code: str, name: str, release_date: datetime.date):
+        self.code = code
+        self.name = name
+        self.release_date = release_date
+
+
+class ScryfallSet:
+    """
+    Contains not all relevant info to a set from Scryfall, only ones we predict
+    ever possibly using. Can add more to parsing in scryfall module if we need
+    access to more. Note that the URI is the external web URI, not the Scryfall
+    API URI.
+    """
+    def __init__(
+            self,
+            id: str,
+            code: str,
+            name: str,
+            type: str,
+            card_count,
+            uri: str,
+            released_at: datetime.date | None=None,
+            mtgo_code: str | None=None,
+            arena_code: str | None=None,
+            block_code: str | None=None,
+            block: str | None=None,
+            parent_set_code: str | None=None,
+        ):
+        self.id = id
+        self.code = code
+        self.name = name
+        self.released_at = released_at
+        self.mtgo_code = mtgo_code
+        self.arena_code = arena_code
+        self.type = type
+        self.block_code = block_code
+        self.block = block
+        self.parent_set_code = parent_set_code
+        self.card_count = card_count
+        self.uri = uri
+
+    def __str__(self):
+        return "{:s} ({:s}) - {:s}".format(self.code, self.name, self.type)
+    
+    def to_edition(self) -> Edition:
+        return Edition(self.code, self.name, self.released_at)
 
 
 class ScryfallFace:
@@ -86,7 +137,8 @@ class ScryfallCardData:
     """
     ScryfallCardData contains supplementary information on a card. Most
     information is dropped from what is received from scryfall, as the main
-    inventory database already has most of that.
+    inventory database already has most of that. Note that URI is actually the
+    external web URI, not the Scryfall API URI.
     """
 
     def __init__(self, *faces: ScryfallFace, id: str, rarity: str, uri: str, last_updated: datetime.datetime):
@@ -155,15 +207,6 @@ class ScryfallCardData:
     
     def __repr__(self):
         return "ScryfallCardData(id={!r}, rarity={!r}, uri={!r}, last_updated={!r}, faces=*{!r})".format(self.id, self.rarity, self.uri, self.last_updated.isoformat(), self.faces)
-
-
-class Edition:
-    """Edition is a Set release of MTG cards."""
-
-    def __init__(self, code: str, name: str, release_date: datetime.date):
-        self.code = code
-        self.name = name
-        self.release_date = release_date
 
 
 class Card:

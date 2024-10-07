@@ -12,14 +12,16 @@ import time
 import decimal
 
 from . import timer
+from . import version
 
 
 _log = logging.getLogger(__name__)
 _log.setLevel(logging.DEBUG)
 
 
+# TODO: add way of setting these to the client
 _default_http_headers = {
-	"User-Agent": 'Mozilla/5.0',
+	"User-Agent": 'mtgdb-by-dekarrin/' + version.Version,
 	"Accept-Encoding": "deflate,gzip,identity",
 	"Accept": "application/json;q=0.9,*/*;q=0.8"
 }

@@ -3,8 +3,8 @@ import sys
 
 from typing import List
 
-from . import cardutil, cio, get_editions
-from .db import carddb
+from . import cardutil, scryfall, cio, get_editions
+from .db import carddb, editiondb, DBError
 from .errors import UserCancelledError, DataConflictError
 from .types import Card, DeckChangeRecord, CardWithUsage
 
@@ -55,7 +55,27 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
         if card.edition.upper() not in editions:
             missing_codes.add(card.edition.upper())
     if len(missing_codes) > 0:
+        still_missing = set()
         full_msg = 'Cards contain edition codes not in the database: {:s}'.format(', '.join(missing_codes))
+        print(full_msg)
+        print("Data for editions will be retrieved from Scryfall")
+        for code in missing_codes:
+            print("Fetching scryfall data for set code {:s}...".format(code), end='')
+            try:
+                s, _ = scryfall.fetch_set_data_by_code(code)
+                editiondb.insert(db_filename, s.to_edition())
+            except scryfall.APIError as e:
+                print("ERROR: Scryfall: {:s}".format(code, str(e)))
+                still_missing.add(code)
+            except DBError as e:
+                print("ERROR: Save Result: {:s}".format(code, str(e)))
+                still_missing.add(code)
+            else:
+                print("DONE")
+        missing_codes = still_missing
+
+    if len(missing_codes) > 0:
+        full_msg = 'Uncorrectable error: cards contain edition codes not in the database: {:s}'.format(', '.join(missing_codes))
         raise DataConflictError(full_msg)
 
     

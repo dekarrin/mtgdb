@@ -2,7 +2,7 @@ import datetime
 
 from typing import Sequence, Any, Tuple, Callable
 
-from .types import Card, ScryfallCardData, ScryfallFace, CardWithUsage
+from .types import Card, ScryfallCardData, ScryfallFace, ScryfallSet, CardWithUsage
 from .http import HttpAgent
 from .db import carddb, NotFoundError, AlreadyExistsError, scryfalldb
 
@@ -62,6 +62,7 @@ class APIError(Exception):
         details = resp['details']
 
         return APIError(details, status, warnings)
+
     
 
 def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='', http_pre_wait_fn: Callable[[], None] | None=None) -> ScryfallCardData:
@@ -136,6 +137,24 @@ def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='',
     return card_data
 
 
+def fetch_set_data_by_code(code: str, scryfall_host='api.scryfall.com') -> Tuple[ScryfallSet, dict]:
+    client = _get_http_client(scryfall_host)
+
+    params = {
+        'pretty': False,
+        'format': 'json',
+    }
+
+    path = '/sets/{:s}'.format(code.lower())
+    status, resp = client.request('GET', path, query=params)
+    if status >= 400:
+        err = APIError.parse(resp)
+        raise err
+    
+    data = _parse_resp_set_data(resp)
+    return data, resp
+    
+
 def fetch_card_data_by_id(scryfall_id: str, scryfall_host='api.scryfall.com') -> Tuple[ScryfallCardData, dict]:
     client = _get_http_client(scryfall_host)
 
@@ -180,7 +199,39 @@ def fetch_card_data_by_name(name: str, fuzzy: bool=False, set: str='', scryfall_
     return data, resp
 
 
+def _parse_resp_set_data(resp: dict[str, Any]) -> ScryfallSet:
+    if resp.get('object', '') != 'set':
+        raise ValueError("Response object is not a set")
+
+    s = ScryfallSet(
+        id=resp['id'],
+        code=resp['code'],
+        name=resp['name'],
+        type=resp['set_type'],
+        card_count=int(resp['card_count']),
+        uri=resp['scryfall_uri']
+    )
+
+    if 'released_at' in resp:
+        s.released_at = datetime.date.fromisoformat(resp['released_at'])
+    if 'mtgo_code' in resp:
+        s.mtgo_code = resp['mtgo_code']
+    if 'arena_code' in resp:
+        s.arena_code = resp['arena_code']
+    if 'block_code' in resp:
+        s.block_code = resp['block_code']
+    if 'block' in resp:
+        s.block = resp['block']
+    if 'parent_set_code' in resp:
+        s.parent_set_code = resp['parent_set_code']
+
+    return s
+
+
 def _parse_resp_card_game_data(resp: dict[str, Any]) -> ScryfallCardData:
+    if resp.get('object', '') != 'card':
+        raise ValueError("Response object is not a card")
+    
     c = ScryfallCardData(
         id=resp['id'],
         rarity=resp['rarity'],
@@ -207,6 +258,9 @@ def _parse_resp_card_game_data(resp: dict[str, Any]) -> ScryfallCardData:
 
 
 def _parse_resp_face(f: dict[str, Any]) -> ScryfallFace:
+    if f.get('object', '') != 'card' and f.get('object', '') != 'face':
+        raise ValueError("Response object is not a card or face")
+    
     face = ScryfallFace(
         name=f['name'],
         type=f['type_line'],
