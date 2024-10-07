@@ -91,7 +91,7 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
             print("Scryfall ID updates:")
             for upd8 in scryfall_id_updates:
                 orig_id = '(none)' if upd8.old_scryfall_id is None else '(no scryfall ID)'
-                print("{:s} -> {:s} in {:s}".format(orig_id, upd8.card.scryfall_id, str(card)))
+                print("{:s} -> {:s} in {:s}".format(orig_id, upd8.card.scryfall_id, str(upd8.card)))
             print("")
         
         if len(count_updates) > 0:
@@ -140,19 +140,7 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
 
     # if the card is moved entirely to wishlist, the count update will probably go to 0. We don't remove
     # 0's at this time, but if we do, we need to make shore that any such are not there due to wishlist.
-    #carddb.insert_multiple(db_filename, new_imports)
-
-    try:
-        for c in new_imports:
-            print("INSERTING {:s} {:s}".format(str(c), c.condition))
-            carddb.insert(db_filename, c)
-    except:
-        print("ERROR ocurred")
-        cio.pause()
-        raise
-
-
-    # check to find out just wtf is going on
+    carddb.insert_multiple(db_filename, new_imports)
     carddb.update_multiple_scryfall_ids(db_filename, [x.card for x in scryfall_id_updates])
     carddb.update_multiple_counts(db_filename, [x.card for x in count_updates])
     carddb.remove_amount_from_decks(db_filename, deck_removals)
