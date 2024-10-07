@@ -1,6 +1,16 @@
+import datetime
+
 from . import util
 
 from ..types import Edition
+
+
+_last_update = datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def last_update() -> datetime.datetime:
+    global _last_update
+    return _last_update
 
 
 def find(db_filename, name_filter=''):
