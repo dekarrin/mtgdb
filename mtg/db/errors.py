@@ -26,3 +26,14 @@ class MultipleFoundError(DBError):
     def __init__(self, msg):
         super().__init__(msg)
 
+
+class ForeignKeyError(DBError):
+    """
+    Raised when there is a foreign key constraint violation.
+    """
+
+    def __init__(self, msg, column: str | None=None, bad_value: any=None):
+        super().__init__(msg)
+        self.column = column
+        self.bad_value = bad_value
+        

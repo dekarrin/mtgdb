@@ -153,7 +153,7 @@ def find_cards(db_filename: str, did: int, card_name: Optional[str], card_num: O
         # match on any partial matches and get the codes
         ed_codes = []
         for ed in matching_editions:
-            ed_codes.append(ed['code'])
+            ed_codes.append(ed.code)
 
     filter_clause, filter_params = filters.card(card_name, card_num, ed_codes, include_where=False)
     if filter_clause != '':

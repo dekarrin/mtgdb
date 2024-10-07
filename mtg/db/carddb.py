@@ -1,5 +1,5 @@
 from . import util, editiondb, filters
-from .errors import MultipleFoundError, NotFoundError
+from .errors import MultipleFoundError, NotFoundError, ForeignKeyError
 
 from ..types import Card, CardWithUsage, Usage, DeckChangeRecord
 
@@ -114,7 +114,7 @@ def find(db_filename: str, name: str | None, card_num: str | None, edition: str 
         # match on any partial matches and get the codes
         ed_codes = []
         for ed in matching_editions:
-            ed_codes.append(ed['code'])
+            ed_codes.append(ed.code)
     
     filter_clause, filter_params = filters.card(name, card_num, ed_codes)
     if filter_clause != '':
@@ -156,6 +156,10 @@ def find(db_filename: str, name: str | None, card_num: str | None, edition: str 
 
 
 def insert_multiple(db_filename: str, cards: list[Card]):
+    """
+    Does NOT do foreign key validity check on error; caller is required to check
+    otherwise the sqlite3 error for integrity violation will be raised
+    unmodified and with no reference to the offending card."""
     insert_data = list()
     
     for c in cards:
@@ -188,28 +192,42 @@ def insert_multiple(db_filename: str, cards: list[Card]):
 
 # insert returns an ID, the others do not.
 def insert(db_filename: str, card: Card) -> int:
+    """
+    Does a foreign key validity check on error."""
     con = util.connect(db_filename)
     cur = con.cursor()
     last_id = None
-    for r in cur.execute(sql_insert_single, (
-        card.count,
-        card.name,
-        card.edition,
-        card.tcg_num,
-        card.condition,
-        card.language,
-        card.foil,
-        card.signed,
-        card.artist_proof,
-        card.altered_art,
-        card.misprint,
-        card.promo,
-        card.textless,
-        card.printing_id,
-        card.printing_note,
-        card.scryfall_id
-    )):
-        last_id = r[0]
+
+    try:
+        for r in cur.execute(sql_insert_single, (
+            card.count,
+            card.name,
+            card.edition,
+            card.tcg_num,
+            card.condition,
+            card.language,
+            card.foil,
+            card.signed,
+            card.artist_proof,
+            card.altered_art,
+            card.misprint,
+            card.promo,
+            card.textless,
+            card.printing_id,
+            card.printing_note,
+            card.scryfall_id
+        )):
+            last_id = r[0]
+    except util.sqlite3.IntegrityError as e:
+        con.rollback()
+        con.close()
+
+        # see if it is due to the edition being invalid
+        try:
+            editiondb.get_one_by_code(db_filename, card.edition)
+        except NotFoundError:
+            raise ForeignKeyError("card edition is not in DB", "edition", card.edition)
+    
     con.commit()
     con.close()
 
