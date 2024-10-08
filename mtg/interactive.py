@@ -30,6 +30,7 @@ class Session:
         self.running: bool = True
         self.deck_cat_state: Optional[cio.CatState] = None
         self.inven_cat_state: Optional[cio.CatState] = None
+        self.deck_cards_cat_state: Optional[cio.CatState] = None
 
 
 def start(db_filename):
@@ -151,93 +152,11 @@ def do_init(s: Session):
 
 
 def cards_master_menu(s: Session):
-    def num_expr(val: str):
-        # it can either be an exact number, or a comparator followed by a number
-        val = val.strip()
-        if val.isdigit():
-            return '=' + val
-        
-        # replace all ws runs with space:
-        val = ' '.join(val.split())
-
-        # remove all spaces:
-        val = val.replace(' ', '')
-
-        # examine first character:
-        if len(val) == 0:
-            # should never happen
-            raise ValueError("Empty string")
-        
-        if not val.startswith(('<', '>', '<=', '>=', '=', '!=', '==')):
-            raise ValueError("Operator must be one of <, >, <=, >=, =, !=")
-        
-        num = None
-        op = None
-        # get the number
-        # try the ones with most chars first so we do not have false positives
-        if val.startswith(('<=', '>=', '!=', '==')):
-            if len(val) < 3:
-                raise ValueError("Missing number after operator")
-            op = val[:2]
-            num = val[2:]
-        elif val.startswith(('>', '<', '=')):
-            if len(val) < 2:
-                raise ValueError("Missing number after operator")
-            op = val[0]
-            num = val[1:]
-        else:
-            # should never happen
-            raise ValueError("Unknown operator")
-
-        if not num.isdigit():
-            raise ValueError("Not a number: {!r}".format(num))
-        
-        if op == '==':
-            op = '='
-
-        return op + num
-    
-    def num_expr_matches(against: int, expr: str) -> bool:
-        # assume above func already normalized it.
-
-        num = 0
-        op = ''
-        if expr.startswith(('<=', '>=', '!=')):
-            num = int(expr[2:])
-            op = expr[:2]
-        elif expr.startswith(('<', '>', '=')):
-            num = int(expr[1:])
-            op = expr[:1]
-        else:
-            # should never happen
-            raise ValueError("Unknown operator")
-        
-        if op == '<':
-            return against < num
-        elif op == '>':
-            return against > num
-        elif op == '=':
-            return against == num
-        elif op == '<=':
-            return against <= num
-        elif op == '>=':
-            return against >= num
-        elif op == '!=':
-            return against != num
-        else:
-            # should never happen
-            raise ValueError("Unknown operator")
-
-
     extra_actions = [
         cio.CatOption('I', '(I)mport', 'IMPORT'),
         cio.CatOption('A', '(A)dd', 'ADD'),
     ]
-    filters = [
-        cio.CatFilter('name', lambda c, v: v.lower() in c.name.lower()),
-        cio.CatFilter('edition', lambda c, v: v.lower() in c.edition.lower()),
-        cio.CatFilter('in_decks', lambda c, v: num_expr_matches(c.deck_count(), v), normalize=num_expr)
-    ]
+    filters = card_cat_filters(with_usage=True)
     while True:
         cards = carddb.find(s.db_filename, None, None, None)
 
@@ -871,48 +790,75 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
 
 def deck_detail_add(s: Session, deck: Deck) -> Deck:
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK"
-    cards = carddb.find(s.db_filename, None, None, None)
 
-    cat_items = []
-    deck_used_states = ['C', 'P']
-    for c in cards:
-        free = c.count - sum([u.count for u in c.usage if u.deck_state in deck_used_states])
-        disp = str(c) + " ({:d}/{:d} free)".format(free, c.count)
-        cat_items.append((c, disp))
+    while True:
+        cards = carddb.find(s.db_filename, None, None, None)
 
-    selection = cio.catalog_select(menu_lead, items=cat_items, include_create=False)
+        cat_items = []
+        deck_used_states = ['C', 'P']
+        for c in cards:
+            free = c.count - sum([u.count for u in c.usage if u.deck_state in deck_used_states])
+            disp = str(c) + " ({:d}/{:d} free)".format(free, c.count)
+            cat_items.append((c, disp))
 
-    action = selection[0]
-    card: CardWithUsage = selection[1]
-    #cat_state = selection[2]
+        extra_options = [
+            cio.CatOption('V', '(V)iew Card', 'VIEW', selecting=True, title='View card details')
+        ]
+        filters = card_cat_filters(with_usage=True)
 
-    cio.clear()
-    if action == 'SELECT':
-        free = card.count - sum([u.count for u in card.usage if u.deck_state in deck_used_states])
-        if free < 1:
-            print(deck_infobox(deck))
-            print("ERROR: No more free cards of {!s}".format(card))
-            cio.pause()
+        selection = cio.catalog_select(
+            menu_lead,
+            items=cat_items,
+            include_create=False,
+            extra_options=extra_options,
+            filters=filters,
+            state=s.deck_cards_cat_state
+        )
+
+        action = selection[0]
+        card: CardWithUsage = selection[1]
+        cat_state = selection[2]
+
+        s.deck_cards_cat_state = None
+
+        cio.clear()
+        if action == 'SELECT':
+            free = card.count - sum([u.count for u in card.usage if u.deck_state in deck_used_states])
+            if free < 1:
+                print(deck_infobox(deck))
+                print("ERROR: No more free cards of {!s}".format(card))
+                cio.pause()
+                return deck
+            elif free == 1:
+                amt = 1
+            else:
+                print(deck_infobox(deck))
+                amt = cio.prompt_int("Add how many?".format(card), min=1, max=free, default=1)
+            
+            try:
+                cardops.add_to_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt, deck_used_states=deck_used_states)
+            except DataConflictError as e:
+                print("ERROR: " + str(e))
+                cio.pause()
+                return deck
+            except UserCancelledError:
+                return deck
+            
+            deck = deckdb.get_one(s.db_filename, deck.id)
             return deck
-        elif free == 1:
-            amt = 1
+        elif action == 'VIEW':
+            s.deck_cards_cat_state = cat_state
+
+            scryfall_data = retrieve_scryfall_data(s, card)
+            usage_card = carddb.get_one(s.db_filename, card.id)
+            
+            print(deck_infobox(deck))
+            print(card_infobox(usage_card, scryfall_data, inven_details=False, title=" ", box_card=True))
+            cio.pause()
+        elif action is None:
+            return deck
         else:
-            print(deck_infobox(deck))
-            amt = cio.prompt_int("Add how many?".format(card), min=1, max=free, default=1)
-        
-        try:
-            cardops.add_to_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt, deck_used_states=deck_used_states)
-        except DataConflictError as e:
-            print("ERROR: " + str(e))
-            cio.pause()
-            return deck
-        except UserCancelledError:
-            return deck
-        
-        deck = deckdb.get_one(s.db_filename, deck.id)
-        return deck
-    elif action is None:
-        return deck
+            raise ValueError("Unknown action")
     
 
 def deck_delete(s: Session, deck: Deck) -> bool:
@@ -1043,3 +989,94 @@ def decks_create(s: Session) -> Optional[Deck]:
             return None
         
     return d
+
+
+def card_cat_filters(with_usage: bool) -> list[cio.CatFilter]:
+    def num_expr(val: str):
+        # it can either be an exact number, or a comparator followed by a number
+        val = val.strip()
+        if val.isdigit():
+            return '=' + val
+        
+        # replace all ws runs with space:
+        val = ' '.join(val.split())
+
+        # remove all spaces:
+        val = val.replace(' ', '')
+
+        # examine first character:
+        if len(val) == 0:
+            # should never happen
+            raise ValueError("Empty string")
+        
+        if not val.startswith(('<', '>', '<=', '>=', '=', '!=', '==')):
+            raise ValueError("Operator must be one of <, >, <=, >=, =, !=")
+        
+        num = None
+        op = None
+        # get the number
+        # try the ones with most chars first so we do not have false positives
+        if val.startswith(('<=', '>=', '!=', '==')):
+            if len(val) < 3:
+                raise ValueError("Missing number after operator")
+            op = val[:2]
+            num = val[2:]
+        elif val.startswith(('>', '<', '=')):
+            if len(val) < 2:
+                raise ValueError("Missing number after operator")
+            op = val[0]
+            num = val[1:]
+        else:
+            # should never happen
+            raise ValueError("Unknown operator")
+
+        if not num.isdigit():
+            raise ValueError("Not a number: {!r}".format(num))
+        
+        if op == '==':
+            op = '='
+
+        return op + num
+    
+    def num_expr_matches(against: int, expr: str) -> bool:
+        # assume above func already normalized it.
+
+        num = 0
+        op = ''
+        if expr.startswith(('<=', '>=', '!=')):
+            num = int(expr[2:])
+            op = expr[:2]
+        elif expr.startswith(('<', '>', '=')):
+            num = int(expr[1:])
+            op = expr[:1]
+        else:
+            # should never happen
+            raise ValueError("Unknown operator")
+        
+        if op == '<':
+            return against < num
+        elif op == '>':
+            return against > num
+        elif op == '=':
+            return against == num
+        elif op == '<=':
+            return against <= num
+        elif op == '>=':
+            return against >= num
+        elif op == '!=':
+            return against != num
+        else:
+            # should never happen
+            raise ValueError("Unknown operator")
+    
+    filters = [
+        cio.CatFilter('name', lambda c, v: v.lower() in c.name.lower()),
+        cio.CatFilter('edition', lambda c, v: v.lower() in c.edition.lower()),
+    ]
+
+    if with_usage:
+        filters.extend([
+            cio.CatFilter('in_decks', lambda c, v: num_expr_matches(c.deck_count(), v), normalize=num_expr)
+        ])
+
+    return filters
