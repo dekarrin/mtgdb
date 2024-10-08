@@ -201,7 +201,11 @@ def fetch_card_data_by_name(name: str, fuzzy: bool=False, set: str='', scryfall_
 
 def _parse_resp_set_data(resp: dict[str, Any]) -> ScryfallSet:
     if resp.get('object', '') != 'set':
-        raise ValueError("Response object is not a set")
+        if len(resp.get('object', '')) > 0:
+            msg = "actual is {!r}".format(resp['object'])
+        else:
+            msg = "key 'object' missing from payload"
+        raise ValueError("Response object is not a set: " + msg)
 
     s = ScryfallSet(
         id=resp['id'],
@@ -230,7 +234,11 @@ def _parse_resp_set_data(resp: dict[str, Any]) -> ScryfallSet:
 
 def _parse_resp_card_game_data(resp: dict[str, Any]) -> ScryfallCardData:
     if resp.get('object', '') != 'card':
-        raise ValueError("Response object is not a card")
+        if len(resp.get('object', '')) > 0:
+            msg = "actual is {!r}".format(resp['object'])
+        else:
+            msg = "key 'object' missing from payload"
+        raise ValueError("Response object is not a card: " + msg)
     
     c = ScryfallCardData(
         id=resp['id'],
@@ -258,8 +266,13 @@ def _parse_resp_card_game_data(resp: dict[str, Any]) -> ScryfallCardData:
 
 
 def _parse_resp_face(f: dict[str, Any]) -> ScryfallFace:
-    if f.get('object', '') != 'card' and f.get('object', '') != 'face':
-        raise ValueError("Response object is not a card or face")
+    obj_type = f.get('object', '')
+    if obj_type != 'card' and obj_type != 'face' and obj_type != 'card_face':
+        if len(obj_type) > 0:
+            msg = "actual is {!r}".format(obj_type)
+        else:
+            msg = "key 'object' missing from payload"
+        raise ValueError("Response object is not a card or face: " + msg)
     
     face = ScryfallFace(
         name=f['name'],
