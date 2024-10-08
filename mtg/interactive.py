@@ -28,8 +28,8 @@ class Session:
     def __init__(self, db_filename: str):
         self.db_filename: str = db_filename
         self.running: bool = True
-        self.deck_cat_state: Optional[CatState] = None
-        self.inven_cat_state: Optional[CatState] = None
+        self.deck_cat_state: Optional[cio.CatState] = None
+        self.inven_cat_state: Optional[cio.CatState] = None
 
 
 def start(db_filename):
@@ -150,292 +150,6 @@ def do_init(s: Session):
     schema.init(s.db_filename)
 
 
-def paginate(items: list[any], per_page=10) -> list[list[any]]:
-    pages = []
-
-    # separate into pages
-    cur_page = []
-    for i in items:
-        cur_page.append(i)
-        if len(cur_page) == per_page:
-            pages.append(cur_page)
-            cur_page = []
-    if len(cur_page) > 0:
-        pages.append(cur_page)
-
-    return pages
-
-
-class CatOption:
-    def __init__(self, char, displayed, returned_action, selecting=False, confirm=None, title=None):
-        self.char: str = char
-        self.displayed: str = displayed
-        self.returned_action: str = returned_action
-        self.selecting: bool = selecting
-        self.confirm: Optional[str] = confirm
-        self.title: str = title if title is not None else displayed
-
-
-class CatState:
-    def __init__(self, page_num: int, active_filters: dict, page: list[tuple[any, str]]):
-        self.page_num = page_num
-        self.active_filters = active_filters
-        self.page = page
-
-
-def catalog_print_page(page: list[tuple[any, str]], top_prompt: Optional[str]=None, per_page: int=10, fill_empty: bool=True):
-    if top_prompt is not None:
-        print(top_prompt)
-        print("----------------------")
-
-    printed_lines = 0
-    if len(page) > 0:
-        for item in page:
-            print(item[1])
-            printed_lines += 1
-    else:
-        print("(No items)")
-        printed_lines += 1
-    if fill_empty:
-        while printed_lines < per_page:
-            print()
-            printed_lines += 1
-    
-    print("----------------------")
-
-
-class CatFilter:
-    def __init__(self, name: str, fn: Callable[[any, str], bool], normalize: Optional[Callable[[str], str]]=None, fmt_hint: str | None=None):
-        self.name = name
-        self.apply = fn
-        self.fmt_hint = fmt_hint
-        if normalize is not None:
-            self.normalize = normalize
-        else:
-            def noop(x: str) -> str:
-                return x
-            self.normalize = noop
-
-
-def catalog_select(
-        top_prompt: Optional[str],
-        items: list[tuple[any, str]],
-        per_page: int=10,
-        filters: list[CatFilter]=None,
-        fill_empty: bool=True,
-        state: Optional[CatState]=None,
-        include_create: bool=True,
-        include_select: bool=True,
-        extra_options: Optional[list[CatOption]]=None
-    ) -> tuple[str, Optional[any], CatState]:
-    """
-    Select an item from a paginated catalog, or exit the catalog. Returns a
-    tuple containing the action ((None), 'CREATE', 'SELECT'), and if an item selected, the item. Allows
-    creation of new to be specified in the action.
-    """
-
-    filter_by: dict[str, CatFilter] = None
-    if filters is not None:
-        filter_by = {f.name: f for f in filters}
-
-    reserved_option_keys = ['X', 'S', 'N', 'P', 'F']
-    if include_create:
-        reserved_option_keys.append('C')
-    extra_opts_dict: dict[str, CatOption] = {}
-    if extra_options is not None:
-        for eo in extra_options:
-            if eo.char.upper() in reserved_option_keys:
-                raise ValueError("Extra option key {:s} is already in use".format(eo.char.upper()))
-            if eo.char.upper() in extra_opts_dict:
-                raise ValueError("Duplicate extra option key {:s}".format(eo.char.upper()))
-            if len(eo.char.upper()) < 1:
-                raise ValueError("Extra option key must be at least one character")
-            extra_opts_dict[eo.char.upper()] = eo
-
-    pages = paginate(items, per_page)
-
-    # added options - (char, displayed, returned_action, selecting, confirm)
-
-    def apply_filters(items, page_num, active_filters) -> tuple[list[list[tuple[any, str]]], int]:
-        filtered_items = items
-        for k in active_filters:
-            f = filter_by[k]
-            filter_val = active_filters[k]
-            filtered_items = [x for x in filtered_items if f.apply(x[0], filter_val)]
-        items = filtered_items
-        pages = paginate(items, per_page)
-        if page_num >= len(pages):
-            page_num = len(pages) - 1
-        return pages, page_num
-
-    page_num = state.page_num if state is not None else 0
-    if page_num is None:
-        page_num = 0
-    elif page_num >= len(pages):
-        page_num = len(pages) - 1
-
-    active_filters = state.active_filters if state is not None else {}
-    if active_filters is None:
-        active_filters = {}
-    else:
-        pages, page_num = apply_filters(items, page_num, active_filters)
-
-    # for selection prompts:
-    extra_lines = 3  # 1 for end bar, 1 for total count, 1 for actions
-    if filter_by is not None and len(filter_by) > 0:
-        extra_lines += 1
-    
-    while True:
-        cio.clear()
-
-        if len(pages) > 0:
-            page = pages[page_num]
-        else:
-            page = []
-        
-        catalog_print_page(page, top_prompt, per_page, fill_empty)
-        if filter_by is not None:
-            if len(active_filters) > 0:
-                print(' AND '.join(["{:s}:{!r}".format(k.upper(), v) for k, v in active_filters.items()]))
-            else:
-                print("(NO FILTERS)")
-        print("{:d} total (Page {:d}/{:d})".format(len(items), max(page_num+1, 1), max(len(pages), 1)))
-
-        avail_choices = []
-        if len(pages) > 1:
-            if page_num > 0:
-                print("(P)revious Page,", end=' ')
-                avail_choices.append('P')
-            if page_num < len(pages) - 1:
-                print("(N)ext Page,", end=' ')
-                avail_choices.append('N')
-        if filter_by is not None and len(filter_by) > 0:
-            print("(F)ilter,", end=' ')
-            avail_choices.append('F')
-        if include_select and len(page) > 0:
-            print("(S)elect,", end=' ')
-            avail_choices.append('S')
-        if include_create:
-            print("(C)reate,", end=' ')
-            avail_choices.append('C')
-        if len(extra_opts_dict) > 0:
-            for eo in extra_options:
-                print(eo.displayed + ",", end=' ')
-                avail_choices.append(eo.char.upper())
-        print("E(X)it")
-        avail_choices.append('X')
-
-        choice = cio.prompt_choice(prompt=None, choices=avail_choices, transform=lambda x: x.strip().upper())
-
-        if choice == 'N' and page_num < len(pages) - 1:
-            page_num += 1
-        elif choice == 'P' and page_num > 0:
-            page_num -= 1
-        elif choice == 'F' and filter_by is not None and len(filter_by) > 0:
-            cio.clear()
-            catalog_print_page(page, top_prompt, per_page, fill_empty)
-            filter_action = cio.prompt_choice("MANAGE FILTERS:\n(A)dd/Edit, (R)emove, (C)ancel", ['A', 'R', 'C'], transform=lambda x: x.strip().upper())
-            if filter_action == 'A':
-                cio.clear()
-                catalog_print_page(page, top_prompt, per_page, fill_empty)
-                filter_opts = [(k, k.upper()) for k in filter_by]
-                cancel_opt = [('C', '><*>CANCEL<*><', 'CANCEL')]
-                filter_key = cio.select("ADD/EDIT FILTER ON:", filter_opts, non_number_choices=cancel_opt)
-                if filter_key == '><*>CANCEL<*><':
-                    continue
-                cio.clear()
-                f = filter_by[filter_key]
-                catalog_print_page(page, top_prompt, per_page, fill_empty)
-                filter_expr = None
-                while filter_expr is None:
-                    hint = ""
-                    if f.fmt_hint is not None:
-                        hint = " ({:s})".format(f.fmt_hint)
-                    filter_val = input(f.name.title() + hint + ": ")
-                    if filter_val.strip() == '':
-                        break
-                    try:
-                        normalized = f.normalize(filter_val)
-                        if normalized is not None and normalized != '':
-                            filter_val = normalized
-                    except Exception as e:
-                        print("ERROR: {!s}".format(e))
-                    else:
-                        filter_expr = filter_val
-
-                if filter_expr is None:
-                    print("No filter added")
-                    cio.pause()
-                    continue
-
-                active_filters[filter_key] = filter_expr
-
-                # update pages to be filtered
-                pages, page_num = apply_filters(items, page_num, active_filters)
-            elif filter_action == 'R':
-                # TODO: direct opts cancel
-                filter_opts = [(k, k.upper()) for k in active_filters]
-                cio.clear()
-                catalog_print_page(page, top_prompt, per_page, fill_empty)
-                if len(filter_opts) == 0:
-                    print("No filters to remove")
-                    cio.pause()
-                    continue
-                other_opts = [('A', '><*>ALL<*><', 'ALL'), ('C', '><*>CANCEL<*><', 'CANCEL')]
-                filter_key = cio.select("REMOVE FILTER ON:", filter_opts, non_number_choices=other_opts)
-                if filter_key == '><*>CANCEL<*><':
-                    continue
-                elif filter_key == '><*>ALL<*><':
-                    active_filters = {}
-                else:
-                    del active_filters[filter_key]
-
-                # update pages to be filtered
-                pages, page_num = apply_filters(items, page_num, active_filters)
-
-            elif filter_action == 'C':
-                continue
-            else:
-                print("Unknown option")
-                cio.pause()
-        elif include_select and choice == 'S':
-            cio.clear()
-            # print the entire top prompt EXCEPT for the last line
-            if top_prompt is not None:
-                all_but_last = top_prompt.split('\n')[:-1]
-                if len(all_but_last) > 0:
-                    print('\n'.join(all_but_last))
-            selected = cio.select("Which one?\n" + ("-" * 22), page, non_number_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
-            if isinstance(selected, str) and selected == '><*>CANCEL<*><':
-                continue
-            return ('SELECT', selected, CatState(page_num, active_filters, page))
-        elif include_create and choice == 'C':
-            return ('CREATE', None, CatState(page_num, active_filters, page))
-        elif choice == 'X':
-            return (None, None, CatState(page_num, active_filters, page))
-        elif choice in extra_opts_dict:
-            eo = extra_opts_dict[choice]
-            selected = None
-            if eo.selecting:
-                cio.clear()
-                if top_prompt is not None:
-                    all_but_last = top_prompt.split('\n')[:-1]
-                    if len(all_but_last) > 0:
-                        print('\n'.join(all_but_last))
-                selected = cio.select(eo.title + '\n' + ("-" * 22), page, non_number_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
-                if isinstance(selected, str) and selected == '><*>CANCEL<*><':
-                    continue
-            if eo.confirm is not None:
-                cio.clear()
-                catalog_print_page(page, top_prompt, per_page, fill_empty)
-                if not cio.confirm(eo.confirm):
-                    continue
-            return (eo.returned_action, selected, CatState(page_num, active_filters, page))
-        else:
-            print("Unknown option")
-            cio.pause()
-
-
 def cards_master_menu(s: Session):
     def num_expr(val: str):
         # it can either be an exact number, or a comparator followed by a number
@@ -516,13 +230,13 @@ def cards_master_menu(s: Session):
 
 
     extra_actions = [
-        CatOption('I', '(I)mport', 'IMPORT'),
-        CatOption('A', '(A)dd', 'ADD'),
+        cio.CatOption('I', '(I)mport', 'IMPORT'),
+        cio.CatOption('A', '(A)dd', 'ADD'),
     ]
     filters = [
-        CatFilter('name', lambda c, v: v.lower() in c.name.lower()),
-        CatFilter('edition', lambda c, v: v.lower() in c.edition.lower()),
-        CatFilter('in_decks', lambda c, v: num_expr_matches(c.deck_count(), v), normalize=num_expr)
+        cio.CatFilter('name', lambda c, v: v.lower() in c.name.lower()),
+        cio.CatFilter('edition', lambda c, v: v.lower() in c.edition.lower()),
+        cio.CatFilter('in_decks', lambda c, v: num_expr_matches(c.deck_count(), v), normalize=num_expr)
     ]
     while True:
         cards = carddb.find(s.db_filename, None, None, None)
@@ -531,7 +245,7 @@ def cards_master_menu(s: Session):
         cards = sorted(cards, key=lambda c: (c.edition, c.tcg_num))
 
         cat_items = [(c, "{:d}x {:s}".format(c.count, str(c))) for c in cards]
-        selection = catalog_select("MANAGE CARDS", items=cat_items, extra_options=extra_actions, include_create=False, filters=filters, state=s.inven_cat_state)
+        selection = cio.catalog_select("MANAGE CARDS", items=cat_items, extra_options=extra_actions, include_create=False, filters=filters, state=s.inven_cat_state)
 
         action = selection[0]
         card: CardWithUsage = selection[1]
@@ -749,7 +463,7 @@ def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
                 item = "{:d}x on wishlist in {:s}".format(u.wishlist_count, u.deck_name)
                 cat_items.append(('', item))
         
-        selection = catalog_select(menu_lead, items=cat_items, include_create=False, include_select=False)
+        selection = cio.catalog_select(menu_lead, items=cat_items, include_create=False, include_select=False)
         
         action = selection[0]
 
@@ -900,17 +614,17 @@ def cards_import(s: Session):
 
 def decks_master_menu(s: Session):
     filters = {
-        CatFilter('name', lambda d, v: v.lower() in d.name.lower()),
-        CatFilter('state', lambda d, v: d.state == v.upper()),
+        cio.CatFilter('name', lambda d, v: v.lower() in d.name.lower()),
+        cio.CatFilter('state', lambda d, v: d.state == v.upper()),
     }
     extra_options=[
-        CatOption('E', '(E)xport Decks', 'EXPORT'),
-        CatOption('I', '(I)mport Decks', 'IMPORT'),
+        cio.CatOption('E', '(E)xport Decks', 'EXPORT'),
+        cio.CatOption('I', '(I)mport Decks', 'IMPORT'),
     ]
     while True:
         decks = deckdb.get_all(s.db_filename)
         cat_items = [(d, str(d)) for d in decks]
-        selection = catalog_select("MANAGE DECKS", items=cat_items, filters=filters, state=s.deck_cat_state, extra_options=extra_options)
+        selection = cio.catalog_select("MANAGE DECKS", items=cat_items, filters=filters, state=s.deck_cat_state, extra_options=extra_options)
         
         action = selection[0]
         deck: Deck = selection[1]
@@ -1014,16 +728,16 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
     while True:
         menu_lead = deck_infobox(deck) + "\nCARDS"
         extra_actions = [
-            CatOption('A', '(A)dd Card', 'ADD'),
+            cio.CatOption('A', '(A)dd Card', 'ADD'),
         ]
         cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None)
         wl_cards = [c for c in cards if c.deck_wishlist_count > 0]
         owned_cards = [c for c in cards if c.deck_count > 0]
         if len(owned_cards) > 0:
-            extra_actions.append(CatOption('R', '(R)emove Card', 'REMOVE', selecting=True, title='Remove card'))
-        extra_actions.append(CatOption('W', '(W)ishlist Card', 'WISHLIST'))
+            extra_actions.append(cio.CatOption('R', '(R)emove Card', 'REMOVE', selecting=True, title='Remove card'))
+        extra_actions.append(cio.CatOption('W', '(W)ishlist Card', 'WISHLIST'))
         if len(wl_cards) > 0:
-            extra_actions.append(CatOption('U', '(U)nwishlist Card', 'UNWISH', selecting=True, title='Unwishlist card'))
+            extra_actions.append(cio.CatOption('U', '(U)nwishlist Card', 'UNWISH', selecting=True, title='Unwishlist card'))
 
         cat_items = []
         for c in cards:
@@ -1035,7 +749,7 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             card_str = "{:s} {:s}".format(', '.join(amounts), str(c))
             cat_items.append((c, card_str))
         
-        selection = catalog_select(menu_lead, items=cat_items, include_create=False, extra_options=extra_actions)
+        selection = cio.catalog_select(menu_lead, items=cat_items, include_create=False, extra_options=extra_actions)
         
         action = selection[0]
         card: DeckCard = selection[1]
@@ -1128,7 +842,7 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
 
     cat_items = [(c, str(c)) for c in cards]
 
-    selection = catalog_select(menu_lead, items=cat_items, include_create=False)
+    selection = cio.catalog_select(menu_lead, items=cat_items, include_create=False)
 
     action = selection[0]
     card: CardWithUsage = selection[1]
@@ -1166,7 +880,7 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
         disp = str(c) + " ({:d}/{:d} free)".format(free, c.count)
         cat_items.append((c, disp))
 
-    selection = catalog_select(menu_lead, items=cat_items, include_create=False)
+    selection = cio.catalog_select(menu_lead, items=cat_items, include_create=False)
 
     action = selection[0]
     card: CardWithUsage = selection[1]
