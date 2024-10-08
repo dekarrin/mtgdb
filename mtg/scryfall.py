@@ -128,7 +128,7 @@ def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='',
         card_data.last_updated = datetime.datetime.now(tz=datetime.timezone.utc)
         scryfalldb.insert(db_filename, card_data)
         name = raw_resp['name']
-        card_num = raw_resp['set'] + '-' + int(raw_resp['collector_number'])
+        card_num = raw_resp['set'] + '-' + raw_resp['collector_number']
         db_cards = carddb.find(db_filename, name=name, card_num=card_num, edition=None)
         if db_cards is not None:
             for c in db_cards:
