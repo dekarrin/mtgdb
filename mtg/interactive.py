@@ -531,6 +531,25 @@ def cards_import(s: Session):
     cio.pause()
 
 
+def deck_pretty_row(d: Deck, name_limit: int=30) -> str:
+    if name_limit < 4:
+        raise ValueError("name_limit must be at least 4 to allow room for ellipsis")
+    
+    if len(d.name) > name_limit:
+        name = d.name[:name_limit - 3] + '...'
+    else:
+        name = d.name
+
+    # print the name up to the limit with space padding on the right:
+    row = "{: <{width}s}".format(name, width=name_limit)
+    row += "  "
+    row += d.state
+    row += "  "
+    row += d.count_slug()
+
+    return row
+
+
 def decks_master_menu(s: Session):
     filters = {
         cio.CatFilter('name', lambda d, v: v.lower() in d.name.lower()),
@@ -542,7 +561,7 @@ def decks_master_menu(s: Session):
     ]
     while True:
         decks = deckdb.get_all(s.db_filename)
-        cat_items = [(d, str(d)) for d in decks]
+        cat_items = [(d, deck_pretty_row(d)) for d in decks]
         selection = cio.catalog_select("MANAGE DECKS", items=cat_items, filters=filters, state=s.deck_cat_state, extra_options=extra_options)
         
         action = selection[0]
