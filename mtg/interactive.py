@@ -266,9 +266,9 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
         cost = scryfall_data.cost
         spaces = amt - len(cost)
         cbox += "{:s}{:s}\n".format(' ' * spaces, cost)
-
+        
         if len(c.special_print_items) > 0:
-            cbox += "({:s})\n".format(','.join(c.special_print_items))
+            cbox += "({:s})\n".format(c.special_print_items)
         else:
             cbox += "\n"
         
