@@ -253,7 +253,7 @@ def _parse_resp_card_game_data(resp: dict[str, Any]) -> ScryfallCardData:
         # we only care about the front for art series cards
         face = _parse_resp_face(resp['card_faces'][0])
         c.faces.append(face)
-    elif layout.lower() in ['split', 'flip', 'transform', 'double_faced_token', 'modal_dfc']:
+    elif layout.lower() in ['split', 'flip', 'transform', 'double_faced_token', 'modal_dfc'] or 'card_faces' in resp:
         for idx, f in enumerate(resp['card_faces']):
             face = _parse_resp_face(f)
             face.index = idx

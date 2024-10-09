@@ -261,18 +261,29 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
     
     cbox: str = ''
     if scryfall_data is not None:
-        cbox += "{:s}".format(c.name)
-        amt = text_wrap_width - len(scryfall_data.name)
-        cost = scryfall_data.cost
-        spaces = amt - len(cost)
-        cbox += "{:s}{:s}\n".format(' ' * spaces, cost)
+        faces = scryfall_data.faces
+        cbox += "LEN FACES: " + str(len(faces)) + "\n"
+        for idx, f in enumerate(faces):
+            if idx > 0:
+                cbox += "// "
+            cbox += f.name
+            amt = text_wrap_width - len(f.name)
+            cost = f.cost
+            if idx > 0:
+                cost = '// ' + cost
+            spaces = amt - len(cost)
+            cbox += "{:s}{:s}\n".format(' ' * spaces, cost)
         
         if len(c.special_print_items) > 0:
             cbox += "({:s})\n".format(c.special_print_items)
         else:
             cbox += "\n"
         
-        cbox += "{:s}\n".format(scryfall_data.type)
+        for idx, f in enumerate(faces):
+            if idx > 0:
+                cbox += "// "
+            cbox += "{:s}\n".format(scryfall_data.type)
+
         cbox += "\n"
 
         if len(scryfall_data.faces) > 1:
@@ -314,6 +325,8 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
         hdr += "-" * 22
 
     if inven_details:
+        if scryfall_data is not None:
+            hdr += "Scryfall ID: {:s}\n".format(scryfall_data.id)
         hdr += "Inventory ID: {:d}\n".format(c.id)
         hdr += "{:s} ({:s}), {:s}\n".format(card_condition_to_name(c.condition), c.condition, c.language)
         hdr += "{:d}x owned\n".format(c.count)
