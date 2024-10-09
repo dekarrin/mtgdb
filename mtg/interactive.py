@@ -262,22 +262,19 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
     cbox: str = ''
     if scryfall_data is not None:
         faces = scryfall_data.faces
-        cbox += "LEN FACES: " + str(len(faces)) + "\n"
+        cboxes = list()
+        cbox = ""
         for idx, f in enumerate(faces):
-            if idx > 0:
-                cbox += "// "
             cbox += f.name
             amt = text_wrap_width - len(f.name)
             cost = f.cost
-            if idx > 0:
-                cost = '// ' + cost
             spaces = amt - len(cost)
             cbox += "{:s}{:s}\n".format(' ' * spaces, cost)
-        
-        if len(c.special_print_items) > 0:
-            cbox += "({:s})\n".format(c.special_print_items)
-        else:
-            cbox += "\n"
+
+            if len(c.special_print_items) > 0:
+                cbox += "({:s})\n".format(c.special_print_items)
+            else:
+                cbox += "\n"
         
         for idx, f in enumerate(faces):
             if idx > 0:
