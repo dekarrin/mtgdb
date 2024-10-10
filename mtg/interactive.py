@@ -259,12 +259,10 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
         if not box_card:
             hdr += "-" * 22 + "\n"
     
-    cbox: str = ''
+    cboxes: list[str] = list()
     if scryfall_data is not None:
-        faces = scryfall_data.faces
-        cboxes = list()
-        cbox = ""
-        for idx, f in enumerate(faces):
+        for f in scryfall_data.faces:
+            cbox = ""
             cbox += f.name
             amt = text_wrap_width - len(f.name)
             cost = f.cost
@@ -275,48 +273,83 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
                 cbox += "({:s})\n".format(c.special_print_items)
             else:
                 cbox += "\n"
-        
-        for idx, f in enumerate(faces):
-            if idx > 0:
-                cbox += "// "
-            cbox += "{:s}\n".format(scryfall_data.type)
 
-        cbox += "\n"
+            cbox += "{:s}\n".format(f.type)
 
-        if len(scryfall_data.faces) > 1:
-            if any([f.text is not None and len(f.text) > 0 for f in scryfall_data.faces]) or any ([f.power is not None and len(f.power) > 0 for f in scryfall_data.faces]):
-                for i, f in enumerate(scryfall_data.faces):
-                    cbox += "FACE {:d}:\n".format(i + 1)
-                    if f.text is not None and len(f.text) > 0:
-                        text = wrap_preformatted_text(f.text, text_wrap_width)
-                        cbox += "{:s}\n".format(text)
-                    if f.power is not None and len(f.power) > 0:
-                        cbox += "{:s}/{:s}\n".format(f.power, f.toughness)
-                    cbox += "\n"
-        else:
-            text = wrap_preformatted_text(scryfall_data.text, text_wrap_width)
-            cbox += "{:s}\n\n".format(text)
-        
-        cbox += "{:s}".format(c.cardnum)
-        if len(scryfall_data.faces) < 2 and scryfall_data.power is not None and len(scryfall_data.power) > 0:
-            amt = text_wrap_width - len(c.cardnum)
-            st = "{:s}/{:s}".format(scryfall_data.power, scryfall_data.toughness)
-            spaces = amt - len(st)
-            cbox += "{:s}{:s}\n".format(' ' * spaces, st)
-        else:
+            cbox += "\n"
+
+            if f.text is not None and len(f.text) > 0:
+                text = wrap_preformatted_text(f.text, text_wrap_width)
+                cbox += "{:s}\n".format(text)
+            
             cbox += "\n"
         
-        if inven_details and not box_card:
-            cbox += "-" * 22
+            cbox += "{:s}".format(c.cardnum)
+            if f.power is not None and len(f.power) > 0:
+                amt = text_wrap_width - len(c.cardnum)
+                st = "{:s}/{:s}".format(f.power, f.toughness)
+                spaces = amt - len(st)
+                cbox += "{:s}{:s}\n".format(' ' * spaces, st)
+
+            cboxes.append(cbox)
     else:
-        cbox += "{:s}\n".format(str(c))
+        cboxes.append("{:s}\n".format(str(c)))
 
     if box_card:
-        hdr += box_text(cbox, text_wrap_width)
+        # we may have multiple faces. We would like to combine them as such:
+        #
+        # +----------------------+     +----------------------+
+        # | FACE 1               |     | FACE 2               |
+        # |                      | <-> |                      |
+        # | (things)             |     | (things)             |
+        # +----------------------+     +----------------------+
+
+        if len(cboxes) == 1:
+            hdr += box_text(cboxes[0], text_wrap_width)
+        else:
+            # hopefully it is two. If more, we will fix in future update
+            left_box = box_text(cboxes[0], text_wrap_width)
+            right_box = box_text(cboxes[1], text_wrap_width)
+
+            # now we must combine them with a 5-character gap
+            left_box_lines = left_box.splitlines()
+            right_box_lines = right_box.splitlines()
+
+            # box_text may result in inequal number of lines, so we need to take
+            # the longest and adjust the other
+            max_lines = max(len(left_box_lines), len(right_box_lines))
+
+            # width of each card will be equal but we need to know it since
+            # box_text adds a number of chars to each side depending on how it
+            # was called.
+            line_width = len(left_box_lines[0])
+
+            while len(left_box_lines) < max_lines:
+                left_box_lines.append(" " * line_width)
+            while len(right_box_lines) < max_lines:
+                right_box_lines.append(" " * line_width)
+
+            # and find the 'middle' line
+            mid_line = max_lines // 2
+
+            # now glue them all together
+            combined_lines = []
+            for i in range(max_lines):
+                middle = " <-> " if i == mid_line else "     "
+                combined_lines.append("{:s}{:s}{:s}".format(left_box_lines[i], middle, right_box_lines[i]))
+
+            hdr += '\n'.join(combined_lines)
+
+            if len(cboxes) > 2:
+                hdr += "(Card has {:d} faces, only first 2 are supported)\n".format(len(cboxes))
+
         if inven_details:
             hdr += "\n"
     else:
         hdr += cbox
+
+        if inven_details:
+            hdr += "-" * 22
 
     if not inven_details and final_bar and not box_card:
         hdr += "-" * 22
