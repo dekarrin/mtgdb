@@ -1,8 +1,34 @@
 import sys
 import os
+import logging.handlers
 from contextlib import contextmanager
 from typing import Optional, Callable
 
+
+_log_std_streams: bool = False
+
+def enable_std_stream_logging():
+    global _log_std_streams
+    _log_std_streams = True
+
+
+def enable_logging(filename: str):
+    file_handler = logging.handlers.RotatingFileHandler(filename, maxBytes=25*1024*1024, backupCount=5)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s"))
+    logging.getLogger().addHandler(file_handler)
+
+    stderr_handler = logging.StreamHandler(stream=sys.stderr)
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    logging.getLogger().addHandler(stderr_handler)
+
+    lev_filter = _ExactLevelFilter(['INFO'])
+    stdout_handler = logging.StreamHandler(stream=sys.stdout)
+    stdout_handler.setLevel(lev_filter.min_level())
+    stdout_handler.setFormatter(logging.Formatter("%(message)s"))
+    stdout_handler.addFilter(lev_filter)
+    logging.getLogger().addHandler(stdout_handler)
 
 def using_winpty() -> bool:
     return os.name == 'nt' and '_' in os.environ and os.environ['_'].endswith('/winpty')
