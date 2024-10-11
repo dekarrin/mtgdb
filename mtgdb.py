@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging.handlers
 import sys
 import argparse
 
@@ -9,10 +10,15 @@ from mtg import cards, deckbox, decks, ArgumentError, types, interactive, versio
 from mtg.db import schema
 
 
+_log = logging.getLogger('mtgdb')
+_log.setLevel(logging.DEBUG)
+
+
 def main():
-    parser = argparse.ArgumentParser(prog='mtgdb.py', description='Import card lists and manage membership of cards within decks using export data from services that believe they have the right to charge me monthly for the same service for some reason.')
+    parser = argparse.ArgumentParser(prog='mtgdb.py', description='Import card lists and manage membership of cards within decks using export data from services that believe they have the right to charge me monthly for the same service for some reason.', help='Invoke with a subcommand to do that action. Invoke with no subcommands to start an interactive mode session.')
     parser.add_argument('-D', '--db-filename', default='inv.db', help="path to sqlite3 inventory DB file")
     parser.add_argument('-V', '--version', action='store_true', help="print version and exit")
+    parser.add_argument('-l', '--log', metavar='FILE', help="Enable logging to FILE. Mostly applies to interactive mode.")
     parser.set_defaults(func=invoke_interactive_mode)
     subs = parser.add_subparsers(title='SUBCOMMANDS', required=False, metavar='SUBCOMMAND')
 
@@ -135,13 +141,21 @@ def main():
         print("mtgdb v" + version.Version)
         sys.exit(0)
 
+    if args.log is not None:
+        enable_logfile(args.log)
+
     try:
         args.func(args)
     except mtg.db.DBError as e:
         print("ERROR: " + str(e), file=sys.stderr)
+        _log.exception("Database error")
         sys.exit(1)
     except mtg.CommandError as e:
         print("ERROR: " + str(e), file=sys.stderr)
+        _log.exception("Command error")
+        sys.exit(1)
+    except Exception:
+        _log.exception("Error")
         sys.exit(1)
 
 
@@ -428,8 +442,27 @@ def invoke_remove_wish(args):
     return decks.remove_from_wishlist(args.db_filename, args.deck, args.card, args.amount)
 
 
+def enable_logfile(filename: str):
+    file_handler = logging.handlers.RotatingFileHandler(filename, maxBytes=25*1024*1024, backupCount=5)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s: {menu=%(menu)s} %(message)s"))
+    file_handler.addFilter(_ExtraDefaultsFilter(menu='(NONE)'))
+    logging.getLogger().addHandler(file_handler)
+
+
+class _ExtraDefaultsFilter(logging.Filter):
+    def __init__(self, menu: str):
+        self.menu = menu
+
+    def filter(self, record):
+        if not hasattr(record, 'menu'):
+            record.menu = self.menu
+        return True
+
+
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
+        _log.debug("Ctr-C; exit")
         pass

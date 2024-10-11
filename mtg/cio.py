@@ -1,11 +1,7 @@
 import sys
 import os
-import logging.handlers
 from contextlib import contextmanager
 from typing import Optional, Callable
-
-
-_log_std_streams: bool = False
 
 
 def using_winpty() -> bool:
@@ -261,7 +257,7 @@ class CatState:
         self.page = page
 
 
-def catalog_print_page(page: list[tuple[any, str]], top_prompt: Optional[str]=None, per_page: int=10, fill_empty: bool=True):
+def catalogprint_page(page: list[tuple[any, str]], top_prompt: Optional[str]=None, per_page: int=10, fill_empty: bool=True):
     if top_prompt is not None:
         print(top_prompt)
         print("----------------------")
@@ -311,6 +307,8 @@ def catalog_select(
     tuple containing the action ((None), 'CREATE', 'SELECT'), and if an item selected, the item. Allows
     creation of new to be specified in the action.
     """
+
+    # DO NOT CALL print or input IN HERE! WE DO NOT WANT TO LOG FULL PAGE DATA
 
     filter_by: dict[str, CatFilter] = None
     if filters is not None:
@@ -371,7 +369,7 @@ def catalog_select(
         else:
             page = []
         
-        catalog_print_page(page, top_prompt, per_page, fill_empty)
+        catalogprint_page(page, top_prompt, per_page, fill_empty)
         if filter_by is not None:
             if len(active_filters) > 0:
                 print(' AND '.join(["{:s}:{!r}".format(k.upper(), v) for k, v in active_filters.items()]))
@@ -411,11 +409,11 @@ def catalog_select(
             page_num -= 1
         elif choice == 'F' and filter_by is not None and len(filter_by) > 0:
             clear()
-            catalog_print_page(page, top_prompt, per_page, fill_empty)
+            catalogprint_page(page, top_prompt, per_page, fill_empty)
             filter_action = prompt_choice("MANAGE FILTERS:\n(A)dd/Edit, (R)emove, (C)ancel", ['A', 'R', 'C'], transform=lambda x: x.strip().upper())
             if filter_action == 'A':
                 clear()
-                catalog_print_page(page, top_prompt, per_page, fill_empty)
+                catalogprint_page(page, top_prompt, per_page, fill_empty)
                 filter_opts = [(k, k.upper()) for k in filter_by]
                 cancel_opt = [('C', '><*>CANCEL<*><', 'CANCEL')]
                 filter_key = select("ADD/EDIT FILTER ON:", filter_opts, non_number_choices=cancel_opt)
@@ -423,7 +421,7 @@ def catalog_select(
                     continue
                 clear()
                 f = filter_by[filter_key]
-                catalog_print_page(page, top_prompt, per_page, fill_empty)
+                catalogprint_page(page, top_prompt, per_page, fill_empty)
                 filter_expr = None
                 while filter_expr is None:
                     hint = ""
@@ -454,7 +452,7 @@ def catalog_select(
                 # TODO: direct opts cancel
                 filter_opts = [(k, k.upper()) for k in active_filters]
                 clear()
-                catalog_print_page(page, top_prompt, per_page, fill_empty)
+                catalogprint_page(page, top_prompt, per_page, fill_empty)
                 if len(filter_opts) == 0:
                     print("No filters to remove")
                     pause()
@@ -505,100 +503,10 @@ def catalog_select(
                     continue
             if eo.confirm is not None:
                 clear()
-                catalog_print_page(page, top_prompt, per_page, fill_empty)
+                catalogprint_page(page, top_prompt, per_page, fill_empty)
                 if not confirm(eo.confirm):
                     continue
             return (eo.returned_action, selected, CatState(page_num, active_filters, page))
         else:
             print("Unknown option")
             pause()
-
-
-def enable_logging(filename: str):
-    file_handler = logging.handlers.RotatingFileHandler(filename, maxBytes=25*1024*1024, backupCount=5)
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s"))
-    logging.getLogger().addHandler(file_handler)
-
-    
-def enable_std_stream_logging():
-    global _log_std_streams
-    _log_std_streams = True
-
-    stderr_handler = logging.StreamHandler(stream=sys.stderr)
-    stderr_handler.setLevel(logging.WARNING)
-    stderr_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-    logging.getLogger().addHandler(stderr_handler)
-
-    lev_filter = _ExactLevelFilter(['INFO'])
-    stdout_handler = logging.StreamHandler(stream=sys.stdout)
-    stdout_handler.setLevel(lev_filter.min_level())
-    stdout_handler.setFormatter(logging.Formatter("%(message)s"))
-    stdout_handler.addFilter(lev_filter)
-    logging.getLogger().addHandler(stdout_handler)
-
-
-class _ExactLevelFilter(object):
-    """
-    Only allows log records through that are particular levels.
-    """
-
-    def __init__(self, levels):
-        """
-        Creates a new exact level filter.
-        :type levels: ``list[int|str]``
-        :param levels: The levels that should pass through the filter; all others are filtered out. Each item is either
-        one of the predefined level names or an integer level.
-        """
-        self._levels = set()
-        for lev in levels:
-            is_int = False
-            try:
-                lev = lev.upper()
-            except AttributeError:
-                is_int = True
-            if not is_int:
-                if lev == 'DEBUG':
-                    self._levels.add(logging.DEBUG)
-                elif lev == 'INFO':
-                    self._levels.add(logging.INFO)
-                elif lev == 'WARNING' or lev == 'WARN':
-                    self._levels.add(logging.WARNING)
-                elif lev == 'ERROR':
-                    self._levels.add(logging.ERROR)
-                elif lev == 'CRITICAL':
-                    self._levels.add(logging.CRITICAL)
-                else:
-                    raise ValueError("bad level name in levels list: " + lev)
-            else:
-                self._levels.add(int(lev))
-
-    def num_levels(self):
-        """
-        Gets the number of levels that are allowed through the filter.
-        :rtype: ``int``
-        :return: The number of levels.
-        """
-        return len(self._levels)
-
-    def min_level(self):
-        """
-        Gets the minimum level that is allowed through the filter.
-        :rtype: ``int``
-        :return: The minimum leel
-        """
-        return min(self._levels)
-
-    def filter(self, record):
-        """
-        Check whether to include the given log record in the output.
-        :type record: ``logging.LogRecord``
-        :param record: The record to check.
-        :rtype: ``int``
-        :return: 0 indicates the log record should be discarded; non-zero indicates that the record should be
-        logged.
-        """
-        if record.levelno in self._levels:
-            return 1
-        else:
-            return 0

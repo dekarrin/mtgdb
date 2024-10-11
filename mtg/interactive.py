@@ -15,6 +15,8 @@ import traceback
 
 from typing import Optional, Callable
 
+import logging
+
 from .types import Deck, DeckCard, Card, CardWithUsage, ScryfallCardData, deck_state_to_name, parse_cardnum, card_condition_to_name
 from . import cio, version
 from . import cards as cardops
@@ -23,6 +25,12 @@ from . import deckbox as deckboxops
 from . import scryfall as scryfallops
 from .errors import DataConflictError, UserCancelledError
 from .db import schema, deckdb, carddb, DBError, NotFoundError, DBOpenError
+
+
+
+_log = logging.getLogger(__name__)
+_log.setLevel(logging.DEBUG)
+
 
 class Session:
     def __init__(self, db_filename: str):
@@ -42,13 +50,16 @@ def start(db_filename):
         sys.exit(0)
 
     fatal_msg = None
+    _log.debug("Starting alt screen buffer for interactive session")
     with cio.alternate_screen_buffer():
+        _log.debug("Interactive session started")
         try:
             show_splash_screen(s)
             main_menu(s)
         except KeyboardInterrupt:
             pass
         except:
+            _log.fatal("Fatal error occurred", exc_info=True)
             fatal_msg = traceback.format_exc()
         
         if cio.using_mintty():
@@ -92,7 +103,10 @@ def main_menu(s: Session):
         ('X', 'exit', 'Exit the program')
     ]
 
+    logger = logging.LoggerAdapter(_log, {'menu': 'main'})
     while s.running:
+        logger.debug("In Main Menu")
+
         cio.clear()
         item = cio.select("MAIN MENU", non_number_choices=top_level_items)
 
@@ -103,12 +117,14 @@ def main_menu(s: Session):
             try:
                 cards_master_menu(s)
             except DBOpenError:
+                logger.exception("main menu: from cards master menu: DB must be initialized before managing cards")
                 print("ERROR: DB must be initialized before managing cards")
                 cio.pause()
         elif item == 'decks':
             try:
                 decks_master_menu(s)
             except DBOpenError:
+                logger.exception("main menu: from decks master menu: DB must be initialized before managing cards")
                 print("ERROR: DB must be initialized before managing decks")
                 cio.pause()
         elif item == 'change-db':
@@ -125,6 +141,7 @@ def main_menu(s: Session):
         else:
             # should never get here
             print("Unknown option")
+            logger.warning("main menu: unknown option {!r} selected; ignoring", item)
             cio.pause()
 
 
