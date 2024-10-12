@@ -34,25 +34,40 @@ _DEFAULT_LOG_RECORD_FIELDS = (
 
 
 _inited_logs: dict[str, logging.Logger] = {}
-_field_defaults: dict[str, any] = {}
 
 
-def set_field_defaults(**fields):
-    for k in fields:
-        _field_defaults[k] = fields[k]
+class Logger(logging.LoggerAdapter):
+    """
+    Compatibility logger that allows for extension of field sets in loggers.
+    """
+
+    def __init__(self, log: logging.Logger, **fields):
+        super().__init__(log, fields)
+
+    def with_fields(self, **fields) -> 'Logger':
+        """
+        If any field is set to None, the returned logger will not have that
+        field, even if it is set in the original logger. This allows for removal
+        of fields.
+        """
+        full_fields = dict(self.extra)
+
+        for removed in [k for k, v in fields.items() if v is None]:
+            if removed in full_fields:
+                del full_fields[removed]
+
+        full_fields.update(fields)
+        return Logger(self.logger, **full_fields)
 
 
-def get_logger(name: str, **fields) -> logging.Logger:
+def get(name: str, **fields) -> Logger:
+    if name not in _inited_logs:
+        log = logging.getLogger(name)
+        log.setLevel(logging.DEBUG)
+        _inited_logs[name] = log
 
-
-class _ExtraDefaultsFilter(logging.Filter):
-    def __init__(self, menu: str):
-        self.menu = menu
-
-    def filter(self, record):
-        if not hasattr(record, 'menu'):
-            record.menu = self.menu
-        return True
+    log = _inited_logs[name]
+    return Logger(log, **fields)
     
 
 class _FieldsFormatter(logging.Formatter):

@@ -15,18 +15,14 @@ import traceback
 
 from typing import Optional, Callable
 
-import logging
-
 from .types import Deck, DeckCard, Card, CardWithUsage, ScryfallCardData, deck_state_to_name, parse_cardnum, card_condition_to_name
-from . import cio, version
+from . import cio, version, elog
 from . import cards as cardops
 from . import decks as deckops
 from . import deckbox as deckboxops
 from . import scryfall as scryfallops
 from .errors import DataConflictError, UserCancelledError
 from .db import schema, deckdb, carddb, DBError, NotFoundError, DBOpenError
-
-
 
 
 class Session:
@@ -36,6 +32,7 @@ class Session:
         self.deck_cat_state: Optional[cio.CatState] = None
         self.inven_cat_state: Optional[cio.CatState] = None
         self.deck_cards_cat_state: Optional[cio.CatState] = None
+        self.log = elog.get(__name__)
 
 
 def start(db_filename):
@@ -47,16 +44,16 @@ def start(db_filename):
         sys.exit(0)
 
     fatal_msg = None
-    _log.debug("Starting alt screen buffer for interactive session")
+    s.log.debug("Starting alt screen buffer for interactive session")
     with cio.alternate_screen_buffer():
-        _log.debug("Interactive session started")
+        s.log.debug("Interactive session started")
         try:
             show_splash_screen(s)
             main_menu(s)
         except KeyboardInterrupt:
             pass
         except:
-            _log.fatal("Fatal error occurred", exc_info=True)
+            s.log.critical("Fatal error occurred", exc_info=True)
             fatal_msg = traceback.format_exc()
         
         if cio.using_mintty():
@@ -89,7 +86,7 @@ def show_splash_screen(s: Session):
 
 
 def main_menu(s: Session):
-    # TODO: change to non-numbered menu
+    logger = s.log.with_fields(menu='main')
 
     top_level_items = [
         ('C', 'cards', 'View and manage cards in inventory'),
@@ -100,9 +97,8 @@ def main_menu(s: Session):
         ('X', 'exit', 'Exit the program')
     ]
 
-    logger = logging.LoggerAdapter(_log, {'menu': 'main'})
     while s.running:
-        logger.debug("In Main Menu")
+        logger.info("Entered menu")
 
         cio.clear()
         item = cio.select("MAIN MENU", non_number_choices=top_level_items)
@@ -111,67 +107,93 @@ def main_menu(s: Session):
             cio.clear()
 
         if item == 'cards':
+            logger.debug("Cards selected")
             try:
                 cards_master_menu(s)
+                logger.debug("Exited cards menu")
             except DBOpenError:
-                logger.exception("main menu: from cards master menu: DB must be initialized before managing cards")
+                logger.exception("DB must be initialized before managing cards")
                 print("ERROR: DB must be initialized before managing cards")
                 cio.pause()
         elif item == 'decks':
+            logger.debug("Decks selected")
             try:
                 decks_master_menu(s)
+                logger.debug("Exited decks menu")
             except DBOpenError:
-                logger.exception("main menu: from decks master menu: DB must be initialized before managing cards")
+                logger.exception("DB must be initialized before managing cards")
                 print("ERROR: DB must be initialized before managing decks")
                 cio.pause()
         elif item == 'change-db':
+            logger.debug("Change DB selected")
             change_db(s)
+            logger.info("Changed DB filename to {:s}", s.db_filename)
+
             cio.pause()
         elif item == 'show-db':
+            logger.debug("Show DB selected")
             print("Using database {:s}".format(s.db_filename))
+            logger.info("Using database {:s}", s.db_filename)
+
             cio.pause()
         elif item == 'init':
+            logger.debug("Init DB selected")
             do_init(s)
+            logger.info("Initialized database")
+
             cio.pause()
         elif item == 'exit':
+            logger.debug("Exit selected")
             s.running = False
+            logger.info("Program is no longer running")
         else:
             # should never get here
             print("Unknown option")
-            logger.warning("main menu: unknown option {!r} selected; ignoring", item)
+            logger.warning("unknown option {!r} selected; ignoring", item)
             cio.pause()
 
 
 def change_db(s: Session):
+    logger = s.log.with_fields(action='change-db')
+
     new_name = input("Enter new database filename: ")
     if new_name.strip() == '':
         print("ERROR: new filename must have at least one non-space chararcter")
         print("DB name not updated")
+        logger.error("new DB filename is empty; not updating")
         return
 
     s.db_filename = new_name
     print("Now using database file {:s}".format(s.db_filename))
 
 
-def do_init(s: Session):
+def do_init(s: Session) -> bool:
+    logger = s.log.with_fields(action='init')
+
     # normally, ask for forgiveness rather than permission but we really want to
     # know if the file exists first so we can confirm
     if os.path.exists(s.db_filename):
+        logger.warning("DB file {:s} already exists; prompting user", s.db_filename)
         print("WARNING: Initializing the DB will delete all data in file {:s}".format(s.db_filename))
         if not cio.confirm("Are you sure you want to continue?"):
             print("Database initialization cancelled")
-            return
+            return False
     
     schema.init(s.db_filename)
+    return True
 
 
 def cards_master_menu(s: Session):
+    logger = s.log.with_fields(menu='cards')
+
     extra_actions = [
         cio.CatOption('I', '(I)mport', 'IMPORT'),
         cio.CatOption('A', '(A)dd', 'ADD'),
     ]
     filters = card_cat_filters(with_usage=True)
     while True:
+        logger.info("Entered menu")
+
         cards = carddb.find(s.db_filename, None, None, None)
 
         # sort them
@@ -183,6 +205,8 @@ def cards_master_menu(s: Session):
         action = selection[0]
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
+
+        logger.debug("Selected action {:s} with card {!s}", action, card)
 
         cio.clear()
         if action == 'SELECT':

@@ -4,7 +4,7 @@ import logging.handlers
 import sys
 import argparse
 
-from mtg import cards, deckbox, decks, types, interactive, version, dekalog
+from mtg import cards, deckbox, decks, types, interactive, version, elog
 from mtg.db import schema
 
 import mtg.db
@@ -151,7 +151,7 @@ def main():
         sys.exit(0)
 
     if args.log is not None:
-        dekalog.enable_logfile(args.log)
+        elog.enable_logfile(args.log)
 
     try:
         args.func(args)
