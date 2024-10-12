@@ -12,6 +12,7 @@ _DEFAULT_LOG_RECORD_FIELDS = (
     'asctime',
     'created',
     'exc_info',
+    'exc_text',
     'filename',
     'funcName',
     'levelname',
@@ -28,7 +29,7 @@ _DEFAULT_LOG_RECORD_FIELDS = (
     'relativeCreated',
     'stack_info',
     'thread',
-    'threadName'
+    'threadName',
     'taskName',
 )
 
@@ -71,14 +72,20 @@ def get(name: str, **fields) -> Logger:
     
 
 class _FieldsFormatter(logging.Formatter):
-    def_fmt_pre_extra = logging.Formatter("[%(asctime)s] %(levelname)s:")
+    def_fmt_pre_extra = logging.Formatter("[%(asctime)s] %(levelname)-8s %(name)s")
     def_fmt_post_extra = logging.Formatter(" %(message)s")
 
     def format(self, record):
         s = self.def_fmt_pre_extra.format(record)
         extra = {k: v for k, v in record.__dict__.items() if k not in _DEFAULT_LOG_RECORD_FIELDS}
         if len(extra) > 0:
-            s += ' ' + str(extra)
+            extra_items = []
+            for k, v in extra.items():
+                extra_items.append('{:s}={:s}'.format(k, str(v)))
+
+            s += ' [' + ','.join(extra_items) + ']:'
+        else:
+            s += ':'
         s += self.def_fmt_post_extra.format(record)
         return s
 

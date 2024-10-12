@@ -24,7 +24,8 @@ class ArgumentError(ValueError):
 
 
 def main():
-    parser = argparse.ArgumentParser(prog='mtgdb.py', description='Import card lists and manage membership of cards within decks using export data from services that believe they have the right to charge me monthly for the same service for some reason.', help='Invoke with a subcommand to do that action. Invoke with no subcommands to start an interactive mode session.')
+    parser = argparse.ArgumentParser(prog='mtgdb.py', description='Import card lists and manage membership of cards within decks using export data from services that believe they have the right to charge me monthly for the same service for some reason. Invoke with a subcommand to do that action. Invoke with no subcommands to start an interactive mode session.')
+    parser.add_argument('--use-main-buffer', action='store_true', help="Use the main buffer for interactive mode as opposed to the default of the alternate screen buffer. This may aid in debugging by keeping the default scrollback for the current terminal emulator.")
     parser.add_argument('-D', '--db-filename', default='inv.db', help="path to sqlite3 inventory DB file")
     parser.add_argument('-V', '--version', action='store_true', help="print version and exit")
     parser.add_argument('-l', '--log', metavar='FILE', help="Enable logging to FILE. Mostly applies to interactive mode.")
@@ -169,7 +170,7 @@ def main():
 
 
 def invoke_interactive_mode(args):
-    interactive.start(args.db_filename)
+    interactive.start(args.db_filename, not args.use_main_buffer)
 
 
 def invoke_init_db(args):

@@ -35,7 +35,7 @@ class Session:
         self.log = elog.get(__name__)
 
 
-def start(db_filename):
+def start(db_filename, alt_buffer: bool=True):
     s = Session(db_filename)
 
     try:
@@ -44,8 +44,32 @@ def start(db_filename):
         sys.exit(0)
 
     fatal_msg = None
-    s.log.debug("Starting alt screen buffer for interactive session")
-    with cio.alternate_screen_buffer():
+
+    if alt_buffer:
+        s.log.debug("Starting alt screen buffer for interactive session")
+        with cio.alternate_screen_buffer():
+            s.log.debug("Interactive session started")
+            
+            try:
+                show_splash_screen(s)
+                main_menu(s)
+            except KeyboardInterrupt:
+                pass
+            except:
+                s.log.critical("Fatal error occurred", exc_info=True)
+                fatal_msg = traceback.format_exc()
+            
+            if cio.using_mintty():
+                # final call to clear the alt screen buffer because it will be
+                # printed when program exits (yeah idk why glub)
+                cio.clear()        
+
+        if fatal_msg is not None:
+            print("A fatal error occurred:")
+            print(fatal_msg)
+            cio.pause()
+            sys.exit(1)
+    else:
         s.log.debug("Interactive session started")
         try:
             show_splash_screen(s)
@@ -54,18 +78,7 @@ def start(db_filename):
             pass
         except:
             s.log.critical("Fatal error occurred", exc_info=True)
-            fatal_msg = traceback.format_exc()
-        
-        if cio.using_mintty():
-            # final call to clear the alt screen buffer because it will be
-            # printed when program exits (yeah idk why glub)
-            cio.clear()
-
-    if fatal_msg is not None:
-        print("A fatal error occurred:")
-        print(fatal_msg)
-        cio.pause()
-        sys.exit(1)
+            raise
 
 
 def warn_mintty():
@@ -127,13 +140,13 @@ def main_menu(s: Session):
         elif item == 'change-db':
             logger.debug("Change DB selected")
             change_db(s)
-            logger.info("Changed DB filename to {:s}", s.db_filename)
+            logger.info("Changed DB filename to %s", s.db_filename)
 
             cio.pause()
         elif item == 'show-db':
             logger.debug("Show DB selected")
             print("Using database {:s}".format(s.db_filename))
-            logger.info("Using database {:s}", s.db_filename)
+            logger.info("Using database %s", s.db_filename)
 
             cio.pause()
         elif item == 'init':
@@ -149,7 +162,7 @@ def main_menu(s: Session):
         else:
             # should never get here
             print("Unknown option")
-            logger.warning("unknown option {!r} selected; ignoring", item)
+            logger.warning("unknown option %s selected; ignoring", repr(item))
             cio.pause()
 
 
@@ -173,7 +186,7 @@ def do_init(s: Session) -> bool:
     # normally, ask for forgiveness rather than permission but we really want to
     # know if the file exists first so we can confirm
     if os.path.exists(s.db_filename):
-        logger.warning("DB file {:s} already exists; prompting user", s.db_filename)
+        logger.warning("DB file %s already exists; prompting user", s.db_filename)
         print("WARNING: Initializing the DB will delete all data in file {:s}".format(s.db_filename))
         if not cio.confirm("Are you sure you want to continue?"):
             print("Database initialization cancelled")
@@ -206,7 +219,7 @@ def cards_master_menu(s: Session):
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
 
-        logger.debug("Selected action {:s} with card {!s}", action, card)
+        logger.debug("Selected action %s with card %s", action, str(card))
 
         cio.clear()
         if action == 'SELECT':
