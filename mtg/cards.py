@@ -3,7 +3,7 @@ import sys
 from . import cardutil, cio, db, select_card, select_deck, select_card_in_deck
 from .types import DeckChangeRecord, Card
 from .db import deckdb, carddb
-from .errors import ArgumentError, DataConflictError, UserCancelledError, CommandError
+from .errors import DataConflictError, UserCancelledError, CommandError
 
 
 # TODO: this rly makes more sense elsewhere glub, in decks rather than cards.

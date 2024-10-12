@@ -28,9 +28,6 @@ from .db import schema, deckdb, carddb, DBError, NotFoundError, DBOpenError
 
 
 
-_log = logging.getLogger(__name__)
-_log.setLevel(logging.DEBUG)
-
 
 class Session:
     def __init__(self, db_filename: str):

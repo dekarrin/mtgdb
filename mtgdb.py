@@ -4,14 +4,23 @@ import logging.handlers
 import sys
 import argparse
 
-import mtg.db
-
-from mtg import cards, deckbox, decks, ArgumentError, types, interactive, version
+from mtg import cards, deckbox, decks, types, interactive, version, dekalog
 from mtg.db import schema
+
+import mtg.db
+import mtg
 
 
 _log = logging.getLogger('mtgdb')
 _log.setLevel(logging.DEBUG)
+
+
+class ArgumentError(ValueError):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return self.msg
 
 
 def main():
@@ -142,7 +151,7 @@ def main():
         sys.exit(0)
 
     if args.log is not None:
-        enable_logfile(args.log)
+        dekalog.enable_logfile(args.log)
 
     try:
         args.func(args)
@@ -440,24 +449,6 @@ def invoke_remove_wish(args):
     if args.amount < 1:
         raise ArgumentError("amount must be at least 1")
     return decks.remove_from_wishlist(args.db_filename, args.deck, args.card, args.amount)
-
-
-def enable_logfile(filename: str):
-    file_handler = logging.handlers.RotatingFileHandler(filename, maxBytes=25*1024*1024, backupCount=5)
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s: {menu=%(menu)s} %(message)s"))
-    file_handler.addFilter(_ExtraDefaultsFilter(menu='(NONE)'))
-    logging.getLogger().addHandler(file_handler)
-
-
-class _ExtraDefaultsFilter(logging.Filter):
-    def __init__(self, menu: str):
-        self.menu = menu
-
-    def filter(self, record):
-        if not hasattr(record, 'menu'):
-            record.menu = self.menu
-        return True
 
 
 if __name__ == "__main__":
