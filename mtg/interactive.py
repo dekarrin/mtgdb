@@ -13,7 +13,7 @@ import textwrap
 
 import traceback
 
-from typing import Optional, Callable
+from typing import Optional, Any
 
 from .types import Deck, DeckCard, Card, CardWithUsage, ScryfallCardData, deck_state_to_name, parse_cardnum, card_condition_to_name
 from . import cio, version, elog
@@ -545,29 +545,36 @@ def card_add_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
     return c
 
 
-def cards_add(s: Session):
+def cards_add(s: Session) -> Card | None:
+    logger = s.log.with_fields(action='add-inven')
+
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
-        return
+        logger.info("Action canceled by user at initial confirmation")
+        return None
     
     print("Add New Inventory Entry")
     c = Card()
     c.name = input("Card name (empty to cancel): ")
     if c.name.strip() == '':
-        return
+        logger.info("Action canceled: blank card name given")
+        return None
     
     while True:
         card_num = input("Card number in EDN-123 format (empty to cancel): ")
         if card_num.strip() == '':
-            return
+            logger.info("Action canceled: blank card number given")
+            return None
         try:
             c.tcg_num, c.edition = parse_cardnum(card_num)
             break
         except ValueError as e:
+            logger.error("Bad cardnum entered: %s", str(e))
             print("ERROR: {!s}".format(e))
     
     c.condition = cio.prompt_choice("Condition", ['M', 'NM', 'LP', 'MP', 'HP', 'P'], default='NM')
     c.language = input("Language (default English): ")
     if c.language.strip() == '':
+        logger.debug("Empty language given; defaulted to English")
         c.language = 'English'
     c.foil = cio.confirm("Foil?", one_line=True, default=False)
     c.signed = cio.confirm("Signed?", one_line=True, default=False)
@@ -579,6 +586,8 @@ def cards_add(s: Session):
     c.printing_id = cio.prompt_int("Printing ID", min=0, default=0)
     c.printing_note = input("Printing Note: ")
 
+    logger.info("Card entered: %s", repr(c))
+
     # okay, check if it already exists and let the user know if so
     try:
         cid = carddb.get_id_by_reverse_search(s.db_filename, c.name, c.edition, c.tcg_num, c.condition, c.language, c.foil, c.signed, c.artist_proof, c.altered_art, c.misprint, c.promo, c.textless, c.printing_id, c.printing_note)
@@ -586,41 +595,68 @@ def cards_add(s: Session):
     except NotFoundError:
         pass
 
+    card_op = 'update_count'
     amt = 0
     if c.id is not None:
+        logger.info("Found matching card in inventory with ID %d; existing entry will be incremented", c.id)
         cio.clear()
         print("{:s} already exists in inventory with ID {:d}".format(str(c), c.id))
         if not cio.confirm("Increment count in inventory?"):
-            return
-        amt = cio.prompt_int("How much? (0 to cancel)", min=1, default=1)
+            logger.info("Action canceled: user canceled increment")
+            return None
+        amt = cio.prompt_int("How much? (0 to cancel)", min=0, default=1)
         if amt == 0:
-            return
+            logger.info("Action canceled: entered increment amount of 0")
+            return None
     else:
-        amt = cio.prompt_int("How many?", min=0, default=0)
+        logger.info("Found no matching cards in inventory; new entry will be created")
+        card_op = 'create'
+        amt = cio.prompt_int("How many?", min=0, default=0)    
     
     cio.clear()
     if not cio.confirm("Add {:d}x {!s} to inventory?".format(amt, c)):
-        return
+        logger.info("Action canceled by user at final confirmation")
+        return None
+    
+    logger.info("Adding %dx copies of %s...", amt, str(c))
 
+    updated_card: Card | None = None
     try:
-        cardops.create_inventory_entry(s.db_filename, amt, edition_code=c.edition, tcg_num=c.tcg_num, name=c.name, cond=c.condition, lang=c.language, foil=c.foil, signed=c.signed, artist_proof=c.artist_proof, altered_art=c.altered_art, misprint=c.misprint, promo=c.promo, textless=c.textless, pid=c.printing_id, note=c.printing_note)
+        updated_card = cardops.create_inventory_entry(s.db_filename, amt, edition_code=c.edition, tcg_num=c.tcg_num, name=c.name, cond=c.condition, lang=c.language, foil=c.foil, signed=c.signed, artist_proof=c.artist_proof, altered_art=c.altered_art, misprint=c.misprint, promo=c.promo, textless=c.textless, pid=c.printing_id, note=c.printing_note)
     except DataConflictError as e:
+        logger.exception("Data conflict error occurred")
         print("ERROR: {!s}".format(e))
     except UserCancelledError as e:
-        return
+        logger.info("Action canceled by user")
+        return None
+    else:
+        logger.with_fields(card_mutation_fields(c, card_op)).info("Inventory updated")
     
     cio.pause()
+    return updated_card
+
 
 
 def cards_import(s: Session):
+    logger = s.log.with_fields(action='inven-import')
+
     csv_file = input("Deckbox CSV file: ")
+    import_counts = None
     try:
-        deckboxops.import_csv(s.db_filename, csv_file)
+        logger.info("Importing inventory from %s", csv_file)
+        import_counts = deckboxops.import_csv(s.db_filename, csv_file)
     except DataConflictError as e:
         cio.clear()
+        logger.exception("Data conflict error occurred")
         print("ERROR: {!s}".format(e))
     except UserCancelledError as e:
+        logger.info("Action canceled by user")
         return
+    else:
+        if import_counts is None:
+            logger.warning("No updates to inventory needed")
+        else:
+            logger.info("Inventory updated: %s", str(import_counts))
     
     cio.pause()
 
@@ -645,6 +681,8 @@ def deck_pretty_row(d: Deck, name_limit: int=30) -> str:
 
 
 def decks_master_menu(s: Session):
+    logger = s.log.with_fields(menu='decks')
+
     filters = {
         cio.CatFilter('name', lambda d, v: v.lower() in d.name.lower()),
         cio.CatFilter('state', lambda d, v: d.state == v.upper()),
@@ -654,6 +692,8 @@ def decks_master_menu(s: Session):
         cio.CatOption('I', '(I)mport Decks', 'IMPORT'),
     ]
     while True:
+        logger.info("Entered menu")
+
         decks = deckdb.get_all(s.db_filename)
         cat_items = [(d, deck_pretty_row(d)) for d in decks]
         selection = cio.catalog_select("MANAGE DECKS", items=cat_items, filters=filters, state=s.deck_cat_state, extra_options=extra_options)
@@ -661,6 +701,8 @@ def decks_master_menu(s: Session):
         action = selection[0]
         deck: Deck = selection[1]
         cat_state = selection[2]
+
+        logger.debug("Selected action %s with deck %s", action, str(deck))
 
         cio.clear()
         if action == 'SELECT':
@@ -686,6 +728,8 @@ def decks_master_menu(s: Session):
 
 
 def decks_import(s: Session):
+    logger = s.log.with_fields(action='import-decks')
+
     filenames = []
     while True:
         filename = input("Path to deck CSV file #{:d} (blank to finish): ".format(len(filenames) + 1))
@@ -694,13 +738,17 @@ def decks_import(s: Session):
         filenames.append(filename)
     if len(filenames) < 1:
         print("No files given")
+        logger.info("Action canceled: no files given")
         return
     
+    logger.info("Importing decks from %s", ', '.join(filenames))
     deckops.import_csv(s.db_filename, filenames)
-
+    logger.info("Import complete")
 
 
 def decks_export(s: Session):
+    logger = s.log.with_fields(action='export-decks')
+
     path = input("Enter path to export decks to (default .): ")
     if path == '':
         path = '.'
@@ -708,7 +756,9 @@ def decks_export(s: Session):
     if filename_pattern == '':
         filename_pattern = '{DECK}-{DATE}.csv'
 
+    logger.info("Exporting decks to path %s with filename pattern %s", path, filename_pattern)
     deckops.export_csv(s.db_filename, path, filename_pattern)
+    logger.info("Export complete")
 
 
 
@@ -1061,6 +1111,8 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
 
 
 def decks_create(s: Session) -> Optional[Deck]:
+    logger = s.log.with_fields(action='create-deck')
+    
     name = input("New deck name: ")
     if name.strip() == '':
         print("ERROR: deck name must have at least one non-space character")
@@ -1193,3 +1245,17 @@ def card_cat_filters(with_usage: bool) -> list[cio.CatFilter]:
         ])
 
     return filters
+
+
+def card_mutation_fields(c: Card, operation: str) -> dict[str, Any]:
+    fields = {
+        'object': "card",
+        'op': operation,
+        'id': c.id,
+        'name': c.name,
+    }
+
+    if operation == 'update_count' or 'create':
+        fields['count'] = c.count
+    
+    return fields

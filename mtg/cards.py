@@ -125,7 +125,7 @@ def remove_inventory_entry(db_filename: str, card_id: int, amount: int=1):
 
 
 
-def create_inventory_entry(db_filename: str, amount: int | None=None, card_id: int | None=None, edition_code: str | None=None, tcg_num: int | None=None, name: str='<UNNAMED>', cond: str='NM', lang: str='English', foil: bool=False, signed: bool=False, proof: bool=False, altered: bool=False, misprint: bool=False, promo: bool=False, textless: bool=False, pid: int=0, note: str=''):
+def create_inventory_entry(db_filename: str, amount: int | None=None, card_id: int | None=None, edition_code: str | None=None, tcg_num: int | None=None, name: str='<UNNAMED>', cond: str='NM', lang: str='English', foil: bool=False, signed: bool=False, proof: bool=False, altered: bool=False, misprint: bool=False, promo: bool=False, textless: bool=False, pid: int=0, note: str='') -> Card | None:
     # sanity checks
     if card_id is None and (tcg_num is None or edition_code is None):
         raise ValueError("must give either card ID or edition_code and TCG number")
@@ -166,17 +166,20 @@ def create_inventory_entry(db_filename: str, amount: int | None=None, card_id: i
             # exists, do increment flow
             if amount < 1:
                 print("{:s} already exists and amount to create is set to 0; nothing to do")
-                return
+                return None
 
             # NOT doing wishlist update flow; add (to deck) already does this
 
             new_amt = carddb.update_count(db_filename, cid, by_amount=amount)
             print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, str(card), cid))
+            card.count = new_amt
+            return card
         else:
             # doesn't exist, do creation flow
             card.count = amount
             card.id = carddb.insert(db_filename, card)
             print("Created new entry {:d}x {:s} (ID: {:d})".format(amount, str(card), card.id))
+            return card
     elif card_id is not None:
         if amount is None:
             amount = 1
@@ -189,6 +192,8 @@ def create_inventory_entry(db_filename: str, amount: int | None=None, card_id: i
 
         # NOT doing wishlist update flow; add (to deck) already does this
         print("Added {:d}x (total {:d}) to existing entry for {:s} (ID {:d})".format(amount, new_amt, str(card), card_id))
+        card.count = new_amt
+        return card
     else:
         raise CommandError("condition should never happen")
 

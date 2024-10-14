@@ -92,6 +92,9 @@ class ScryfallSet:
     def __str__(self):
         return "{:s} ({:s}) - {:s}".format(self.code, self.name, self.type)
     
+    def __repr__(self):
+        return "ScryfallSet(id={!r}, code={!r}, name={!r}, type={!r}, card_count={!r}, uri={!r}, released_at={!r}, mtgo_code={!r}, arena_code={!r}, block_code={!r}, block={!r}, parent_set_code={!r})".format(self.id, self.code, self.name, self.type, self.card_count, self.uri, self.released_at, self.mtgo_code, self.arena_code, self.block_code, self.block, self.parent_set_code)
+    
     def to_edition(self) -> Edition:
         return Edition(self.code, self.name, self.released_at)
 
@@ -239,6 +242,9 @@ class Card:
             
         return card_str
     
+    def __repr__(self):
+        return "Card(id={!r}, count={!r}, name={!r}, edition={!r}, tcg_num={!r}, condition={!r}, language={!r}, foil={!r}, signed={!r}, artist_proof={!r}, altered_art={!r}, misprint={!r}, promo={!r}, textless={!r}, printing_id={!r}, printing_note={!r}, scryfall_id={!r})".format(self.id, self.count, self.name, self.edition, self.tcg_num, self.condition, self.language, self.foil, self.signed, self.artist_proof, self.altered_art, self.misprint, self.promo, self.textless, self.printing_id, self.printing_note, self.scryfall_id)
+    
     def clone(self) -> 'Card':
         return Card(self.id, self.count, self.name, self.edition, self.tcg_num, self.condition, self.language, self.foil, self.signed, self.artist_proof, self.altered_art, self.misprint, self.promo, self.textless, self.printing_id, self.printing_note, self.scryfall_id)
     
@@ -283,6 +289,9 @@ class Usage:
 
     def __str__(self):
         return "({:d}, {:d} WL) in deck {:d} {!r} ({:s})".format(self.count, self.wishlist_count if self.wishlist_count else 0, self.deck_id, self.deck_name, deck_state_to_name(self.deck_state))
+    
+    def __repr__(self):
+        return "Usage(count={!r}, deck_id={!r}, deck_name={!r}, deck_state={!r}, wishlist_count={!r})".format(self.count, self.deck_id, self.deck_name, self.deck_state, self.wishlist_count)
 
     def clone(self) -> 'Usage':
         return Usage(self.count, self.deck_id, self.deck_name, self.deck_state, self.wishlist_count)
@@ -319,6 +328,9 @@ class CardWithUsage(Card):
     def clone(self) -> 'CardWithUsage':
         return CardWithUsage(super().clone(), [u.clone() for u in self.usage])
     
+    def __repr__(self):
+        return "CardWithUsage(card={!r}, usage={!r})".format(super().__repr__(), self.usage)
+    
     def total_referencing_decks(self) -> int:
         """Return the total number of decks this card is in or wishlisted in."""
         if self.usage is None:
@@ -351,6 +363,9 @@ class DeckCard(Card):
         self.deck_id = deck_id
         self.deck_count = deck_count
         self.deck_wishlist_count = deck_wishlist_count
+
+    def __repr__(self):
+        return "DeckCard(card={!r}, deck_id={!r}, deck_count={!r}, deck_wishlist_count={!r})".format(super().__repr__(), self.deck_id, self.deck_count, self.deck_wishlist_count)
 
     def clone(self) -> 'DeckCard':
         return DeckCard(super().clone(), self.deck_id, self.deck_count, self.deck_wishlist_count)
@@ -402,6 +417,9 @@ class Deck:
     
     def __str__(self):
         return "{:s} - {:s} - {:s}".format(self.name, self.state_name(), self.count_slug())
+    
+    def __repr__(self):
+        return "Deck(id={!r}, name={!r}, state={!r}, owned_count={!r}, wishlisted_count={!r})".format(self.id, self.name, self.state, self.owned_count, self.wishlisted_count)
 
 
 class DeckChangeRecord:

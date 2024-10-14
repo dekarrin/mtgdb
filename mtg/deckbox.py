@@ -9,7 +9,45 @@ from .errors import UserCancelledError, DataConflictError
 from .types import Card, DeckChangeRecord, CardWithUsage
 
 
-def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
+class UpdateCounts:
+    """
+    UpdateCounts is a POD class for naming results of an import.
+    """
+
+    def __init__(
+            self,
+            created: int,
+            scryfall_ids: int,
+            counts: int,
+            deck_removals: int,
+            owned_to_wishlisteds: int,
+            wishlisted_to_owneds: int
+        ):
+
+        self.created = created
+        self.scryfall_ids = scryfall_ids
+        self.counts = counts
+        self.deck_removals = deck_removals
+        self.owned_to_wishlisteds = owned_to_wishlisteds
+        self.wishlisted_to_owneds = wishlisted_to_owneds
+
+    def __str__(self):
+        s = "{:d}x created, {:d}x scryfall IDs updated, {:d}x counts, {:d}x removed from decks, {:d}x owned -> WL, {:d}x WL -> owned"
+        return s.format(
+            self.created, self.scryfall_ids, self.counts, self.deck_removals, self.owned_to_wishlisteds, self.wishlisted_to_owneds
+        )
+
+    def __repr__(self):
+        return "UpdateCounts(created={:d}, scryfall_ids={:d}, counts={:d}, deck_removals={:d}, owned_to_wishlisteds={:d}, wishlisted_to_owneds={:d})".format(
+            self.created, self.scryfall_ids, self.counts, self.deck_removals, self.owned_to_wishlisteds, self.wishlisted_to_owneds
+        )
+
+
+def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True) -> UpdateCounts | None:
+    """
+    Return an UpdateCounts struct, or None if there were no changes.
+    """
+
     new_cards_data = parse_deckbox_csv(csv_filename)
     drop_unused_fields(new_cards_data)
     update_deckbox_values_to_mtgdb(new_cards_data)
@@ -43,9 +81,9 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
     # eliminate dupes that already exist
     new_imports, scryfall_id_updates, count_updates, deck_removals, deck_wl_to_owneds, deck_owned_to_wls = analyze_changes(db_filename, new_cards, existing_cards)
     
-    if len(new_imports) == 0 and len(count_updates) == 0:
+    if len(new_imports) == 0 and len(count_updates) == 0 and len(scryfall_id_updates) == 0 and len(deck_removals) == 0 and len(deck_wl_to_owneds) == 0 and len(deck_owned_to_wls) == 0:
         print("No new cards to import and no counts need updating", file=sys.stderr)
-        return
+        return None
     
     # if we get this far, verify that we actually have every single edition code
     # on file or we will get nondescript Foreign Key failure errors on insert.
@@ -136,7 +174,15 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
         
         if not cio.confirm("Write changes to {:s}?".format(db_filename)):
             raise UserCancelledError("user cancelled changes")
-    
+
+    counts = UpdateCounts(
+        created=len(new_imports),
+        scryfall_ids=len(scryfall_id_updates),
+        counts=len(count_updates),
+        deck_removals=len(deck_removals),
+        owned_to_wishlisteds=len(deck_owned_to_wls),
+        wishlisted_to_owneds=len(deck_wl_to_owneds)
+    )
 
     # if the card is moved entirely to wishlist, the count update will probably go to 0. We don't remove
     # 0's at this time, but if we do, we need to make shore that any such are not there due to wishlist.
@@ -146,6 +192,8 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True):
     carddb.remove_amount_from_decks(db_filename, deck_removals)
     carddb.move_amount_from_owned_to_wishlist_in_decks(db_filename, deck_owned_to_wls)
     carddb.move_amount_from_wishlist_to_owned_in_decks(db_filename, deck_wl_to_owneds)
+
+    return counts
     
 
 class CountUpdate:
