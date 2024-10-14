@@ -116,11 +116,12 @@ def main_menu(s: Session):
         cio.clear()
         item = cio.select("MAIN MENU", non_number_choices=top_level_items)
 
+        logger.debug("Selected action %s", item)
+
         if item != 'exit':
             cio.clear()
 
         if item == 'cards':
-            logger.debug("Cards selected")
             try:
                 cards_master_menu(s)
                 logger.debug("Exited cards menu")
@@ -129,7 +130,6 @@ def main_menu(s: Session):
                 print("ERROR: DB must be initialized before managing cards")
                 cio.pause()
         elif item == 'decks':
-            logger.debug("Decks selected")
             try:
                 decks_master_menu(s)
                 logger.debug("Exited decks menu")
@@ -138,25 +138,21 @@ def main_menu(s: Session):
                 print("ERROR: DB must be initialized before managing decks")
                 cio.pause()
         elif item == 'change-db':
-            logger.debug("Change DB selected")
             change_db(s)
             logger.info("Changed DB filename to %s", s.db_filename)
 
             cio.pause()
         elif item == 'show-db':
-            logger.debug("Show DB selected")
             print("Using database {:s}".format(s.db_filename))
             logger.info("Using database %s", s.db_filename)
 
             cio.pause()
         elif item == 'init':
-            logger.debug("Init DB selected")
             do_init(s)
             logger.info("Initialized database")
 
             cio.pause()
         elif item == 'exit':
-            logger.debug("Exit selected")
             s.running = False
             logger.info("Program is no longer running")
         else:
@@ -230,7 +226,8 @@ def cards_master_menu(s: Session):
             if scryfall_data is not None and card.scryfall_id is None:
                 card.scryfall_id = scryfall_data.id
 
-            cards_detail_menu(s, card, scryfall_data)
+            card_detail_menu(s, card, scryfall_data)
+            logger.debug("Exited card detail menu")
         elif action == 'ADD':
             s.inven_cat_state = cat_state
             cards_add(s)
@@ -426,7 +423,7 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
     return hdr
 
 
-def cards_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None):
+def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None):
     while True:
         cio.clear()
         print(card_infobox(card, scryfall_data, box_card=True))
@@ -708,6 +705,7 @@ def decks_master_menu(s: Session):
         if action == 'SELECT':
             s.deck_cat_state = cat_state
             deck_detail_menu(s, deck)
+            logger.debug("Exited deck detail menu")
         elif action == 'CREATE':
             s.deck_cat_state = cat_state
             new_deck = decks_create(s)
@@ -775,7 +773,11 @@ def deck_infobox(deck: Deck, final_bar=True) -> str:
 
 
 def deck_detail_menu(s: Session, deck: Deck):
+    logger = s.log.with_fields(menu='deck-detail', deck=deck.id)
+
     while True:
+        logger.info("Entered menu")
+        
         cio.clear()
         print(deck_infobox(deck))
 
@@ -788,6 +790,8 @@ def deck_detail_menu(s: Session, deck: Deck):
         ]
         action = cio.select("ACTIONS", non_number_choices=actions)
         cio.clear()
+
+        logger.debug("Selected action %s", action)
 
         if action == 'CARDS':
             deck = deck_cards_menu(s, deck)
@@ -1044,6 +1048,8 @@ def deck_delete(s: Session, deck: Deck) -> bool:
 
 
 def deck_set_name(s: Session, deck: Deck) -> Deck:
+    logger = s.log.with_fields(action='set-deck-name', deck=deck.id)
+
     print(deck_infobox(deck))
 
     new_name = input("New name: ")
@@ -1051,11 +1057,13 @@ def deck_set_name(s: Session, deck: Deck) -> Deck:
 
     if new_name.strip() == '':
         print(deck_infobox(deck))
+        logger.info("Action canceled: blank deck name given")
         print("Name not changed")
         return deck
     try:
         int(new_name.strip())
         print(deck_infobox(deck))
+        logger.error("Entered deck name only consists of numbers: %s", repr(new_name))
         print("ERROR: deck name cannot be only a number")
         return None
     except ValueError:
@@ -1066,14 +1074,18 @@ def deck_set_name(s: Session, deck: Deck) -> Deck:
         deck.name = new_name
         print(deck_infobox(deck))
         print("Name updated to {!r}".format(new_name))
+        logger.with_fields(deck_mutation_fields(deck, 'update-name')).info("Deck updated")
         return deck
     except DBError as e:
         print(deck_infobox(deck))
         print("ERROR: {!s}".format(e))
+        logger.exception("DBError when updating deck name")
         return deck
 
 
 def deck_set_state(s: Session, deck: Deck) -> Deck:
+    logger = s.log.with_fields(action='set-deck-name', deck=deck.id)
+
     actions = []
 
     if deck.state != 'B':
@@ -1096,17 +1108,21 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
     if new_state == 'KEEP':
         print(deck_infobox(deck))
         print("State not changed")
+        logger.info("Action canceled: user chose to keep current state")
         return deck
     else:
+        logger.info("Changing deck state to %s", new_state)
         try:
             deckdb.update_state(s.db_filename, deck.name, deck.state)
             deck.state = new_state
             print(deck_infobox(deck))
             print("State updated to {:s}".format(deck.state_name()))
+            logger.with_fields(deck_mutation_fields(deck, 'update-state')).info("Deck updated")
             return deck
         except DBError as e:
             print(deck_infobox(deck))
             print("ERROR: {!s}".format(e))
+            logger.exception("DBError when updating deck state")
             return deck
 
 
