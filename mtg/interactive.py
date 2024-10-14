@@ -1112,14 +1112,16 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
 
 def decks_create(s: Session) -> Optional[Deck]:
     logger = s.log.with_fields(action='create-deck')
-    
+
     name = input("New deck name: ")
     if name.strip() == '':
         print("ERROR: deck name must have at least one non-space character")
+        logger.error("Entered deck name is blank: %s", repr(name))
         return None
     try:
         int(name.strip())
         print("ERROR: deck name cannot be only a number")
+        logger.error("Entered deck name only consists of numbers: %s", repr(name))
         return None
     except ValueError:
         pass
@@ -1132,18 +1134,24 @@ def decks_create(s: Session) -> Optional[Deck]:
     except NotFoundError:
         pass
     if existing:
+        logger.error("Deck named %s already exists", name)
         print("ERROR: deck named {:s} already exists".format(name))
         return None
 
     # deck state?
     state = cio.prompt_choice("Deck state? (B)roken, (P)artially broken, (C)omplete:", ['B', 'P', 'C'])
 
+    logger.info("Deck entered: %s", Deck(name=name, state=state))
+    
     d: Deck = None
     try:
         d = deckdb.create(s.db_filename, name.strip())
     except DBError as e:
         print("ERROR: {!s}".format(e))
+        logger.exception("DBError when creating deck")
         return None
+    else:
+        logger.with_fields(deck_mutation_fields(d, 'create')).info("Deck created successfully")
 
     if d.state != state:
         d.state = state
@@ -1151,7 +1159,12 @@ def decks_create(s: Session) -> Optional[Deck]:
             deckdb.update_state(s.db_filename, d.name, d.state)
         except DBError as e:
             print("ERROR: Set newly-created deck state: {!s}".format(e))
+            logger.exception("DBError when setting deck state")
             return None
+        else:
+            logger.with_fields(deck_mutation_fields(d, 'update-state')).info("Deck updated")
+    else:
+        logger.debug("Deck state already matches desired state %s; no need to update", state)
         
     return d
 
@@ -1259,3 +1272,18 @@ def card_mutation_fields(c: Card, operation: str) -> dict[str, Any]:
         fields['count'] = c.count
     
     return fields
+
+
+def deck_mutation_fields(d: Deck, operation: str) -> dict[str, Any]:
+    fields = {
+        'object': "deck",
+        'op': operation,
+        'id': d.id,
+        'name': d.name,
+    }
+
+    if operation == 'update-state':
+        fields['state'] = d.state
+    
+    return fields
+

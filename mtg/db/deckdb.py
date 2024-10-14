@@ -7,7 +7,7 @@ from . import util, filters, editiondb
 from ..types import Deck, DeckCard
 
 
-def update_state(db_filename: str, name: str, state: str):
+def update_state(db_filename: str, name: str, state: str) -> str:
     con = util.connect(db_filename)
     cur = con.cursor()
     cur.execute(sql_update_state, (state, name))
@@ -17,6 +17,8 @@ def update_state(db_filename: str, name: str, state: str):
         raise NotFoundError("no deck called {!r} exists".format(name))
     
     con.close()
+
+    return state
     
     
 def update_name(db_filename: str, name: str, new_name: str):
