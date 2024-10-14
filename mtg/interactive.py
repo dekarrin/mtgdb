@@ -627,7 +627,7 @@ def cards_add(s: Session) -> Card | None:
         logger.info("Action canceled by user")
         return None
     else:
-        logger.with_fields(card_mutation_fields(c, card_op)).info("Inventory updated")
+        logger.with_fields(*card_mutation_fields(c, card_op)).info("Inventory updated")
     
     cio.pause()
     return updated_card
@@ -1029,6 +1029,8 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
     
 
 def deck_delete(s: Session, deck: Deck) -> bool:
+    logger = s.log.with_fields(action='delete-deck', deck=deck.id)
+
     print(deck_infobox(deck))
     confirmed = cio.confirm("Are you sure you want to delete this deck?")
     cio.clear()
@@ -1036,14 +1038,17 @@ def deck_delete(s: Session, deck: Deck) -> bool:
     
     if not confirmed:
         print("Deck not deleted")
+        logger.info("Action canceled by user")
         return False
 
     try:
         deckdb.delete_by_name(s.db_filename, deck.name)
         print("Deck deleted")
+        logger.with_fields(*deck_mutation_fields(deck, 'delete')).info("Deck deleted")
         return True
     except DBError as e:
         print("ERROR: {!s}".format(e))
+        logger.exception("DBError when deleting deck")
         return False
 
 
@@ -1074,7 +1079,7 @@ def deck_set_name(s: Session, deck: Deck) -> Deck:
         deck.name = new_name
         print(deck_infobox(deck))
         print("Name updated to {!r}".format(new_name))
-        logger.with_fields(deck_mutation_fields(deck, 'update-name')).info("Deck updated")
+        logger.with_fields(*deck_mutation_fields(deck, 'update-name')).info("Deck updated")
         return deck
     except DBError as e:
         print(deck_infobox(deck))
@@ -1117,7 +1122,7 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
             deck.state = new_state
             print(deck_infobox(deck))
             print("State updated to {:s}".format(deck.state_name()))
-            logger.with_fields(deck_mutation_fields(deck, 'update-state')).info("Deck updated")
+            logger.with_fields(*deck_mutation_fields(deck, 'update-state')).info("Deck updated")
             return deck
         except DBError as e:
             print(deck_infobox(deck))
@@ -1167,7 +1172,7 @@ def decks_create(s: Session) -> Optional[Deck]:
         logger.exception("DBError when creating deck")
         return None
     else:
-        logger.with_fields(deck_mutation_fields(d, 'create')).info("Deck created successfully")
+        logger.with_fields(*deck_mutation_fields(d, 'create')).info("Deck created successfully")
 
     if d.state != state:
         d.state = state
@@ -1178,7 +1183,7 @@ def decks_create(s: Session) -> Optional[Deck]:
             logger.exception("DBError when setting deck state")
             return None
         else:
-            logger.with_fields(deck_mutation_fields(d, 'update-state')).info("Deck updated")
+            logger.with_fields(*deck_mutation_fields(d, 'update-state')).info("Deck updated")
     else:
         logger.debug("Deck state already matches desired state %s; no need to update", state)
         
