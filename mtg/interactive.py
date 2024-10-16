@@ -239,12 +239,15 @@ def cards_master_menu(s: Session):
             break
 
 
-def retrieve_scryfall_data(s: Session, card: Card) -> ScryfallCardData | None:
+def retrieve_scryfall_data(s: Session, card: Card, logger: elog.Logger | None=None) -> ScryfallCardData | None:
+    logger = logger or s.log
+
     scryfall_data: ScryfallCardData = None
     api_waited = False
     def wait_msg():
+        nonlocal api_waited, logger
+        logger.debug("Fetching details for %s from Scryfall API...", card.cardnum)
         print("Fetching details from Scryfall...")
-        nonlocal api_waited
         api_waited = True
     
     try:
@@ -252,11 +255,15 @@ def retrieve_scryfall_data(s: Session, card: Card) -> ScryfallCardData | None:
     except scryfallops.APIError as e:
         if api_waited:
             cio.clear()
+        logger.warning("Scryfall API call failed", exc_info=True)
         print("WARN: Get Scryfall Data: {!s}".format(e))
         cio.pause()
     else:
         if api_waited:
+            logger.debug("Completed fetching Scryfall data for %s from API", card.cardnum)
             cio.clear()
+        else:
+            logger.debug("Compleded loading Scryfall data for %s from local cache", card.cardnum)
 
     return scryfall_data
 
@@ -795,6 +802,7 @@ def deck_detail_menu(s: Session, deck: Deck):
 
         if action == 'CARDS':
             deck = deck_cards_menu(s, deck)
+            logger.info("Exited deck cards menu")
         elif action == 'NAME':
             deck = deck_set_name(s, deck)
             cio.pause()
@@ -811,7 +819,10 @@ def deck_detail_menu(s: Session, deck: Deck):
 
 
 def deck_cards_menu(s: Session, deck: Deck) -> Deck:
+    logger = s.log.with_fields(menu='deck-cards', deck=deck.id)
+
     while True:
+        logger.info("Entered menu")
         menu_lead = deck_infobox(deck) + "\nCARDS"
         extra_actions = [
             cio.CatOption('A', '(A)dd Card', 'ADD'),
@@ -841,6 +852,8 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         card: DeckCard = selection[1]
         #cat_state = selection[2]
 
+        logger.debug("Selected action %s with card %s", action, str(card))
+
         cio.clear()
         if action == 'SELECT':
             # we need the usage card for this
@@ -853,6 +866,7 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             cio.pause()
         elif action == 'ADD':
             deck = deck_detail_add(s, deck)
+            logger.info("Exited deck add-card menu")
         elif action == 'REMOVE':
             deck = deck_detail_remove(s, deck, card)
         elif action == 'WISHLIST':
@@ -956,9 +970,11 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
 
 
 def deck_detail_add(s: Session, deck: Deck) -> Deck:
+    logger = s.log.with_fields(menu='deck-add-card', deck=deck.id)
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK"
 
     while True:
+        logger.info("Entered menu")
         cards = carddb.find(s.db_filename, None, None, None)
 
         cat_items = []
@@ -988,44 +1004,67 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
 
         s.deck_cards_cat_state = None
 
+        logger.info("Selected action %s with card %s", action, str(card))
+
         cio.clear()
         if action == 'SELECT':
-            free = card.count - sum([u.count for u in card.usage if u.deck_state in deck_used_states])
-            if free < 1:
-                print(deck_infobox(deck))
-                print("ERROR: No more free cards of {!s}".format(card))
-                cio.pause()
-                return deck
-            elif free == 1:
-                amt = 1
-            else:
-                print(deck_infobox(deck))
-                amt = cio.prompt_int("Add how many?".format(card), min=1, max=free, default=1)
-            
-            try:
-                cardops.add_to_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt, deck_used_states=deck_used_states)
-            except DataConflictError as e:
-                print("ERROR: " + str(e))
-                cio.pause()
-                return deck
-            except UserCancelledError:
-                return deck
-            
-            deck = deckdb.get_one(s.db_filename, deck.id)
-            return deck
+            return deck_add_card(s, deck, card)
         elif action == 'VIEW':
             s.deck_cards_cat_state = cat_state
-
-            scryfall_data = retrieve_scryfall_data(s, card)
-            usage_card = carddb.get_one(s.db_filename, card.id)
-            
-            print(deck_infobox(deck))
-            print(card_infobox(usage_card, scryfall_data, inven_details=False, title=" ", box_card=True))
-            cio.pause()
+            deck_view_card(s, deck, card)
         elif action is None:
             return deck
         else:
             raise ValueError("Unknown action")
+        
+
+def deck_view_card(s: Session, deck: Deck, card: CardWithUsage):
+    logger = s.log.with_fields(action='view-deck-card')
+
+    scryfall_data = retrieve_scryfall_data(s, card, logger)
+    usage_card = carddb.get_one(s.db_filename, card.id)
+    
+    print(deck_infobox(deck))
+    card_info = card_infobox(usage_card, scryfall_data, inven_details=False, title=" ", box_card=True)
+
+    logger.info("Display card:\n%s", card_info)
+    print(card_info)
+    cio.pause()
+        
+
+def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
+    logger = s.log.with_fields(action='deck-add-card', deck=deck.id, card=card.id)
+
+    deck_used_states = ['C', 'P']
+    free = card.count - sum([u.count for u in card.usage if u.deck_state in deck_used_states])
+    if free < 1:
+        print(deck_infobox(deck))
+        print("ERROR: No more free cards of {!s}".format(card))
+        logger.error("No free cards of %s to add; current free is %d", str(card), free)
+        cio.pause()
+        return deck
+    elif free == 1:
+        amt = 1
+    else:
+        print(deck_infobox(deck))
+        amt = cio.prompt_int("Add how many?".format(card), min=1, max=free, default=1)
+
+    logger.debug("Adding %dx copies of %s to deck %s", amt, str(card), deck.name)
+    
+    try:
+        cardops.add_to_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt, deck_used_states=deck_used_states)
+    except DataConflictError as e:
+        print("ERROR: " + str(e))
+        logger.exception("Data conflict error occurred")
+        cio.pause()
+        return deck
+    except UserCancelledError:
+        logger.info("Action canceled by user")
+        return deck
+    
+    deck = deckdb.get_one(s.db_filename, deck.id)
+
+    logger.with_fields(**deck_mutation_fields(deck, 'add-card', card)).info("Card added to deck")
     
 
 def deck_delete(s: Session, deck: Deck) -> bool:
@@ -1295,7 +1334,7 @@ def card_mutation_fields(c: Card, operation: str) -> dict[str, Any]:
     return fields
 
 
-def deck_mutation_fields(d: Deck, operation: str) -> dict[str, Any]:
+def deck_mutation_fields(d: Deck, operation: str, operand: Card | None=None) -> dict[str, Any]:
     fields = {
         'object': "deck",
         'op': operation,
@@ -1305,6 +1344,9 @@ def deck_mutation_fields(d: Deck, operation: str) -> dict[str, Any]:
 
     if operation == 'update-state':
         fields['deck_state'] = d.state
+    elif operation == 'add-card':
+        fields['card_id'] = operand.id
+        fields['card_name'] = operand.name
     
     return fields
 
