@@ -780,7 +780,7 @@ def deck_infobox(deck: Deck, final_bar=True) -> str:
 
 
 def deck_detail_menu(s: Session, deck: Deck):
-    logger = s.log.with_fields(menu='deck-detail', deck=deck.id)
+    logger = s.log.with_fields(menu='deck-detail', deck_id=deck.id)
 
     while True:
         logger.info("Entered menu")
@@ -819,7 +819,7 @@ def deck_detail_menu(s: Session, deck: Deck):
 
 
 def deck_cards_menu(s: Session, deck: Deck) -> Deck:
-    logger = s.log.with_fields(menu='deck-cards', deck=deck.id)
+    logger = s.log.with_fields(menu='deck-cards', deck_id=deck.id)
 
     while True:
         logger.info("Entered menu")
@@ -904,7 +904,7 @@ def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
 
 
 def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
-    logger = s.log.with_fields(action='deck-remove-card', deck=deck.id, card=card.id)
+    logger = s.log.with_fields(action='deck-remove-card', deck_id=deck.id, card_id=card.id)
 
     cio.clear()
 
@@ -941,7 +941,7 @@ def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
 
 
 def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
-    logger = s.log.with_fields(menu='deck-wishlist-card', deck=deck.id)
+    logger = s.log.with_fields(menu='deck-wishlist-card', deck_id=deck.id)
     
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK WISHLIST"
 
@@ -983,7 +983,7 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
 
 
 def deck_detail_add(s: Session, deck: Deck) -> Deck:
-    logger = s.log.with_fields(menu='deck-add-card', deck=deck.id)
+    logger = s.log.with_fields(menu='deck-add-card', deck_id=deck.id)
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK"
 
     while True:
@@ -1032,7 +1032,7 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
         
 
 def deck_view_card(s: Session, deck: Deck, card: Card):
-    logger = s.log.with_fields(action='view-deck-card', deck=deck.id, card=card.id)
+    logger = s.log.with_fields(action='view-deck-card', deck_id=deck.id, card_id=card.id)
 
     scryfall_data = retrieve_scryfall_data(s, card, logger)
 
@@ -1051,7 +1051,7 @@ def deck_view_card(s: Session, deck: Deck, card: Card):
 
 
 def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
-    logger = s.log.with_fields(action='deck-wishlist-card', deck=deck.id, card=card.id)
+    logger = s.log.with_fields(action='deck-wishlist-card', deck_id=deck.id, card_id=card.id)
 
     print(deck_infobox(deck))
     amt = cio.prompt_int("How many to wishlist?".format(card), min=1, default=1)
@@ -1071,7 +1071,7 @@ def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
         
 
 def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
-    logger = s.log.with_fields(action='deck-add-card', deck=deck.id, card=card.id)
+    logger = s.log.with_fields(action='deck-add-card', deck_id=deck.id, card_id=card.id)
 
     deck_used_states = ['C', 'P']
     free = card.count - sum([u.count for u in card.usage if u.deck_state in deck_used_states])
@@ -1107,7 +1107,7 @@ def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
     
 
 def deck_delete(s: Session, deck: Deck) -> bool:
-    logger = s.log.with_fields(action='delete-deck', deck=deck.id)
+    logger = s.log.with_fields(action='delete-deck', deck_id=deck.id)
 
     print(deck_infobox(deck))
     confirmed = cio.confirm("Are you sure you want to delete this deck?")
@@ -1131,7 +1131,7 @@ def deck_delete(s: Session, deck: Deck) -> bool:
 
 
 def deck_set_name(s: Session, deck: Deck) -> Deck:
-    logger = s.log.with_fields(action='set-deck-name', deck=deck.id)
+    logger = s.log.with_fields(action='set-deck-name', deck_id=deck.id)
 
     print(deck_infobox(deck))
 
@@ -1167,7 +1167,7 @@ def deck_set_name(s: Session, deck: Deck) -> Deck:
 
 
 def deck_set_state(s: Session, deck: Deck) -> Deck:
-    logger = s.log.with_fields(action='set-deck-name', deck=deck.id)
+    logger = s.log.with_fields(action='set-deck-name', deck_id=deck.id)
 
     actions = []
 
@@ -1379,8 +1379,6 @@ def deck_mutation_fields(d: Deck, operation: str, card: Card | None=None, count:
         'op': operation,
         'deck_id': d.id,
         'deck_name': d.name,
-        'card': None,
-        'deck': None,
     }
 
     if operation == 'update-state':
