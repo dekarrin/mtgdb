@@ -515,6 +515,8 @@ def card_remove_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCard
         logger.info("Action canceled: entered decrement amount of 0")
         return c
     
+    logger.debug("Removing %dx copies of %s...", amt, str(c))
+
     try:
         cardops.remove_inventory_entry(s.db_filename, c.id, amt)
     except DataConflictError as e:
@@ -576,8 +578,7 @@ def card_add_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
         logger.info("Action canceled: entered increment amount of 0")
         return c
     
-    # TODO: these should be debugs and have elipses
-    logger.info("Adding %dx copies of %s...", amt, str(c))
+    logger.debug("Adding %dx copies of %s...", amt, str(c))
     
     try:
         cardops.create_inventory_entry(s.db_filename, amt, c.id)
@@ -670,7 +671,7 @@ def cards_add(s: Session) -> Card | None:
         return None
     
     # TODO: make shore all of these log messages have elipses for consistency
-    logger.info("Adding %dx copies of %s...", amt, str(c))
+    logger.debug("Adding %dx copies of %s...", amt, str(c))
 
     updated_card: Card | None = None
     try:
@@ -694,8 +695,8 @@ def cards_import(s: Session):
 
     csv_file = input("Deckbox CSV file: ")
     import_counts = None
+    logger.debug("Importing inventory from %s...", csv_file)
     try:
-        logger.info("Importing inventory from %s", csv_file)
         import_counts = deckboxops.import_csv(s.db_filename, csv_file)
     except DataConflictError as e:
         cio.clear()
@@ -794,7 +795,7 @@ def decks_import(s: Session):
         logger.info("Action canceled: no files given")
         return
     
-    logger.info("Importing decks from %s", ', '.join(filenames))
+    logger.debug("Importing decks from %s...", ', '.join(filenames))
     deckops.import_csv(s.db_filename, filenames)
     logger.info("Import complete")
 
@@ -809,7 +810,7 @@ def decks_export(s: Session):
     if filename_pattern == '':
         filename_pattern = '{DECK}-{DATE}.csv'
 
-    logger.info("Exporting decks to path %s with filename pattern %s", path, filename_pattern)
+    logger.debug("Exporting decks to path %s with filename pattern %s...", path, filename_pattern)
     deckops.export_csv(s.db_filename, path, filename_pattern)
     logger.info("Export complete")
 
@@ -939,7 +940,7 @@ def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
     else:
         amt = 1
 
-    logger.debug("Unwishlisting %dx copies of %s from deck %s", amt, str(card), deck.name)
+    logger.debug("Unwishlisting %dx copies of %s from deck %s...", amt, str(card), deck.name)
 
     # convert card to CardWithUsage
     card = carddb.get_one(s.db_filename, card.id)
@@ -977,7 +978,7 @@ def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
     else:
         amt = 1
 
-    logger.debug("Removing %dx copies of %s from deck %s", amt, str(card), deck.name)
+    logger.debug("Removing %dx copies of %s from deck %s...", amt, str(card), deck.name)
 
     try:
         cardops.remove_from_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt)
@@ -1113,7 +1114,7 @@ def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
     print(deck_infobox(deck))
     amt = cio.prompt_int("How many to wishlist?".format(card), min=1, default=1)
 
-    logger.debug("Wishlisting %dx copies of %s in deck %s", amt, str(card), deck.name)
+    logger.debug("Wishlisting %dx copies of %s in deck %s...", amt, str(card), deck.name)
 
     try:
         deckops.add_to_wishlist(s.db_filename, card_specifier=card, deck_specifier=deck, amount=amt)
@@ -1149,7 +1150,7 @@ def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
         print(deck_infobox(deck))
         amt = cio.prompt_int("Add how many?".format(card), min=1, max=free, default=1)
 
-    logger.debug("Adding %dx copies of %s to deck %s", amt, str(card), deck.name)
+    logger.debug("Adding %dx copies of %s to deck %s...", amt, str(card), deck.name)
     
     try:
         cardops.add_to_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt, deck_used_states=deck_used_states)
@@ -1256,7 +1257,7 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
         logger.info("Action canceled: user chose to keep current state")
         return deck
     else:
-        logger.info("Changing deck state to %s", new_state)
+        logger.debug("Changing deck state to %s...", new_state)
         try:
             deckdb.update_state(s.db_filename, deck.name, deck.state)
             deck.state = new_state
