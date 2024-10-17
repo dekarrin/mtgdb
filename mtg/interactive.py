@@ -111,7 +111,7 @@ def main_menu(s: Session):
     ]
 
     while s.running:
-        logger.info("Entered menu")
+        logger.debug("Entered menu")
 
         cio.clear()
         item = cio.select("MAIN MENU", non_number_choices=top_level_items)
@@ -201,7 +201,7 @@ def cards_master_menu(s: Session):
     ]
     filters = card_cat_filters(with_usage=True)
     while True:
-        logger.info("Entered menu")
+        logger.debug("Entered menu")
 
         cards = carddb.find(s.db_filename, None, None, None)
 
@@ -434,8 +434,7 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
     logger = s.log.with_fields(menu='card-detail', card_id=card.id)
 
     while True:
-        # TODO: these should probably be debugs
-        logger.info("Entered menu")
+        logger.debug("Entered menu")
 
         cio.clear()
         print(card_infobox(card, scryfall_data, box_card=True))
@@ -481,7 +480,7 @@ def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
     menu_lead += "USAGE"
 
     while True:
-        logger.info("Entered menu")
+        logger.debug("Entered menu")
 
         cat_items = []
         for u in c.usage:
@@ -670,7 +669,6 @@ def cards_add(s: Session) -> Card | None:
         logger.info("Action canceled by user at final confirmation")
         return None
     
-    # TODO: make shore all of these log messages have elipses for consistency
     logger.debug("Adding %dx copies of %s...", amt, str(c))
 
     updated_card: Card | None = None
@@ -745,7 +743,7 @@ def decks_master_menu(s: Session):
         cio.CatOption('I', '(I)mport Decks', 'IMPORT'),
     ]
     while True:
-        logger.info("Entered menu")
+        logger.debug("Entered menu")
 
         decks = deckdb.get_all(s.db_filename)
         cat_items = [(d, deck_pretty_row(d)) for d in decks]
@@ -832,7 +830,7 @@ def deck_detail_menu(s: Session, deck: Deck):
     logger = s.log.with_fields(menu='deck-detail', deck_id=deck.id)
 
     while True:
-        logger.info("Entered menu")
+        logger.debug("Entered menu")
         
         cio.clear()
         print(deck_infobox(deck))
@@ -871,7 +869,7 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
     logger = s.log.with_fields(menu='deck-cards', deck_id=deck.id)
 
     while True:
-        logger.info("Entered menu")
+        logger.debug("Entered menu")
         menu_lead = deck_infobox(deck) + "\nCARDS"
         extra_actions = [
             cio.CatOption('A', '(A)dd Card', 'ADD'),
@@ -1004,7 +1002,7 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK WISHLIST"
 
     while True:
-        logger.info("Entered menu")
+        logger.debug("Entered menu")
         cards = carddb.find(s.db_filename, None, None, None)
 
         cat_items = [(c, str(c)) for c in cards]
@@ -1045,7 +1043,7 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK"
 
     while True:
-        logger.info("Entered menu")
+        logger.debug("Entered menu")
         cards = carddb.find(s.db_filename, None, None, None)
 
         cat_items = []
@@ -1165,7 +1163,6 @@ def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
     
     deck = deckdb.get_one(s.db_filename, deck.id)
 
-    # TODO: don't include 'card' or 'deck' field in these log messages.
     logger.with_fields(**deck_mutation_fields(deck, 'add-card', card, count=amt)).info("Card added to deck")
     
 
