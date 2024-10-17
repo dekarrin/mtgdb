@@ -431,7 +431,12 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
 
 
 def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None):
+    logger = s.log.with_fields(menu='card-detail', card_id=card.id)
+
     while True:
+        # TODO: these should probably be debugs
+        logger.info("Entered menu")
+
         cio.clear()
         print(card_infobox(card, scryfall_data, box_card=True))
 
@@ -444,6 +449,8 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
         ]
         action = cio.select("ACTIONS", non_number_choices=actions)
         cio.clear()
+
+        logger.debug("Selected action %s", action)
 
         if action == 'DECKS':
             card_decks_menu(s, card, scryfall_data)
@@ -489,61 +496,94 @@ def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
 
 
 def card_remove_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage | None:
+    logger = s.log.with_fields(action='decrement-inven', card_id=c.id)
+
     print(card_infobox(c, scryfall_data, box_card=True))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
+        logger.info("Action canceled by user at initial confirmation")
         return c
     
     amt = cio.prompt_int("How many to remove?", min=0, default=0)
     if amt == 0:
+        logger.info("Action canceled: entered decrement amount of 0")
         return c
     
     try:
         cardops.remove_inventory_entry(s.db_filename, c.id, amt)
-        try:
-            c = carddb.get_one(s.db_filename, c.id)
-        except NotFoundError:
-            c = None
     except DataConflictError as e:
+        logger.exception("Data conflict error occurred")
         print("ERROR: {!s}".format(e))
     except UserCancelledError as e:
+        logger.info("Action canceled by user")
         return c
+
+    op = 'update-count'
+    logged_card = c
+    try:
+        c = carddb.get_one(s.db_filename, c.id)
+    except NotFoundError:
+        op = 'delete'
+        c = None
+    else:
+        logged_card = c
+    
+    logger.with_fields(**card_mutation_fields(logged_card, op)).info("Inventory updated")
     
     cio.pause()
     return c
 
 
 def card_set_condition(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage:
+    logger = s.log.with_fields(action='set-card-condition', card_id=c.id)
+
     print(card_infobox(c, scryfall_data, box_card=True))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
+        logger.info("Action canceled by user at initial confirmation")
         return c
 
     new_cond = cio.prompt_choice("Condition", ['M', 'NM', 'LP', 'MP', 'HP', 'P'], default=c.condition)
     if new_cond == c.condition:
+        logger.info("Action canceled: user selected currently-set condition")
         print("Condition not changed")
         cio.pause()
         return c
     
     carddb.update_condition(s.db_filename, c.id, new_cond)
     c.condition = new_cond
+
+    logger.with_fields(**card_mutation_fields(c, 'update-condition')).info("Card updated", new_cond)
+
     return c
 
 
 def card_add_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage:
+    logger = s.log.with_fields(action='increment-inven', card_id=c.id)
+    
     print(card_infobox(c, scryfall_data, box_card=True))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
+        logger.info("Action canceled by user at initial confirmation")
         return c
     
     amt = cio.prompt_int("How many to add?", min=0, default=1)
     if amt == 0:
+        logger.info("Action canceled: entered increment amount of 0")
         return c
+    
+    # TODO: these should be debugs and have elipses
+    logger.info("Adding %dx copies of %s...", amt, str(c))
     
     try:
         cardops.create_inventory_entry(s.db_filename, amt, c.id)
-        c = carddb.get_one(s.db_filename, c.id)
     except DataConflictError as e:
+        logger.exception("Data conflict error occurred")
         print("ERROR: {!s}".format(e))
     except UserCancelledError as e:
+        logger.info("Action canceled by user")
         return c
+    
+    c = carddb.get_one(s.db_filename, c.id)
+
+    logger.with_fields(**card_mutation_fields(c, 'update-count')).info("Inventory updated")
     
     cio.pause()
     return c
@@ -599,7 +639,7 @@ def cards_add(s: Session) -> Card | None:
     except NotFoundError:
         pass
 
-    card_op = 'update_count'
+    card_op = 'update-count'
     amt = 0
     if c.id is not None:
         logger.info("Found matching card in inventory with ID %d; existing entry will be incremented", c.id)
@@ -622,6 +662,7 @@ def cards_add(s: Session) -> Card | None:
         logger.info("Action canceled by user at final confirmation")
         return None
     
+    # TODO: make shore all of these log messages have elipses for consistency
     logger.info("Adding %dx copies of %s...", amt, str(c))
 
     updated_card: Card | None = None
@@ -1381,8 +1422,11 @@ def card_mutation_fields(c: Card, operation: str) -> dict[str, Any]:
         'card_name': c.name,
     }
 
-    if operation == 'update_count' or 'create':
-        fields['card_count'] = c.count
+    if operation == 'update-count' or 'create':
+        fields['count'] = c.count
+
+    if operation == 'update-condition':
+        fields['condition'] = c.condition
     
     return fields
 
