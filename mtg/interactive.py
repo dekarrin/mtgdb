@@ -454,6 +454,7 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
 
         if action == 'DECKS':
             card_decks_menu(s, card, scryfall_data)
+            logger.info("Exited card-decks menu")
         elif action == 'COND':
             card = card_set_condition(s, card, scryfall_data)
         elif action == 'ADD':
@@ -469,6 +470,8 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
 
 
 def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None):
+    logger = s.log.with_fields(menu='card-decks', card_id=c.id)
+
     menu_lead = "CARD\n"
     menu_lead += "-" * 22 + "\n"
     menu_lead += c.name
@@ -478,6 +481,8 @@ def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
     menu_lead += "USAGE"
 
     while True:
+        logger.info("Entered menu")
+
         cat_items = []
         for u in c.usage:
             if u.count > 0:
@@ -491,7 +496,9 @@ def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
         
         action = selection[0]
 
-        if action is None:
+        logger.debug("Selected action %s", action)
+
+        if action is None or action == '' or action == 'EXIT':
             break
 
 
