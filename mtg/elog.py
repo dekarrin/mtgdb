@@ -72,10 +72,11 @@ def get(name: str, **fields) -> Logger:
     
 
 class _FieldsFormatter(logging.Formatter):
-    def_fmt = logging.Formatter("[%(asctime)s] %(levelname)-8s %(name)s: %(message)s")
+    def_fmt_pre = logging.Formatter("[%(asctime)s] %(levelname)-8s %(name)s")
+    def_fmt_post = logging.Formatter(": %(message)s")
 
     def format(self, record):
-        s = self.def_fmt.format(record)
+        s = self.def_fmt_pre.format(record)
         extra = {k: v for k, v in record.__dict__.items() if k not in _DEFAULT_LOG_RECORD_FIELDS}
         if len(extra) > 0:
             extra_items = []
@@ -83,6 +84,7 @@ class _FieldsFormatter(logging.Formatter):
                 extra_items.append('{:s}={:s}'.format(k, str(v)))
 
             s += ' [' + ', '.join(extra_items) + ']'
+        s += self.def_fmt_post.format(record)
         return s
 
 
