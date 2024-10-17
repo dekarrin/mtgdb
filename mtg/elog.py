@@ -82,7 +82,7 @@ class _FieldsFormatter(logging.Formatter):
             for k, v in extra.items():
                 extra_items.append('{:s}={:s}'.format(k, str(v)))
 
-            s += ' [' + ','.join(extra_items) + ']'
+            s += ' [' + ', '.join(extra_items) + ']'
         return s
 
 
