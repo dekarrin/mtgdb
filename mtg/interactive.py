@@ -875,17 +875,23 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
 
 
 def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
+    logger = s.log.with_fields(action='deck-unwishlist-card', deck_id=deck.id, card_id=card.id)
+
     cio.clear()
 
     if card.deck_wishlist_count < 1:
         print(deck_infobox(deck))
-        print("ERROR: No owned copies of {!s} are in deck; did you mean to (R)emove?".format(card))
+        print("ERROR: {!s} is not in deck wishlist; did you mean to (R)emove?".format(card))
+        logger.error("%s is not in deck wishlist", str(card))
+        return deck
 
     if card.deck_wishlist_count > 1:
         print(deck_infobox(deck))
         amt = cio.prompt_int("Unwishlist how many?", min=1, max=card.deck_wishlist_count, default=1)
     else:
         amt = 1
+
+    logger.debug("Unwishlisting %dx copies of %s from deck %s", amt, str(card), deck.name)
 
     # convert card to CardWithUsage
     card = carddb.get_one(s.db_filename, card.id)
@@ -894,12 +900,15 @@ def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
     except DataConflictError as e:
             print(deck_infobox(deck))
             print("ERROR: " + str(e))
+            logger.error("Data conflict error occurred")
             cio.pause()
             return deck
     except UserCancelledError:
+        logger.info("Action canceled by user")
         return deck
     
     deck = deckdb.get_one(s.db_filename, deck.id)
+    logger.with_fields(**deck_mutation_fields(deck, 'unwishlist-card', card, count=amt)).info("Card unwishlisted from deck")
     return deck
 
 
@@ -1056,17 +1065,22 @@ def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
     print(deck_infobox(deck))
     amt = cio.prompt_int("How many to wishlist?".format(card), min=1, default=1)
 
+    logger.debug("Wishlisting %dx copies of %s in deck %s", amt, str(card), deck.name)
+
     try:
         deckops.add_to_wishlist(s.db_filename, card_specifier=card, deck_specifier=deck, amount=amt)
     except DataConflictError as e:
         print(deck_infobox(deck))
         print("ERROR: " + str(e))
+        logger.exception("Data conflict error occurred")
         cio.pause()
         return deck
     except UserCancelledError:
+        logger.info("Action canceled by user")
         return deck
     
     deck = deckdb.get_one(s.db_filename, deck.id)
+    logger.with_fields(**deck_mutation_fields(deck, 'wishlist-card', card, count=amt)).info("Card added to deck wishlist")
     return deck
         
 
@@ -1383,7 +1397,7 @@ def deck_mutation_fields(d: Deck, operation: str, card: Card | None=None, count:
 
     if operation == 'update-state':
         fields['deck_state'] = d.state
-    elif operation == 'add-card' or operation == 'remove-card':
+    elif operation in ['add-card', 'remove-card', 'wishlist-card', 'unwishlist-card']:
         if card is not None:
             fields['card_id'] = card.id
             fields['card_name'] = card.name
