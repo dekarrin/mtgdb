@@ -453,7 +453,7 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
 
         if action == 'DECKS':
             card_decks_menu(s, card, scryfall_data)
-            logger.info("Exited card-decks menu")
+            logger.debug("Exited card-decks menu")
         elif action == 'COND':
             card = card_set_condition(s, card, scryfall_data)
         elif action == 'ADD':
@@ -849,7 +849,7 @@ def deck_detail_menu(s: Session, deck: Deck):
 
         if action == 'CARDS':
             deck = deck_cards_menu(s, deck)
-            logger.info("Exited deck cards menu")
+            logger.debug("Exited deck cards menu")
         elif action == 'NAME':
             deck = deck_set_name(s, deck)
             cio.pause()
@@ -907,12 +907,12 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             deck_view_card(s, deck, card)
         elif action == 'ADD':
             deck = deck_detail_add(s, deck)
-            logger.info("Exited deck add-card menu")
+            logger.debug("Exited deck add-card menu")
         elif action == 'REMOVE':
             deck = deck_detail_remove(s, deck, card)
         elif action == 'WISHLIST':
             deck = deck_detail_wishlist(s, deck)
-            logger.info("Exited deck wishlist-card menu")
+            logger.debug("Exited deck wishlist-card menu")
         elif action == 'UNWISH':
             deck = deck_detail_unwish(s, deck, card)
         elif action is None:
