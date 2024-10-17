@@ -857,13 +857,7 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         cio.clear()
         if action == 'SELECT':
             # we need the usage card for this
-
-            scryfall_data = retrieve_scryfall_data(s, card)
-            usage_card = carddb.get_one(s.db_filename, card.id)
-            
-            print(deck_infobox(deck))
-            print(card_infobox(usage_card, scryfall_data, inven_details=False, title=" ", box_card=True))
-            cio.pause()
+            deck_view_card(s, deck, card)
         elif action == 'ADD':
             deck = deck_detail_add(s, deck)
             logger.info("Exited deck add-card menu")
@@ -871,6 +865,7 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             deck = deck_detail_remove(s, deck, card)
         elif action == 'WISHLIST':
             deck = deck_detail_wishlist(s, deck)
+            logger.info("Exited deck wishlist-card menu")
         elif action == 'UNWISH':
             deck = deck_detail_unwish(s, deck, card)
         elif action is None:
@@ -909,11 +904,14 @@ def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
 
 
 def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
+    logger = s.log.with_fields(action='deck-remove-card', deck=deck.id, card=card.id)
+
     cio.clear()
 
     if card.deck_count < 1:
         print(deck_infobox(deck))
         print("ERROR: No owned copies of {!s} are in deck; did you mean to (U)nwish?".format(card))
+        logger.error("No owned copies of %s are in deck", str(card))
         return deck
 
     if card.deck_count > 1:
@@ -922,51 +920,66 @@ def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
     else:
         amt = 1
 
+    logger.debug("Removing %dx copies of %s from deck %s", amt, str(card), deck.name)
+
     try:
         cardops.remove_from_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt)
     except DataConflictError as e:
             print(deck_infobox(deck))
             print("ERROR: " + str(e))
+            logger.exception("Data conflict error occurred")
             cio.pause()
             return deck
     except UserCancelledError:
+        logger.info("Action canceled by user")
         return deck
     
     deck = deckdb.get_one(s.db_filename, deck.id)
+
+    logger.with_fields(**deck_mutation_fields(deck, 'remove-card', card, count=amt)).info("Card removed from deck")
     return deck
 
 
 def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
+    logger = s.log.with_fields(menu='deck-wishlist-card', deck=deck.id)
+    
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK WISHLIST"
-    cards = carddb.find(s.db_filename, None, None, None)
 
-    cat_items = [(c, str(c)) for c in cards]
+    while True:
+        logger.info("Entered menu")
+        cards = carddb.find(s.db_filename, None, None, None)
 
-    selection = cio.catalog_select(menu_lead, items=cat_items, include_create=False)
+        cat_items = [(c, str(c)) for c in cards]
+        extra_options = [
+            cio.CatOption('V', '(V)iew Card', 'VIEW', selecting=True, title='View card details')
+        ]
+        filters = card_cat_filters(with_usage=True)
 
-    action = selection[0]
-    card: CardWithUsage = selection[1]
-    #cat_state = selection[2]
+        selection = cio.catalog_select(
+            menu_lead,
+            items=cat_items,
+            include_create=False,
+            extra_options=extra_options,
+            filters=filters,
+            state=s.deck_cards_cat_state
+        )
 
-    cio.clear()
-    if action == 'SELECT':
-        print(deck_infobox(deck))
-        amt = cio.prompt_int("How many to wishlist?".format(card), min=1, default=1)
+        action = selection[0]
+        card: CardWithUsage = selection[1]
+        cat_state = selection[2]
 
-        try:
-            deckops.add_to_wishlist(s.db_filename, card_specifier=card, deck_specifier=deck, amount=amt)
-        except DataConflictError as e:
-            print(deck_infobox(deck))
-            print("ERROR: " + str(e))
-            cio.pause()
+        s.deck_cards_cat_state = None
+
+        logger.info("Selected action %s with card %s", action, str(card))
+
+        cio.clear()
+        if action == 'SELECT':
+            return deck_wishlist_card(s, deck, card)
+        elif action == 'VIEW':
+            s.deck_cards_cat_state = cat_state
+            deck_view_card(s, deck, card)
+        elif action is None:
             return deck
-        except UserCancelledError:
-            return deck
-        
-        deck = deckdb.get_one(s.db_filename, deck.id)
-        return deck
-    elif action is None:
-        return deck
 
 
 def deck_detail_add(s: Session, deck: Deck) -> Deck:
@@ -1018,18 +1031,43 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
             raise ValueError("Unknown action")
         
 
-def deck_view_card(s: Session, deck: Deck, card: CardWithUsage):
-    logger = s.log.with_fields(action='view-deck-card')
+def deck_view_card(s: Session, deck: Deck, card: Card):
+    logger = s.log.with_fields(action='view-deck-card', deck=deck.id, card=card.id)
 
     scryfall_data = retrieve_scryfall_data(s, card, logger)
-    usage_card = carddb.get_one(s.db_filename, card.id)
+
+    if isinstance(card, CardWithUsage):
+        usage_card: CardWithUsage = card
+    else:
+        usage_card = carddb.get_one(s.db_filename, card.id)
+
+    card_info = card_infobox(usage_card, scryfall_data, inven_details=False, title=" ", box_card=True)
+    logger.info("Display card:\n%s", card_info)
     
     print(deck_infobox(deck))
-    card_info = card_infobox(usage_card, scryfall_data, inven_details=False, title=" ", box_card=True)
-
-    logger.info("Display card:\n%s", card_info)
     print(card_info)
+
     cio.pause()
+
+
+def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
+    logger = s.log.with_fields(action='deck-wishlist-card', deck=deck.id, card=card.id)
+
+    print(deck_infobox(deck))
+    amt = cio.prompt_int("How many to wishlist?".format(card), min=1, default=1)
+
+    try:
+        deckops.add_to_wishlist(s.db_filename, card_specifier=card, deck_specifier=deck, amount=amt)
+    except DataConflictError as e:
+        print(deck_infobox(deck))
+        print("ERROR: " + str(e))
+        cio.pause()
+        return deck
+    except UserCancelledError:
+        return deck
+    
+    deck = deckdb.get_one(s.db_filename, deck.id)
+    return deck
         
 
 def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
@@ -1064,7 +1102,8 @@ def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
     
     deck = deckdb.get_one(s.db_filename, deck.id)
 
-    logger.with_fields(**deck_mutation_fields(deck, 'add-card', card)).info("Card added to deck")
+    # TODO: don't include 'card' or 'deck' field in these log messages.
+    logger.with_fields(**deck_mutation_fields(deck, 'add-card', card, count=amt)).info("Card added to deck")
     
 
 def deck_delete(s: Session, deck: Deck) -> bool:
@@ -1334,19 +1373,24 @@ def card_mutation_fields(c: Card, operation: str) -> dict[str, Any]:
     return fields
 
 
-def deck_mutation_fields(d: Deck, operation: str, operand: Card | None=None) -> dict[str, Any]:
+def deck_mutation_fields(d: Deck, operation: str, card: Card | None=None, count: int=0) -> dict[str, Any]:
     fields = {
         'object': "deck",
         'op': operation,
         'deck_id': d.id,
         'deck_name': d.name,
+        'card': None,
+        'deck': None,
     }
 
     if operation == 'update-state':
         fields['deck_state'] = d.state
-    elif operation == 'add-card':
-        fields['card_id'] = operand.id
-        fields['card_name'] = operand.name
+    elif operation == 'add-card' or operation == 'remove-card':
+        if card is not None:
+            fields['card_id'] = card.id
+            fields['card_name'] = card.name
+        if count > 0:
+            fields['count'] = count
     
     return fields
 
