@@ -5,6 +5,7 @@ from typing import Sequence, Any, Tuple, Callable
 from .types import Card, ScryfallCardData, ScryfallFace, ScryfallSet, CardWithUsage
 from .http import HttpAgent
 from .db import carddb, NotFoundError, AlreadyExistsError, scryfalldb
+from . import version
 
 
 class APIError(Exception):
@@ -292,6 +293,17 @@ def _get_http_client(scryfall_host='api.scryfall.com') -> HttpAgent:
     global _client
 
     if _client is None:
-        _client = HttpAgent(scryfall_host, ssl=True, antiflood_secs=0.2, ignored_errors=[400, 401, 403, 404, 422, 429, 500], log_full_response=False)
+        _client = HttpAgent(
+            scryfall_host,
+            ssl=True,
+            antiflood_secs=0.2,
+            ignored_errors=[400, 401, 403, 404, 422, 429, 500],
+            log_full_response=False,
+            log_full_request=False,
+            headers={
+                "User-Agent": 'mtgdb-by-dekarrin/' + version.version,
+                "Accept": "application/json;q=0.9,*/*;q=0.8"
+            }
+        )
 
     return _client

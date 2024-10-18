@@ -90,7 +90,7 @@ def warn_mintty():
 
 def show_splash_screen(s: Session):
     cio.clear()
-    first_line = "MTGDB v{:s} Interactive Mode".format(version.Version)
+    first_line = "MTGDB v{:s} Interactive Mode".format(version.version)
     print(first_line)
     print("=" * len(first_line))
     print("Using database {:s}".format(s.db_filename))

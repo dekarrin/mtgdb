@@ -148,7 +148,7 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        print("mtgdb v" + version.Version)
+        print("mtgdb v" + version.version)
         sys.exit(0)
 
     if args.log is not None:

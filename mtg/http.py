@@ -12,18 +12,15 @@ import time
 import decimal
 
 from . import timer
-from . import version
 
 
 _log = logging.getLogger(__name__)
 _log.setLevel(logging.DEBUG)
 
 
-# TODO: add way of setting these to the client
-_default_http_headers = {
-	"User-Agent": 'mtgdb-by-dekarrin/' + version.Version,
+default_agent_headers = {
+	"User-Agent": 'python-http-agent-by-dekarrin/1.0',
 	"Accept-Encoding": "deflate,gzip,identity",
-	"Accept": "application/json;q=0.9,*/*;q=0.8"
 }
 
 
@@ -74,7 +71,8 @@ class HttpAgent(object):
 			log_full_request: bool=True,
 			log_full_response: bool=True,
 			auth_func: Callable[[requests.PreparedRequest], requests.PreparedRequest] = lambda x: x.prepare(),
-			antiflood_secs: float=0
+			antiflood_secs: float=0,
+			headers: Optional[dict]=None
 	):
 		"""
 		Create a new client.
@@ -104,7 +102,12 @@ class HttpAgent(object):
 		for milliseconds; e.g. 0.2 would be 200 milliseconds. This antiflood
 		protection only applies to synchronous requests; async requests are sent
 		as soon as possible.
+		:param headers: Headers to send in every request. If this is left unset, a global set of default headers
+		will be used. If this is set, keys in the global defaults that are not overridden in this dict will still be
+		used. Note that individual requests may still override these default headers.
 		"""
+		global default_agent_headers
+		
 		self._host = host.rstrip('/')
 		if request_payload != 'json' and request_payload != 'form':
 			raise ValueError("request_payload must be one of 'json' or 'form'.")
@@ -131,12 +134,14 @@ class HttpAgent(object):
 			self._antiflood_wait = self._antiflood_timer.next
 			self._antiflood_reset = self._antiflood_timer.reset
 
+		self._default_headers = dict(default_agent_headers)
+		self._default_headers.update(headers or {})
 
 	def start_new_session(self):
 		if self._session is not None:
 			self._session.close()
 		self._session = requests.Session()
-		self._session.headers.update(_default_http_headers)
+		self._session.headers.update(self._default_headers)
 
 	def add_async_request(
 			self,
@@ -145,6 +150,7 @@ class HttpAgent(object):
 			host=None,
 			query=None,
 			payload=None,
+			headers=None,
 			auth=False,
 			after=lambda x: x,
 			**kwargs
@@ -163,6 +169,9 @@ class HttpAgent(object):
 		:param query: A map of parameters to insert in the query string.
 		:type payload: ``dict | list``
 		:param payload: Data payload. Sent as a JSON array if this is a list, or a JSON object if this is a map.
+		:param headers: Headers to include in the request, besides the default headers set at the creation of the agent.
+		If any keys in this map are the same as keys in the default headers, the values in this map will override the
+		defaults.
 		:type auth: ``bool``
 		:param auth: Whether to send an authenticated request. If true, the request will be altered before
 		sending it in order to authenticate it to the server. How this is done is up to the exchange client
@@ -176,7 +185,7 @@ class HttpAgent(object):
 		ignored_errors = kwargs.get('ignored_errors', self.ignored_errors)
 		use_ssl = kwargs.get('ssl', self.ssl)
 
-		prepared = self._prepare_http_request(method, uri, host, query, payload, auth, encode_payload, use_ssl)
+		prepared = self._prepare_http_request(method, uri, host, query, payload, headers, auth, encode_payload, use_ssl)
 		self._async_http_requests.append((prepared, uri, host, auth, decode_payload, ignored_errors))
 		self._async_transforms.append(after)
 
@@ -272,6 +281,7 @@ class HttpAgent(object):
 			method: str, uri: str, host: Optional[str]=None,
 			query: Optional[Dict[str, Any]]=None,
 			payload: Optional[Union[Dict[str, Any], Sequence[Any]]]=None,
+			headers: Optional[dict]=None,
 			auth: bool=False, **kwargs
 		) -> Tuple[int, Optional[Union[Dict[str, Any], List[Any]]]]:
 		"""
@@ -284,6 +294,9 @@ class HttpAgent(object):
 		:param host: Host to send to. Defaults to client's _host.
 		:param query: A map of parameters to insert in the query string.
 		:param payload: Data payload. Sent as a JSON array if this is a list, or a JSON object if this is a map.
+		:param headers: Headers to include in the request, besides the default headers set at the creation of the agent.
+		If any keys in this map are the same as keys in the default headers, the values in this map will override the
+		defaults.
 		:param auth: Whether to send an authenticated request. If true, the request will be altered before
 		sending it in order to authenticate it to the server. How this is done is up to the exchange client
 		implementation.
@@ -296,7 +309,7 @@ class HttpAgent(object):
 		ignored_errors = kwargs.get('ignored_errors', self.ignored_errors)
 		use_ssl = kwargs.get('ssl', self.ssl)
 
-		prepared = self._prepare_http_request(method, uri, host, query, payload, auth, encode_payload, use_ssl)
+		prepared = self._prepare_http_request(method, uri, host, query, payload, headers, auth, encode_payload, use_ssl)
 		if host is None:
 			host = self._host
 		_log_http_request(prepared, uri, host, auth, self.log_full_request)
@@ -460,7 +473,7 @@ class HttpAgent(object):
 		"""
 		self._ignored_http_errors = list(value)
 
-	def _prepare_http_request(self, method, uri, host, query, payload, auth, encode_payload, use_ssl):
+	def _prepare_http_request(self, method, uri, host, query, payload, headers, auth, encode_payload, use_ssl):
 
 		if use_ssl:
 			scheme = 'https://'
@@ -482,9 +495,10 @@ class HttpAgent(object):
 			raise ValueError("Bad request_payload encoding: " + encode_payload)
 
 		# requests does not give all headers by default; provide some sane ones here
-		headers = _default_http_headers
+		req_headers = dict(self._default_headers)
+		req_headers.update(headers or {})
 		full_url = scheme + host + uri
-		req = requests.Request(method, full_url, data=form_payload, json=json_payload, params=query, headers=headers)
+		req = requests.Request(method, full_url, data=form_payload, json=json_payload, params=query, headers=req_headers)
 
 		# session object will not attach cookies to a prepared request. Do it manually here.
 		if self._session is not None:
