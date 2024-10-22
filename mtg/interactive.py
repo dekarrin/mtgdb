@@ -280,6 +280,23 @@ def wrap_preformatted_text(text: str, width: int) -> str:
     return '\n'.join(wrapped)
 
 
+def limit_lines(text: str, max_lines: int, cont='...', max_width: int=None) -> str:
+    lines = text.splitlines()
+    if len(lines) <= max_lines:
+        return text
+    
+    lines = lines[:max_lines]
+    if max_width is None or len(lines[-1]) + len(cont) <= max_width:
+        lines[-1] = lines[-1] + cont
+    else:
+        # TODO: nicer word-aware checking
+        # TODO: edge cond, max_width is too short to shove it on
+        # TODO: only replace necessary chars
+        lines[-1] = lines[-1][:-len(cont)] + cont
+    
+    return '\n'.join(lines)
+
+
 def box_text(text: str, text_width: int, pad_sides: int=1) -> str:
     pad = max(pad_sides, 0)
     inner_width = text_width + (2 * (pad))
@@ -299,7 +316,7 @@ def box_text(text: str, text_width: int, pad_sides: int=1) -> str:
     return '\n'.join(boxed)
 
 
-def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar: bool=True, inven_details: bool=True, title: str='CARD', box_card: bool=False) -> str:
+def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar: bool=True, inven_details: bool=True, title: str='CARD', box_card: bool=False, max_cardtext_lines: int=6) -> str:
     deck_used_states = ['P', 'C']
     wishlist_total = sum([u.wishlist_count for u in c.usage])
     in_decks = sum([u.count for u in c.usage])
@@ -335,6 +352,7 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
 
             if f.text is not None and len(f.text) > 0:
                 text = wrap_preformatted_text(f.text, text_wrap_width)
+                text = limit_lines(text, max_cardtext_lines, cont='(...)', max_width=text_wrap_width)
                 cbox += "{:s}\n".format(text)
             
             cbox += "\n"
