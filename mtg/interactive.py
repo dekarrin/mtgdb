@@ -1182,6 +1182,7 @@ def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
     deck = deckdb.get_one(s.db_filename, deck.id)
 
     logger.with_fields(**deck_mutation_fields(deck, 'add-card', card, count=amt)).info("Card added to deck")
+    return deck
     
 
 def deck_delete(s: Session, deck: Deck) -> bool:
@@ -1427,6 +1428,7 @@ def card_cat_filters(with_usage: bool) -> list[cio.CatFilter]:
     filters = [
         cio.CatFilter('name', lambda c, v: v.lower() in c.name.lower()),
         cio.CatFilter('edition', lambda c, v: v.lower() in c.edition.lower()),
+        cio.CatFilter('cardnum', lambda c, v: c.cardnum.startswith(v.upper()))
     ]
 
     if with_usage:
