@@ -6,15 +6,32 @@ from typing import Optional, Callable
 if os.name != 'posix':
     import keyboard
 else:
-    from pynput.keyboard import Key, Controller
-    keyboard = Controller()
+    import readline
 
 
-def type_text(text: str):
-    if os.name != 'posix':
-        keyboard.write(text)
+def input_prefillable(prompt: str | None=None, prefill: str | None=None):
+    if prefill is not None:
+        if os.name != 'posix':
+            keyboard.write(text)
+            if prompt is not None:
+                return input(prompt)
+            else:
+                return input()
+        else:
+            def hook():
+                readline.insert_text(prefill)
+                readline.redisplay()
+            readline.set_pre_input_hook(hook)
+            if prompt is not None:
+                s = input(prompt)
+            else:
+                s = input()
+            readline.set_pre_input_hook()
+            return s
+    elif prompt is not None:
+        return input(prompt)
     else:
-        keyboard.type(text)
+        return input()
 
 
 def using_winpty() -> bool:
@@ -178,14 +195,8 @@ def prompt_choice(prompt, choices, transform=lambda x: x.strip().upper(), defaul
 def prompt(prompt: Optional[str]='==> ', default: Optional[str]=None, prefill: Optional[str]=None) -> str:
     if default is not None and prompt is not None:
         prompt = "{:s} (default: {!r})".format(prompt, default)
-    
-    if prefill is not None:
-        type_text(prefill)
 
-    if prompt is not None:
-        inputed = input(prompt)
-    else:
-        inputed = input()
+    inputed = input_prefillable(prompt, prefill)
     
     if inputed == '' and default is not None:
         return default
