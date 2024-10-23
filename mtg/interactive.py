@@ -894,6 +894,8 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         ]
         cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None)
         cards.sort(key=lambda c: (c.name, c.tcg_num))
+        
+        filters = card_cat_filters(with_usage=False)
 
         wl_cards = [c for c in cards if c.deck_wishlist_count > 0]
         owned_cards = [c for c in cards if c.deck_count > 0]
@@ -918,7 +920,8 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             items=cat_items,
             include_create=False,
             extra_options=extra_actions,
-            state=s.deck_cards_cat_state
+            state=s.deck_cards_cat_state,
+            filters=filters
         )
         
         action = selection[0]
