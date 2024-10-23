@@ -11,10 +11,6 @@ import mtg.db
 import mtg
 
 
-_log = logging.getLogger('mtgdb')
-_log.setLevel(logging.DEBUG)
-
-
 class ArgumentError(ValueError):
     def __init__(self, msg):
         self.msg = msg
@@ -154,18 +150,21 @@ def main():
     if args.log is not None:
         elog.enable_logfile(args.log)
 
+    log = elog.get('mtgdb')
+    log.debug("----- Started mtgdb v%s -----", version.version)
+
     try:
         args.func(args)
     except mtg.db.DBError as e:
         print("ERROR: " + str(e), file=sys.stderr)
-        _log.exception("Database error")
+        log.exception("Database error")
         sys.exit(1)
     except mtg.CommandError as e:
         print("ERROR: " + str(e), file=sys.stderr)
-        _log.exception("Command error")
+        log.exception("Command error")
         sys.exit(1)
     except Exception:
-        _log.exception("Error")
+        log.exception("Error")
         sys.exit(1)
 
 
@@ -453,8 +452,10 @@ def invoke_remove_wish(args):
 
 
 if __name__ == "__main__":
+    log = elog.get('mtgdb')
+
     try:
         main()
     except KeyboardInterrupt:
-        _log.debug("Ctr-C; exit")
+        log.debug("Ctr-C; exit")
         pass

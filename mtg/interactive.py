@@ -46,9 +46,9 @@ def start(db_filename, alt_buffer: bool=True):
     fatal_msg = None
 
     if alt_buffer:
-        s.log.debug("Starting alt screen buffer for interactive session")
+        s.log.debug("Using alt screen buffer for interactive session")
         with cio.alternate_screen_buffer():
-            s.log.debug("Interactive session started")
+            s.log.debug("Started interactive session")
             
             try:
                 show_splash_screen(s)
@@ -70,7 +70,7 @@ def start(db_filename, alt_buffer: bool=True):
             cio.pause()
             sys.exit(1)
     else:
-        s.log.debug("Interactive session started")
+        s.log.debug("Started interactive session")
         try:
             show_splash_screen(s)
             main_menu(s)
