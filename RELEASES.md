@@ -17,7 +17,6 @@ single-face.
 * Fixed bug where the variant part of card names had too many commas.
 
 
-
 v0.2.0 - October 7th, 2024
 --------------------------
 * Set info for imported cards is now automatically retrieved from scryfall when
