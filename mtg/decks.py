@@ -258,7 +258,7 @@ def import_csv(db_filename, csv_filenames):
         print("Successfully imported deck from {:s}".format(csv_filename))
 
 
-def export_csv(db_filename: str, path: str, filename_pattern: str):
+def export_csv(db_filename: str, path: str, filename_pattern: str, decks=None):
     class DeckListing:
         def __init__(self, name: str, state: str, card_count: int):
             self.name = name
@@ -269,7 +269,8 @@ def export_csv(db_filename: str, path: str, filename_pattern: str):
     if path == '':
         path = '.'
     
-    decks = deckdb.get_all(db_filename)
+    if decks is None:
+        decks = deckdb.get_all(db_filename)
 
     deck_listings: List[DeckListing] = []  # pylance won't recognize list[DeckListing] so using List[DeckListing] for its benefit
 

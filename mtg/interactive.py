@@ -841,6 +841,20 @@ def decks_export(s: Session):
     logger.info("Export complete")
 
 
+def deck_export_single(s: Session, d: Deck):
+    logger = s.log.with_fields(action='export-deck', deck_id=d.id)
+
+    path = input("Enter directory to export deck to (default .): ")
+    if path == '':
+        path = '.'
+    filename_pattern = input("Enter file pattern (default {DECK}-{DATE}.csv): ")
+    if filename_pattern == '':
+        filename_pattern = '{DECK}-{DATE}.csv'
+
+    logger.debug("Exporting %s to path %s with filename pattern %s...", d.name, path, filename_pattern)
+    deckops.export_csv(s.db_filename, path, filename_pattern, decks=[d])
+    logger.info("Export complete")
+
 
 def deck_infobox(deck: Deck, final_bar=True) -> str:
     hdr = "DECK\n"
@@ -867,6 +881,7 @@ def deck_detail_menu(s: Session, deck: Deck):
             ('C', 'CARDS', 'List/Manage cards in deck and wishlist'),
             ('N', 'NAME', 'Set deck name'),
             ('S', 'STATE', 'Set deck state'),
+            ('E', 'EXPORT', 'Export deck to CSV'),
             ('D', 'DELETE', 'Delete deck'),
             ('X', 'EXIT', 'Exit')
         ]
@@ -889,6 +904,8 @@ def deck_detail_menu(s: Session, deck: Deck):
             cio.pause()
             if deleted:
                 break
+        elif action == 'EXPORT':
+            deck_export_single(s, deck)
         elif action == 'EXIT':
             break
 
