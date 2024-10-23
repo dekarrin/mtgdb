@@ -1,6 +1,5 @@
 certifi==2024.8.30
 charset-normalizer==3.3.2
-evdev==1.7.1
 idna==3.10
 keyboard==0.13.5 ; os_name != 'posix'
 readline==6.2.4.1 ; os_name != 'nt'
