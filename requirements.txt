@@ -3,9 +3,6 @@ charset-normalizer==3.3.2
 evdev==1.7.1
 idna==3.10
 keyboard==0.13.5 ; os_name != 'posix'
-pynput==1.7.7 ; os_name == 'posix'
-python-xlib==0.33 ; os_name == 'posix'
-six==1.16.0 ; os_name == 'posix'
 readline==6.2.4.1 ; os_name != 'nt'
 requests==2.32.3
 urllib3==2.2.3
