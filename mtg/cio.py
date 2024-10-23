@@ -453,10 +453,19 @@ def catalog_select(
             clear()
             catalogprint_page(page, top_prompt, per_page, fill_empty)
             filter_opts = [(k, k.upper() + (": " + active_filters[k] if k in active_filters else '')) for k in filter_by]
-            cancel_opt = [('C', '><*>CANCEL<*><', 'CANCEL')]
-            filter_key = select("MANAGE FILTERS:", filter_opts, non_number_choices=cancel_opt)
-            if filter_key == '><*>CANCEL<*><':
+            extra_opts = [
+                ('A', '><*>CLEAR-ALL<*><', 'CLEAR ALL'),
+                ('C', '><*>CANCEL<*><', 'CANCEL'),
+            ]
+            filter_key = select("MANAGE FILTERS:", filter_opts, non_number_choices=extra_opts)
+            
+            if filter_key == '><*>CLEAR-ALL<*><':
+                active_filters.clear()
+                pages, page_num = apply_filters(items, page_num, active_filters)
                 continue
+            elif filter_key == '><*>CANCEL<*><':
+                continue
+                
             clear()
             f = filter_by[filter_key]
             catalogprint_page(page, top_prompt, per_page, fill_empty)

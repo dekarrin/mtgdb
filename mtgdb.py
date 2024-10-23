@@ -453,7 +453,7 @@ def invoke_remove_wish(args):
 
 if __name__ == "__main__":
     log = elog.get('mtgdb')
-
+    
     try:
         main()
     except KeyboardInterrupt:

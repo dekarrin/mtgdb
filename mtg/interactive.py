@@ -54,7 +54,12 @@ def start(db_filename, alt_buffer: bool=True):
                 show_splash_screen(s)
                 main_menu(s)
             except KeyboardInterrupt:
-                pass
+                s.log.debug("Ended interactive session")
+                if cio.using_mintty():
+                    # final call to clear the alt screen buffer because it will be
+                    # printed when program exits (yeah idk why glub)
+                    cio.clear()
+                raise
             except:
                 s.log.critical("Fatal error occurred", exc_info=True)
                 fatal_msg = traceback.format_exc()
@@ -62,12 +67,13 @@ def start(db_filename, alt_buffer: bool=True):
             if cio.using_mintty():
                 # final call to clear the alt screen buffer because it will be
                 # printed when program exits (yeah idk why glub)
-                cio.clear()        
+                cio.clear()
 
         if fatal_msg is not None:
             print("A fatal error occurred:")
             print(fatal_msg)
             cio.pause()
+            s.log.debug("Ended interactive session")
             sys.exit(1)
     else:
         s.log.debug("Started interactive session")
@@ -75,10 +81,14 @@ def start(db_filename, alt_buffer: bool=True):
             show_splash_screen(s)
             main_menu(s)
         except KeyboardInterrupt:
-            pass
+            s.log.debug("Ended interactive session")
+            raise
         except:
             s.log.critical("Fatal error occurred", exc_info=True)
+            s.log.debug("Ended interactive session")
             raise
+    
+    s.log.debug("Ended interactive session")
 
 
 def warn_mintty():
