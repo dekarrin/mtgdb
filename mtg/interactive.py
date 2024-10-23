@@ -942,6 +942,7 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         elif action == 'UNWISH':
             deck = deck_detail_unwish(s, deck, card)
         elif action is None:
+            s.deck_cards_cat_state = None
             break
     
     return deck
