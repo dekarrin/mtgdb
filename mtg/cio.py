@@ -452,75 +452,48 @@ def catalog_select(
         elif choice == 'F' and filter_by is not None and len(filter_by) > 0:
             clear()
             catalogprint_page(page, top_prompt, per_page, fill_empty)
-            filter_action = prompt_choice("MANAGE FILTERS:\n(A)dd/Edit, (R)emove, (C)ancel", ['A', 'R', 'C'], transform=lambda x: x.strip().upper())
-            if filter_action == 'A':
-                clear()
-                catalogprint_page(page, top_prompt, per_page, fill_empty)
-                filter_opts = [(k, k.upper()) for k in filter_by]
-                cancel_opt = [('C', '><*>CANCEL<*><', 'CANCEL')]
-                filter_key = select("ADD/EDIT FILTER ON:", filter_opts, non_number_choices=cancel_opt)
-                if filter_key == '><*>CANCEL<*><':
-                    continue
-                clear()
-                f = filter_by[filter_key]
-                catalogprint_page(page, top_prompt, per_page, fill_empty)
-                filter_expr = None
-                
-                current = None
-                if filter_key in active_filters:
-                    current = active_filters[filter_key]
-                
-                while filter_expr is None:
-                    hint = ""
-                    if f.fmt_hint is not None:
-                        hint = " ({:s})".format(f.fmt_hint)
-                    filter_val = prompt(f.name.title() + hint + ": ", prefill=current)
-                    if filter_val.strip() == '':
-                        break
-                    try:
-                        normalized = f.normalize(filter_val)
-                        if normalized is not None and normalized != '':
-                            filter_val = normalized
-                    except Exception as e:
-                        print("ERROR: {!s}".format(e))
-                    else:
-                        filter_expr = filter_val
+            filter_opts = [(k, k.upper() + (": " + active_filters[k] if k in active_filters else '')) for k in filter_by]
+            cancel_opt = [('C', '><*>CANCEL<*><', 'CANCEL')]
+            filter_key = select("MANAGE FILTERS:", filter_opts, non_number_choices=cancel_opt)
+            if filter_key == '><*>CANCEL<*><':
+                continue
+            clear()
+            f = filter_by[filter_key]
+            catalogprint_page(page, top_prompt, per_page, fill_empty)
+            filter_expr = None
+            
+            existing = None
+            if filter_key in active_filters:
+                existing = active_filters[filter_key]
 
-                if filter_expr is None:
+            while filter_expr is None:
+                hint = ""
+                if f.fmt_hint is not None:
+                    hint = " ({:s})".format(f.fmt_hint)
+                filter_val = prompt(f.name.title() + hint + ": ", prefill=existing)
+                if filter_val.strip() == '':
+                    break
+                try:
+                    normalized = f.normalize(filter_val)
+                    if normalized is not None and normalized != '':
+                        filter_val = normalized
+                except Exception as e:
+                    print("ERROR: {!s}".format(e))
+                else:
+                    filter_expr = filter_val
+
+            if filter_expr is None:
+                if existing is None:
                     print("No filter added")
                     pause()
                     continue
-
-                active_filters[filter_key] = filter_expr
-
-                # update pages to be filtered
-                pages, page_num = apply_filters(items, page_num, active_filters)
-            elif filter_action == 'R':
-                # TODO: direct opts cancel
-                filter_opts = [(k, k.upper()) for k in active_filters]
-                clear()
-                catalogprint_page(page, top_prompt, per_page, fill_empty)
-                if len(filter_opts) == 0:
-                    print("No filters to remove")
-                    pause()
-                    continue
-                other_opts = [('A', '><*>ALL<*><', 'ALL'), ('C', '><*>CANCEL<*><', 'CANCEL')]
-                filter_key = select("REMOVE FILTER ON:", filter_opts, non_number_choices=other_opts)
-                if filter_key == '><*>CANCEL<*><':
-                    continue
-                elif filter_key == '><*>ALL<*><':
-                    active_filters = {}
                 else:
                     del active_filters[filter_key]
 
-                # update pages to be filtered
-                pages, page_num = apply_filters(items, page_num, active_filters)
+            active_filters[filter_key] = filter_expr
 
-            elif filter_action == 'C':
-                continue
-            else:
-                print("Unknown option")
-                pause()
+            # update pages to be filtered
+            pages, page_num = apply_filters(items, page_num, active_filters)
         elif include_select and choice == 'S':
             clear()
             # print the entire top prompt EXCEPT for the last line
