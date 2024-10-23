@@ -913,11 +913,17 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             card_str = "{:s} {:s}".format(', '.join(amounts), str(c))
             cat_items.append((c, card_str))
         
-        selection = cio.catalog_select(menu_lead, items=cat_items, include_create=False, extra_options=extra_actions)
+        selection = cio.catalog_select(
+            menu_lead,
+            items=cat_items,
+            include_create=False,
+            extra_options=extra_actions,
+            state=s.deck_cards_cat_state
+        )
         
         action = selection[0]
         card: DeckCard = selection[1]
-        #cat_state = selection[2]
+        s.deck_cards_cat_state = selection[2]
 
         logger.debug("Selected action %s with card %s", action, str(card))
 
@@ -1020,6 +1026,7 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
     logger = s.log.with_fields(menu='deck-wishlist-card', deck_id=deck.id)
     
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK WISHLIST"
+    menu_state: Optional[cio.CatState] = None
 
     while True:
         logger.debug("Entered menu")
@@ -1037,22 +1044,26 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
             include_create=False,
             extra_options=extra_options,
             filters=filters,
-            state=s.deck_cards_cat_state
+            state=menu_state
         )
 
         action = selection[0]
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
 
-        s.deck_cards_cat_state = None
+        menu_state = None
 
         logger.info("Selected action %s with card %s", action, str(card))
 
         cio.clear()
         if action == 'SELECT':
-            return deck_wishlist_card(s, deck, card)
+            updated = deck_wishlist_card(s, deck, card)
+            if updated is not None:
+                return updated
+            else:
+                menu_state = cat_state
         elif action == 'VIEW':
-            s.deck_cards_cat_state = cat_state
+            menu_state = cat_state
             deck_view_card(s, deck, card)
         elif action is None:
             return deck
@@ -1061,6 +1072,7 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
 def deck_detail_add(s: Session, deck: Deck) -> Deck:
     logger = s.log.with_fields(menu='deck-add-card', deck_id=deck.id)
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK"
+    menu_state: Optional[cio.CatState] = None
 
     while True:
         logger.debug("Entered menu")
@@ -1084,14 +1096,14 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
             include_create=False,
             extra_options=extra_options,
             filters=filters,
-            state=s.deck_cards_cat_state
+            state=menu_state
         )
 
         action = selection[0]
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
 
-        s.deck_cards_cat_state = None
+        menu_state = None
 
         logger.info("Selected action %s with card %s", action, str(card))
 
@@ -1101,9 +1113,9 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
             if updated is not None:
                 return updated
             else:
-                s.deck_cards_cat_state = cat_state
+                menu_state = cat_state
         elif action == 'VIEW':
-            s.deck_cards_cat_state = cat_state
+            menu_state = cat_state
             deck_view_card(s, deck, card)
         elif action is None:
             return deck
@@ -1131,6 +1143,9 @@ def deck_view_card(s: Session, deck: Deck, card: Card):
 
 
 def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
+    """
+    Return None to indicate that no update was preformed and we should return to
+    prior prompt."""
     logger = s.log.with_fields(action='deck-wishlist-card', deck_id=deck.id, card_id=card.id)
 
     print(deck_infobox(deck))
@@ -1145,10 +1160,10 @@ def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
         print("ERROR: " + str(e))
         logger.exception("Data conflict error occurred")
         cio.pause()
-        return deck
+        return None
     except UserCancelledError:
         logger.info("Action canceled by user")
-        return deck
+        return None
     
     deck = deckdb.get_one(s.db_filename, deck.id)
     logger.with_fields(**deck_mutation_fields(deck, 'wishlist-card', card, count=amt)).info("Card added to deck wishlist")
