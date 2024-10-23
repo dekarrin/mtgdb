@@ -3,6 +3,19 @@ import os
 from contextlib import contextmanager
 from typing import Optional, Callable
 
+if os.name != 'posix':
+    import keyboard
+else:
+    from pynput.keyboard import Key, Controller
+    keyboard = Controller()
+
+
+def type_text(text: str):
+    if os.name != 'posix':
+        keyboard.write(text)
+    else:
+        keyboard.type(text)
+
 
 def using_winpty() -> bool:
     return os.name == 'nt' and '_' in os.environ and os.environ['_'].endswith('/winpty')
@@ -159,6 +172,24 @@ def prompt_choice(prompt, choices, transform=lambda x: x.strip().upper(), defaul
             selected = unparsed
 
     return selected
+
+
+# TODO: give all funcs a 'default' param and a 'prefill' param
+def prompt(prompt: Optional[str]='==> ', default: Optional[str]=None, prefill: Optional[str]=None) -> str:
+    if default is not None and prompt is not None:
+        prompt = "{:s} (default: {!r})".format(prompt, default)
+    
+    if prefill is not None:
+        type_text(prefill)
+
+    if prompt is not None:
+        inputed = input(prompt)
+    else:
+        inputed = input()
+    
+    if inputed == '' and default is not None:
+        return default
+    return inputed
 
 
 def prompt_int(prompt, min=None, max=None, default: int | None=None):
@@ -423,11 +454,16 @@ def catalog_select(
                 f = filter_by[filter_key]
                 catalogprint_page(page, top_prompt, per_page, fill_empty)
                 filter_expr = None
+                
+                current = None
+                if filter_key in active_filters:
+                    current = active_filters[filter_key]
+                
                 while filter_expr is None:
                     hint = ""
                     if f.fmt_hint is not None:
                         hint = " ({:s})".format(f.fmt_hint)
-                    filter_val = input(f.name.title() + hint + ": ")
+                    filter_val = prompt(f.name.title() + hint + ": ", prefill=current)
                     if filter_val.strip() == '':
                         break
                     try:

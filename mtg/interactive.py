@@ -893,6 +893,8 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             cio.CatOption('A', '(A)dd Card', 'ADD'),
         ]
         cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None)
+        cards.sort(key=lambda c: (c.name, c.tcg_num))
+
         wl_cards = [c for c in cards if c.deck_wishlist_count > 0]
         owned_cards = [c for c in cards if c.deck_count > 0]
         if len(owned_cards) > 0:
@@ -1095,7 +1097,11 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
 
         cio.clear()
         if action == 'SELECT':
-            return deck_add_card(s, deck, card)
+            updated = deck_add_card(s, deck, card)
+            if updated is not None:
+                return updated
+            else:
+                s.deck_cards_cat_state = cat_state
         elif action == 'VIEW':
             s.deck_cards_cat_state = cat_state
             deck_view_card(s, deck, card)
@@ -1150,6 +1156,9 @@ def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
         
 
 def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
+    """
+    Return None to indicate that no update was preformed and we should return to
+    prior prompt."""
     logger = s.log.with_fields(action='deck-add-card', deck_id=deck.id, card_id=card.id)
 
     deck_used_states = ['C', 'P']
@@ -1159,7 +1168,7 @@ def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
         print("ERROR: No more free cards of {!s}".format(card))
         logger.error("No free cards of %s to add; current free is %d", str(card), free)
         cio.pause()
-        return deck
+        return None
     elif free == 1:
         amt = 1
     else:
@@ -1174,10 +1183,10 @@ def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
         print("ERROR: " + str(e))
         logger.exception("Data conflict error occurred")
         cio.pause()
-        return deck
+        return None
     except UserCancelledError:
         logger.info("Action canceled by user")
-        return deck
+        return None
     
     deck = deckdb.get_one(s.db_filename, deck.id)
 
