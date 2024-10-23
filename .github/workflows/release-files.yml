@@ -47,6 +47,7 @@ jobs:
           mkdir common-assets
           cp README.md common-assets/
           cp LICENSE.txt common-assets/
+          cp RELEASES.md common-assets/
           cp source.tar.gz common-assets/
           tar cf "common-assets.tar" common-assets
       - name: Upload Common Assets Artifact
