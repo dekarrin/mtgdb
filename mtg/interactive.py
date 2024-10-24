@@ -108,6 +108,29 @@ def show_splash_screen(s: Session):
     cio.pause()
 
 
+def db_fixes_menu(s: Session):
+    logger = s.log.with_fields(menu='fixes')
+
+    fix_actions = [
+        ('dedupe', 'Deduplicate inventory entries')
+    ]
+
+    letter_items = [
+        ('X', 'exit', 'Exit')
+    ]
+
+    while True:
+        logger.debug("Entered menu")
+
+        cio.clear()
+        action = cio.select("DATABASE FIXES", options=fix_actions, non_number_choices=letter_items)
+
+        logger.debug("Selected action %s", action)
+
+        cio.clear()
+
+
+
 def main_menu(s: Session):
     logger = s.log.with_fields(menu='main')
 
@@ -117,6 +140,7 @@ def main_menu(s: Session):
         ('B', 'change-db', 'Change the database file being used'),
         ('S', 'show-db', 'Show the database file currently in use'),
         ('I', 'init', 'Initialize the database file'),
+        ('F', 'fixes', 'Perform database fixes'),
         ('X', 'exit', 'Exit the program')
     ]
 

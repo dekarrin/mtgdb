@@ -286,7 +286,7 @@ def update_condition(db_filename: str, cid: int, cond: str):
     con.close()
 
 
-def update_scryfall_id(db_filename: str, cid: int, scryfall_id: int):
+def update_scryfall_id(db_filename: str, cid: int, scryfall_id: str):
     query = sql_update_scryfall_id
     params = (scryfall_id, cid)
 
@@ -311,7 +311,7 @@ def update_multiple_scryfall_ids(db_filename: str, cards: list[Card]):
     con.close()
 
 
-def delete(db_filename, cid):
+def delete(db_filename: str, cid: int):
     con = util.connect(db_filename)
     cur = con.cursor()
     cur.execute('DELETE FROM inventory WHERE id = ?', (cid,))

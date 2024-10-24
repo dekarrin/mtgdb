@@ -174,6 +174,20 @@ def find_cards(db_filename: str, did: int, card_name: Optional[str], card_num: O
 
     return data
 
+
+def update_card_counts(db_filename: str, did: int, cid: int, count: int, wishlist_count: int) -> DeckCard:
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute(sql_update_counts, (count, wishlist_count, cid, did))
+    con.commit()
+    
+    if con.total_changes < 1:
+        raise NotFoundError("no card with that ID exists in deck")
+    
+    con.close()
+    
+    return get_one_card(db_filename, did, cid)
+
     
 def add_card(db_filename: str, did: int, cid: int, amount: int=1) -> int:
     con = util.connect(db_filename)
@@ -290,6 +304,12 @@ def get_counts(db_filename: str, did: int, cid: int | None=None):
     
     
 def remove_card(db_filename: str, did: int, cid: int, amount: int=1) -> int:
+    """
+    Remove an amount of a card from a deck. If the amount is greater than the
+    current total and the card is not wishlisted, the associated DeckCard entry
+    will be deleted from the database.
+    """
+    
     con = util.connect(db_filename)
     cur = con.cursor()
     
@@ -321,6 +341,23 @@ def remove_card(db_filename: str, did: int, cid: int, amount: int=1) -> int:
     con.close()
 
     return new_amt
+
+
+def delete_card(db_filename: str, did: int, cid: int):
+    """
+    Completely remove an entire DeckCard entry from the database. No sanity
+    checks are performed, the entry is simply removed.
+    """
+
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute(sql_delete_deck_card, (cid, did))
+    con.commit()
+
+    if con.total_changes < 1:
+        raise NotFoundError("no card with that ID exists in deck")
+    
+    con.close()
 
 
 def remove_all_cards(db_filename, did):
@@ -457,6 +494,12 @@ WHERE card = ? AND deck = ?;
 sql_update_deck_card_wishlist_count = '''
 UPDATE deck_cards
 SET wishlist_count=?
+WHERE card = ? AND deck = ?;
+'''
+
+sql_update_counts = '''
+UPDATE deck_cards
+SET count=?, wishlist_count=?
 WHERE card = ? AND deck = ?;
 '''
 
