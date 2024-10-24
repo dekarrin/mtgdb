@@ -21,6 +21,7 @@ from . import cards as cardops
 from . import decks as deckops
 from . import deckbox as deckboxops
 from . import scryfall as scryfallops
+from . import repairs
 from .errors import DataConflictError, UserCancelledError
 from .db import schema, deckdb, carddb, DBError, NotFoundError, DBOpenError
 
@@ -108,29 +109,6 @@ def show_splash_screen(s: Session):
     cio.pause()
 
 
-def db_fixes_menu(s: Session):
-    logger = s.log.with_fields(menu='fixes')
-
-    fix_actions = [
-        ('dedupe', 'Deduplicate inventory entries')
-    ]
-
-    letter_items = [
-        ('X', 'exit', 'Exit')
-    ]
-
-    while True:
-        logger.debug("Entered menu")
-
-        cio.clear()
-        action = cio.select("DATABASE FIXES", options=fix_actions, non_number_choices=letter_items)
-
-        logger.debug("Selected action %s", action)
-
-        cio.clear()
-
-
-
 def main_menu(s: Session):
     logger = s.log.with_fields(menu='main')
 
@@ -186,6 +164,9 @@ def main_menu(s: Session):
             logger.info("Initialized database")
 
             cio.pause()
+        elif item == 'fixes':
+            db_fixes_menu(s)
+            logger.debug("Exited fixes menu")
         elif item == 'exit':
             s.running = False
             logger.info("Program is no longer running")
@@ -224,6 +205,39 @@ def do_init(s: Session) -> bool:
     
     schema.init(s.db_filename)
     return True
+
+
+def db_fixes_menu(s: Session):
+    logger = s.log.with_fields(menu='fixes')
+
+    fix_actions = [
+        ('dedupe', 'Deduplicate inventory entries')
+    ]
+
+    letter_items = [
+        ('X', 'exit', 'Exit')
+    ]
+
+    while True:
+        logger.debug("Entered menu")
+
+        cio.clear()
+        action = cio.select("DATABASE FIXES", options=fix_actions, non_number_choices=letter_items)
+
+        logger.debug("Selected action %s", action)
+
+        cio.clear()
+
+        if action == 'dedupe':
+            fix_duplicate_inventory_entires(s)
+        elif action == 'exit':
+            break
+        else:
+            # should never get here
+            print("Unknown option")
+            logger.warning("unknown option %s selected; ignoring", repr(action))
+            cio.pause()
+
 
 
 def cards_master_menu(s: Session):
@@ -1426,6 +1440,31 @@ def decks_create(s: Session) -> Optional[Deck]:
     return d
 
 
+def fix_duplicate_inventory_entires(s: Session):
+    logger = s.log.with_fields(action='fix-dupes')
+
+    print("Scanning for duplicate inventory entries...")
+    logger.info("Scanning for duplicate inventory entries...")
+    fixes = repairs.scan_duplicates(s.db_filename, fix=False, log=logger)
+
+    if len(fixes) == 0:
+        print("Inventory has no duplicate entires")
+        logger.info("Scan complete; nothing to fix")
+        cio.pause()
+        return
+    
+    print("Found {:d} duplicate entries".format(len(fixes)))
+    if not cio.confirm("Apply fixes?"):
+        logger.info("Action canceled: user declined confirmation prompt")
+        return
+    
+    logger.debug("Re-scanning and applying fixes...")
+    repairs.scan_duplicates(s.db_filename, fix=True, log=logger)
+    logger.debug("Fixes complete")
+    print("Done! Fixes applied")
+    cio.pause()
+
+
 def card_cat_filters(with_usage: bool) -> list[cio.CatFilter]:
     def num_expr(val: str):
         # it can either be an exact number, or a comparator followed by a number
@@ -1553,4 +1592,3 @@ def deck_mutation_fields(d: Deck, operation: str, card: Card | None=None, count:
             fields['count'] = count
     
     return fields
-

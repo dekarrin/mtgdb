@@ -14,6 +14,9 @@ class DedupeAction:
         self.update_deck_cards = deck_card_updates
         self.duplicate_ids = duplicate_ids
 
+    def __str__(self):
+        return "{:s} (ID {:d}) is duplicated by IDs: [{:s}]".format(self.canonical_card.name, self.canonical_card.id, ', '.join(str(i) for i in self.duplicate_ids))
+
 
 def scan_duplicates(db_filename: str, fix=False, log: elog.Logger | None=None) -> list[DedupeAction]:
     """
@@ -73,7 +76,9 @@ def scan_duplicates(db_filename: str, fix=False, log: elog.Logger | None=None) -
                 sids.add(c.scryfall_id)
         if len(sids) == 1:
             # preserve it
-            act.set_scryfall_id = sids.pop()
+            new_id = sids.pop()
+            if new_id != act.canonical_card.scryfall_id:
+                act.set_scryfall_id = new_id
         elif len(sids) > 1:
             # clear them all
             act.set_scryfall_id = None
@@ -120,6 +125,8 @@ def scan_duplicates(db_filename: str, fix=False, log: elog.Logger | None=None) -
         if act.update_deck_cards is not None:
             for dc in act.update_deck_cards:
                 deck_name = deckdb.get_one(db_filename, dc.deck_id).name
+
+                #TODO: repro this part bc logging seems a bit broken
 
                 deck_card_log = card_log.with_fields(deck_id=dc.deck_id, deck_name=deck_name)
 
