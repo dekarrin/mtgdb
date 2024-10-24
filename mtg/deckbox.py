@@ -3,7 +3,7 @@ import sys
 
 from typing import List
 
-from . import cardutil, scryfall, cio, get_editions
+from . import cardutil, scryfall, cio, elog, get_editions
 from .db import carddb, editiondb, DBError
 from .errors import UserCancelledError, DataConflictError
 from .types import Card, DeckChangeRecord, CardWithUsage
@@ -43,10 +43,13 @@ class UpdateCounts:
         )
 
 
-def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True) -> UpdateCounts | None:
+def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True, log: elog.Logger | None=None) -> UpdateCounts | None:
     """
     Return an UpdateCounts struct, or None if there were no changes.
     """
+
+    if log is None:
+        log = elog.get(__name__)
 
     new_cards_data = parse_deckbox_csv(csv_filename)
     drop_unused_fields(new_cards_data)
@@ -74,6 +77,8 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True) 
             scryfall_id=data['scryfall_id']
         )
         new_cards.append(c)
+
+    new_cards = dedupe_cards(new_cards, log=log)
     
     # then pull everyfin from the db
     existing_cards = carddb.get_all(db_filename)
@@ -205,9 +210,54 @@ class ScryfallIDUpdate:
     def __init__(self, card: Card, old_scryfall_id: str):
         self.card = card
         self.old_scryfall_id = old_scryfall_id
+
+
+def dedupe_cards(cards: list[Card], log: elog.Logger | None=None) -> list[Card]:
+    """
+    Return a list of cards with duplicate cards joined into single cards with
+    the same total count. Assumes we are reading from deckbox cards, and
+    considers the appropriate properties for dedupe purposes (all but count and
+    id).
+    """
+    if log is None:
+        log = elog.get(__name__)
+
+    def dedupe_props(c: Card) -> tuple:
+        return (
+            c.name,
+            c.edition,
+            c.tcg_num,
+            c.condition,
+            c.language,
+            c.foil,
+            c.signed,
+            c.artist_proof,
+            c.altered_art,
+            c.misprint,
+            c.promo,
+            c.textless,
+            c.printing_id,
+            c.printing_note,
+            c.scryfall_id
+        )
     
-# returns the set of de-duped (brand-new) card listings and the set of those that difer only in
-# count.
+    seen_cards = {}
+    ordered_keys = []
+
+    for c in cards:
+        key = dedupe_props(c)
+        if key in seen_cards:
+            seen_cards[key].count += c.count
+            log.debug("Joined counts for duplicate card entry %s in imported CSV; new count is %d", str(c), seen_cards[key].count)
+        else:
+            seen_cards[key] = c
+            ordered_keys.append(key)
+
+    return [seen_cards[k] for k in ordered_keys]
+
+    
+# returns the set of card listings de-duped against inventory as well as any
+# changes that need to be made to existing cards.
 # TODO: due to nested card check this is O(n^2) and could be improved to O(n) by just doing a lookup of each card
 # which is already implemented for purposes of deck importing.
 def analyze_changes(db_filename: str, importing: list[Card], existing: list[CardWithUsage]) -> tuple[list[Card], list[ScryfallIDUpdate], list[CountUpdate], list[DeckChangeRecord], list[DeckChangeRecord], list[DeckChangeRecord]]:
