@@ -140,7 +140,7 @@ def import_csv(db_filename: str, csv_filename: str, confirm_changes: bool=True, 
         if len(count_updates) > 0:
             print("Update counts:")
             for upd8 in count_updates:
-                print("{:d}x -> {:d}x {:s}".format(upd8.old_count, upd8.card.count, str(card)))
+                print("{:d}x -> {:d}x {:s}".format(upd8.old_count, upd8.card.count, str(upd8.card)))
             print("")
 
         if len(deck_removals) > 0:
