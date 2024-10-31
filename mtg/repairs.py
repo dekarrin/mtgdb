@@ -142,6 +142,9 @@ def scan_duplicates(db_filename: str, fix=False, log: elog.Logger | None=None) -
                 # add all of the counts to the canonical one
                 new_count = canonical_dc.deck_count + dc.deck_count
                 new_wl_count = canonical_dc.deck_wishlist_count + dc.deck_wishlist_count
+                import pprint
+                deck_card_log.debug(pprint.pformat(canonical_dc.deck_wishlist_count))
+                deck_card_log.debug(pprint.pformat(dc.deck_wishlist_count))
                 deckdb.update_card_counts(
                     db_filename,
                     canonical_dc.deck_id,
