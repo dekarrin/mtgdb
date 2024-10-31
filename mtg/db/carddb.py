@@ -272,6 +272,16 @@ def update_count(db_filename: str, cid: int, count: int | None=None, by_amount: 
     return new_count
 
 
+def update_foil(db_filename: str, cid: int, foil: bool):
+    update_data = (foil, cid)
+
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute('UPDATE inventory SET foil=? WHERE id=?', update_data)
+    con.commit()
+    con.close()
+
+
 def update_condition(db_filename: str, cid: int, cond: str):
     if cond not in ['M', 'NM', 'LP', 'MP', 'HP', 'P']:
         raise ValueError("invalid condition {!r}".format(cond))

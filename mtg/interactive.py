@@ -519,6 +519,7 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
         actions = [
             ('D', 'DECKS', 'View decks this card is in'),
             ('C', 'COND', 'Set card condition'),
+            ('F', 'FOIL', 'Set foil/non-foil'),
             ('A', 'ADD', 'Add owned count'),
             ('R', 'REMOVE', 'Remove owned count'),
             ('X', 'EXIT', 'Exit')
@@ -541,6 +542,8 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
             # if user just cleared the entry, break out
             if card is None:
                 break
+        elif action == 'FOIL':
+            card = card_set_foil(s, card, scryfall_data)
         elif action == 'EXIT':
             break
 
@@ -578,6 +581,37 @@ def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
             break
 
 
+def card_set_foil(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage | None:
+    logger = s.log.with_fields(action='set-foil', card_id=c.id)
+
+    print(card_infobox(c, scryfall_data, box_card=True))
+    if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
+        logger.info("Action canceled by user at initial confirmation")
+        return c
+    
+    not_text = ""
+    if not c.foil:
+        not_text = "*NOT* "
+    print("Card is {:s}currently marked as foil".format(not_text))
+
+    other = "foil" if not c.foil else "non-foil"
+    if not cio.confirm("Set as {:s}?".format(other), one_line=True):
+        logger.info("Action canceled by user")
+        return c
+
+    try:
+        carddb.update_foil(s.db_filename, c.id, not c.foil)
+    except DataConflictError as e:
+        logger.exception("Data conflict error occurred")
+        print("ERROR: {!s}".format(e))
+        cio.pause()
+        return c
+    # TODO: verify all dataconflicterrors do correct return path also verify cio.pause()s are present
+
+    updated = carddb.get_one(s.db_filename, c.id)
+    return updated
+
+
 def card_remove_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage | None:
     logger = s.log.with_fields(action='decrement-inven', card_id=c.id)
 
@@ -598,6 +632,7 @@ def card_remove_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCard
     except DataConflictError as e:
         logger.exception("Data conflict error occurred")
         print("ERROR: {!s}".format(e))
+        return c
     except UserCancelledError as e:
         logger.info("Action canceled by user")
         return c
@@ -661,6 +696,7 @@ def card_add_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
     except DataConflictError as e:
         logger.exception("Data conflict error occurred")
         print("ERROR: {!s}".format(e))
+        return c
     except UserCancelledError as e:
         logger.info("Action canceled by user")
         return c
@@ -754,6 +790,7 @@ def cards_add(s: Session) -> Card | None:
     except DataConflictError as e:
         logger.exception("Data conflict error occurred")
         print("ERROR: {!s}".format(e))
+        return None
     except UserCancelledError as e:
         logger.info("Action canceled by user")
         return None
