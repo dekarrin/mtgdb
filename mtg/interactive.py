@@ -9,6 +9,8 @@ if os.name != 'nt':
     # IMPORTING HAS SIDE EFFECTS; DO NOT REMOVE
     import readline
 
+import http.client
+
 import textwrap
 
 import traceback
@@ -306,8 +308,14 @@ def retrieve_scryfall_data(s: Session, card: Card, logger: elog.Logger | None=No
     except scryfallops.APIError as e:
         if api_waited:
             cio.clear()
-        logger.warning("Scryfall API call failed", exc_info=True)
-        print("WARN: Get Scryfall Data: {!s}".format(e))
+        logger.warning("Scryfall API call returned error", exc_info=True)
+        print("WARN: Scryfall API returned an error: {!s}".format(e))
+        cio.pause()
+    except ConnectionError as e:
+        if api_waited:
+            cio.clear()
+        logger.warning("Could not connect to Scryfall API", exc_info=True)
+        print("WARN: calling Scryfall API failed: {!s}".format(e))
         cio.pause()
     else:
         if api_waited:
