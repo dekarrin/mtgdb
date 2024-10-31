@@ -108,6 +108,7 @@ def scan_duplicates(db_filename: str, fix=False, log: elog.Logger | None=None) -
     log.debug("Performing fixes...")
 
     # okay, perform actual fixes
+    # TODO: concept of transactions and make this all be one
     for act in fix_actions:
         card_log = log.with_fields(card_id=act.canonical_card.id, card_name=act.canonical_card.name)
 
@@ -142,9 +143,6 @@ def scan_duplicates(db_filename: str, fix=False, log: elog.Logger | None=None) -
                 # add all of the counts to the canonical one
                 new_count = canonical_dc.deck_count + dc.deck_count
                 new_wl_count = canonical_dc.deck_wishlist_count + dc.deck_wishlist_count
-                import pprint
-                deck_card_log.debug(pprint.pformat(canonical_dc.deck_wishlist_count))
-                deck_card_log.debug(pprint.pformat(dc.deck_wishlist_count))
                 deckdb.update_card_counts(
                     db_filename,
                     canonical_dc.deck_id,

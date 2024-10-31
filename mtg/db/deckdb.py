@@ -127,9 +127,7 @@ def get_one_card(db_filename: str, did: int, cid: int) -> DeckCard:
     rows = []
     for r in cur.execute(sql_select_deck_card, (cid, did)):
         card = util.card_row_to_card(r[4:])
-
-        # TODO: MAJOR ERROR: deck_wishlist_count is being set to list
-        deck_card = DeckCard(card, deck_id=r[1], deck_count=r[2], deck_wishlist_count=[3])
+        deck_card = DeckCard(card, deck_id=r[1], deck_count=r[2], deck_wishlist_count=r[3])
         rows.append(deck_card)
     con.close()
 
