@@ -252,12 +252,15 @@ def cards_master_menu(s: Session):
         logger.debug("Entered menu")
 
         cards = carddb.find(s.db_filename, None, None, None)
+        total = sum([c.count for c in cards])
+        wl_total = sum([sum([u.wishlist_count for u in c.usage]) for c in cards])
 
         # sort them
         cards = sorted(cards, key=lambda c: (c.edition, c.tcg_num))
 
         cat_items = [(c, "{:d}x {:s}".format(c.count, str(c))) for c in cards]
-        selection = cio.catalog_select("MANAGE CARDS", items=cat_items, extra_options=extra_actions, include_create=False, filters=filters, state=s.inven_cat_state)
+        menu_title = "MANAGE CARDS - {:d} owned, {:d} WL".format(total, wl_total)
+        selection = cio.catalog_select(menu_title, items=cat_items, extra_options=extra_actions, include_create=False, filters=filters, state=s.inven_cat_state)
 
         action = selection[0]
         card: CardWithUsage = selection[1]
