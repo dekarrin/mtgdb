@@ -282,7 +282,7 @@ def export_csv(db_filename: str, path: str, filename_pattern: str, decks=None):
     for deck in deck_listings:
         cur_date = datetime.datetime.now().strftime('%Y-%m-%d')
         filename = filename_pattern.format(DECK=deck.name, STATE=deck.state, DATE=cur_date)
-        file_path = os.path.join(path, filename.replace(' ', '_'))
+        file_path = os.path.join(path, safe_filename(filename))
 
         with open(file_path, 'w', newline='') as csvfile:
             csvw = csv.writer(csvfile)
@@ -334,3 +334,14 @@ def export_csv(db_filename: str, path: str, filename_pattern: str, decks=None):
     s_card = 's' if cumulative_cards != 1 else ''
 
     print("Exported {:d} deck{:s} with {:d} total card{:s} to {:s}".format(cumulative_decks, s_deck, cumulative_cards, s_card, path))
+
+
+def safe_filename(s: str) -> str:
+    safe_name = ''
+    for c in s:
+        if c.isalnum() or c in ('-', '_', '.'):
+            safe_name += c
+        else:
+            safe_name += '_'
+
+    return safe_name
