@@ -609,6 +609,9 @@ def card_set_foil(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData 
     # TODO: verify all dataconflicterrors do correct return path also verify cio.pause()s are present
 
     updated = carddb.get_one(s.db_filename, c.id)
+
+    logger.with_fields(**card_mutation_fields(updated, 'update-foil')).info("Set card as {:s}".format(other))
+
     return updated
 
 
@@ -1618,6 +1621,9 @@ def card_mutation_fields(c: Card, operation: str) -> dict[str, Any]:
 
     if operation == 'update-condition':
         fields['condition'] = c.condition
+
+    if operation == 'update-foil':
+        fields['foil'] = c.foil
     
     return fields
 
