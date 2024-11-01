@@ -521,6 +521,7 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
             ('C', 'COND', 'Set card condition'),
             ('F', 'FOIL', 'Set foil/non-foil'),
             ('A', 'ADD', 'Add owned count'),
+            ('O', 'ONLY', 'View only the card with all text included'),
             ('R', 'REMOVE', 'Remove owned count'),
             ('X', 'EXIT', 'Exit')
         ]
@@ -544,8 +545,103 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
                 break
         elif action == 'FOIL':
             card = card_set_foil(s, card, scryfall_data)
+        elif action == 'ONLY':
+            show_card_large_view(s, card, scryfall_data)
         elif action == 'EXIT':
             break
+
+
+def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None):
+    logger = s.log.with_fields(menu='card-large-view', card_id=card.id)
+
+    cio.clear()
+
+    if scryfall_data is None:
+        scryfall_data = retrieve_scryfall_data(s, card)
+        if scryfall_data is not None and card.scryfall_id is None:
+            card.scryfall_id = scryfall_data.id
+        
+        if scryfall_data is None:
+            logger.error("could not retrieve card data from Scryfall")
+            print("ERROR: could not retrieve card data from Scryfall")
+            cio.pause()
+            return
+
+    view_card_in_large_view(card, scryfall_data)
+
+
+
+def view_card_in_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData):
+    # TODO: combine most of this func with card_infobox
+
+    if scryfall_data is None:
+        raise ValueError("scryfall_data is required for large view")
+    
+    text_wrap_width = 70
+    face_num = 0
+
+    options = [
+        ('X', 'EXIT', 'Exit')
+    ]
+
+    if len(scryfall_data.faces) > 1:
+        options.append(('F', 'FLIP', 'Flip to next face'))
+
+    while True:
+        cio.clear()
+        card_text = '(Single-faced)\n'
+        if len(scryfall_data.faces) > 1:
+            card_text = '(Face {:d} of {:d})\n'.format(face_num + 1, len(scryfall_data.faces))
+        
+        cbox = ''
+
+        f = scryfall_data.faces[face_num]
+
+        cbox += f.name
+        amt = text_wrap_width - len(f.name)
+        cost = f.cost
+        spaces = amt - len(cost)
+        cbox += "{:s}{:s}\n".format(' ' * spaces, cost)
+
+        if len(c.special_print_items) > 0:
+            cbox += "({:s})\n".format(c.special_print_items)
+        else:
+            cbox += "\n"
+
+        cbox += "{:s}\n".format(f.type)
+
+        cbox += "\n"
+
+        if f.text is not None and len(f.text) > 0:
+            text = wrap_preformatted_text(f.text, text_wrap_width)
+            cbox += "{:s}\n".format(text)
+        
+        cbox += "\n"
+
+        cbox += "{:s}".format(c.cardnum)
+        if f.power is not None and len(f.power) > 0:
+            amt = text_wrap_width - len(c.cardnum)
+            st = "{:s}/{:s}".format(f.power, f.toughness)
+            spaces = amt - len(st)
+            cbox += "{:s}{:s}\n".format(' ' * spaces, st)
+
+        card_text += box_text(cbox, text_wrap_width)
+        print(card_text)
+
+        action = cio.select(None, non_number_choices=options)
+
+        # TODO: logger
+
+        if action == 'EXIT':
+            break
+        elif action == 'FLIP':
+            face_num += 1
+            face_num %= len(scryfall_data.faces)
+        else:
+            # should never get here
+            print("Unknown option")
+            cio.pause()
+
 
 
 def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None):
