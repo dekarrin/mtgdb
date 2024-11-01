@@ -1597,7 +1597,7 @@ def card_cat_filters(with_usage: bool) -> list[cio.CatFilter]:
     filters = [
         cio.CatFilter('name', lambda c, v: v.lower() in c.name.lower()),
         cio.CatFilter('edition', lambda c, v: v.lower() in c.edition.lower()),
-        cio.CatFilter('cardnum', lambda c, v: c.cardnum.startswith(v.upper()))
+        cio.CatFilter('cardnum', lambda c, v: v.upper() in c.cardnum)
     ]
 
     if with_usage:
