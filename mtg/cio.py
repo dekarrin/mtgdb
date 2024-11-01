@@ -498,8 +498,8 @@ def catalog_select(
                     continue
                 else:
                     del active_filters[filter_key]
-
-            active_filters[filter_key] = filter_expr
+            else:
+                active_filters[filter_key] = filter_expr
 
             # update pages to be filtered
             pages, page_num = apply_filters(items, page_num, active_filters)
