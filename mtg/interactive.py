@@ -356,21 +356,67 @@ def limit_lines(text: str, max_lines: int, cont='...', max_width: int=None) -> s
     return '\n'.join(lines)
 
 
-def box_text(text: str, text_width: int, pad_sides: int=1) -> str:
+class BoxChars:
+    """
+    Holds characters for drawing boxes. Chars may be specified by their names at
+    initialization, or by giving one or more in single string to 'charset', in
+    following order: horz, vert, top-left, top-right, bottom-left, bottom-right.
+    Whatever is not specified in charset will be taken from the other arguments.
+    """
+    def __init__(self, charset: str | None='═║╔╗╝╚', horz: str='═', vert: str='║', upper_left: str='╔', upper_right: str='╗', lower_right: str='╝', lower_left: str='╚'):
+        if charset is not None:
+            if len(charset) > 6:
+                raise ValueError("charset must be a string of length 6 or less")
+            if len(charset) > 0:
+                horz = charset[0]
+            if len(charset) > 1:
+                vert = charset[1]
+            if len(charset) > 2:
+                upper_left = charset[2]
+            if len(charset) > 3:
+                upper_right = charset[3]
+            if len(charset) > 4:
+                lower_right = charset[4]
+            if len(charset) > 5:
+                lower_left = charset[5]
+
+        self.horz = horz
+        self.vert = vert
+        self.upper_left = upper_left
+        self.lower_left = lower_left
+        self.upper_right = upper_right
+        self.lower_right = lower_right
+
+    def top_bar(self, inner_width: int) -> str:
+        return self.upper_left + self.horz * inner_width + self.upper_right
+    
+    def bottom_bar(self, inner_width: int) -> str:
+        return self.lower_left + self.horz * inner_width + self.lower_right
+    
+    def line(self, text: str, text_width: int, pad_sides: int=1) -> str:
+        pad = max(pad_sides, 0)
+        add_amt = text_width - len(text)
+        line = self.vert + (" " * pad) + text + (" " * add_amt) + (" " * pad) + self.vert
+        return line
+
+
+def box_text(text: str, text_width: int, pad_sides: int=1, chars: BoxChars | str | None=None) -> str:
+    if chars is None:
+        chars = BoxChars()
+    elif isinstance(chars, str):
+        if len(chars) > 6:
+            raise ValueError("chars must be a BoxChars instance or a string of length 6 or less")
+        chars = BoxChars(horz=chars, vert=chars)
+
     pad = max(pad_sides, 0)
     inner_width = text_width + (2 * (pad))
 
-    top_bar = "╔" + "═" * inner_width + "╗"
-    bot_bar = "╚" + "═" * inner_width + "╝"
-
     lines = text.splitlines()
     boxed = []
-    boxed.append(top_bar)
+    boxed.append(chars.top_bar(inner_width))
     for line in lines:
-        add_amt = text_width - len(line)
-        line = "║" + (" " * pad) + line + (" " * add_amt) + (" " * pad) + "║"
-        boxed.append(line)
-    boxed.append(bot_bar)
+        boxed.append(chars.line(line, text_width, pad_sides))
+    boxed.append(chars.bottom_bar(inner_width))
 
     return '\n'.join(boxed)
 
@@ -570,7 +616,7 @@ def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: Scryfal
     card_large_view(card, scryfall_data)
 
 
-def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData):
+def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True):
     # TODO: encapsulate common functionality between this and infobox.
 
     if scryfall_data is None:
@@ -578,6 +624,7 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData):
     
     text_wrap_width = 70
     face_num = 0
+    round_box_chars = BoxChars(charset='─│╭╮╯╰')
 
     options = [
         ('X', 'EXIT', 'Exit')
@@ -590,9 +637,9 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData):
         cio.clear()
         card_text = 'Scryfall ID: {:s}\n'.format(scryfall_data.id)
         if len(scryfall_data.faces) > 1:
-            card_text += '(Face {:d} of {:d})\n'.format(face_num + 1, len(scryfall_data.faces))
+            card_text += 'Face {:d} of {:d}\n'.format(face_num + 1, len(scryfall_data.faces))
         else:
-            card_text += '(Single-faced)\n'
+            card_text += 'Single-faced\n'
         
         cbox = ''
 
@@ -609,7 +656,7 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData):
         else:
             cbox += "\n"
 
-        cbox += "{:s}\n".format(f.type)
+        cbox += box_text(f.type, text_wrap_width-2, pad_sides=0, chars=round_box_chars) + '\n'
 
         cbox += "\n\n"
 
