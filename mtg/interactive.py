@@ -557,7 +557,7 @@ def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: Scryfal
     cio.clear()
 
     if scryfall_data is None:
-        scryfall_data = retrieve_scryfall_data(s, card)
+        scryfall_data = retrieve_scryfall_data(s, card, logger=logger)
         if scryfall_data is not None and card.scryfall_id is None:
             card.scryfall_id = scryfall_data.id
         
@@ -567,12 +567,11 @@ def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: Scryfal
             cio.pause()
             return
 
-    view_card_in_large_view(card, scryfall_data)
+    card_large_view(card, scryfall_data)
 
 
-
-def view_card_in_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData):
-    # TODO: combine most of this func with card_infobox
+def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData):
+    # TODO: encapsulate common functionality between this and infobox.
 
     if scryfall_data is None:
         raise ValueError("scryfall_data is required for large view")
@@ -589,9 +588,11 @@ def view_card_in_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData):
 
     while True:
         cio.clear()
-        card_text = '(Single-faced)\n'
+        card_text = 'Scryfall ID: {:s}\n'.format(scryfall_data.id)
         if len(scryfall_data.faces) > 1:
-            card_text = '(Face {:d} of {:d})\n'.format(face_num + 1, len(scryfall_data.faces))
+            card_text += '(Face {:d} of {:d})\n'.format(face_num + 1, len(scryfall_data.faces))
+        else:
+            card_text += '(Single-faced)\n'
         
         cbox = ''
 
@@ -610,13 +611,15 @@ def view_card_in_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData):
 
         cbox += "{:s}\n".format(f.type)
 
-        cbox += "\n"
+        cbox += "\n\n"
 
         if f.text is not None and len(f.text) > 0:
             text = wrap_preformatted_text(f.text, text_wrap_width)
             cbox += "{:s}\n".format(text)
         
-        cbox += "\n"
+        cbox += "\n\n"
+
+        cbox += scryfall_data.rarity[0].upper() + '\n'
 
         cbox += "{:s}".format(c.cardnum)
         if f.power is not None and len(f.power) > 0:
@@ -1343,19 +1346,16 @@ def deck_view_card(s: Session, deck: Deck, card: Card):
     logger = s.log.with_fields(action='view-deck-card', deck_id=deck.id, card_id=card.id)
 
     scryfall_data = retrieve_scryfall_data(s, card, logger)
+    if card.scryfall_id is None:
+        card.scryfall_id = scryfall_data.id
 
     if isinstance(card, CardWithUsage):
         usage_card: CardWithUsage = card
     else:
         usage_card = carddb.get_one(s.db_filename, card.id)
-
-    card_info = card_infobox(usage_card, scryfall_data, inven_details=False, title=" ", box_card=True)
-    logger.info("Display card:\n%s", card_info)
     
-    print(deck_infobox(deck))
-    print(card_info)
-
-    cio.pause()
+    logger.info("Display card")
+    card_large_view(usage_card, scryfall_data)
 
 
 def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
@@ -1515,7 +1515,7 @@ def deck_set_state(s: Session, deck: Deck) -> Deck:
     else:
         logger.debug("Changing deck state to %s...", new_state)
         try:
-            deckdb.update_state(s.db_filename, deck.name, deck.state)
+            deckdb.update_state(s.db_filename, deck.name, new_state)
             deck.state = new_state
             print(deck_infobox(deck))
             print("State updated to {:s}".format(deck.state_name()))
