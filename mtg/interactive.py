@@ -640,11 +640,13 @@ def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: Scryfal
             cio.pause()
             return
 
-    card_large_view(s, card, scryfall_data)
+    card_large_view(card, scryfall_data)
 
 
-def card_large_view(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True):
-    logger = s.log.with_fields(action='card-large-view', card_id=c.id)
+def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True):
+    # logger = s.log.with_fields(action='card-large-view', card_id=c.id)
+
+    subboxes=False
 
     # TODO: encapsulate common functionality between this and infobox.
 
@@ -664,11 +666,11 @@ def card_large_view(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
 
     while True:
         cio.clear()
-        card_text = 'Scryfall ID: {:s}\n'.format(scryfall_data.id)
+        face_page = 'Scryfall ID: {:s}\n'.format(scryfall_data.id)
         if len(scryfall_data.faces) > 1:
-            card_text += 'Face {:d} of {:d}\n'.format(face_num + 1, len(scryfall_data.faces))
+            face_page += 'Face {:d} of {:d}\n'.format(face_num + 1, len(scryfall_data.faces))
         else:
-            card_text += 'Single-faced\n'
+            face_page += 'Single-faced\n'
         
         cbox = ''
 
@@ -685,27 +687,35 @@ def card_large_view(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
         
         cbox += above_text
 
-        cbox += box_text(f.type, text_wrap_width-2, pad_sides=0, chars=round_box_chars) + '\n'
-
-        cbox += "\n\n"
-
-        if f.text is not None and len(f.text) > 0:
-            text = wrap_preformatted_text(f.text, text_wrap_width)
-            cbox += "{:s}\n".format(text)
+        if subboxes:
+            cbox += box_text(f.type, text_wrap_width-2, pad_sides=0, chars=round_box_chars) + '\n'
+        else:
+            cbox += f.type + '\n'
         
         cbox += "\n\n"
 
-        cbox += scryfall_data.rarity[0].upper() + '\n'
+        card_text = ''
 
-        cbox += "{:s}".format(c.cardnum)
+        if f.text is not None and len(f.text) > 0:
+            card_text = wrap_preformatted_text(f.text, text_wrap_width)
+            card_text = "{:s}\n".format(card_text)
+            cbox += card_text
+            cbox += "\n\n"
+
+        rarity_line = scryfall_data.rarity[0].upper() + '\n'
+        cbox += rarity_line
+
+        bot_text = c.cardnum
         if f.power is not None and len(f.power) > 0:
             amt = text_wrap_width - len(c.cardnum)
             st = "{:s}/{:s}".format(f.power, f.toughness)
             spaces = amt - len(st)
-            cbox += "{:s}{:s}\n".format(' ' * spaces, st)
+            bot_text += "{:s}{:s}\n".format(' ' * spaces, st)
 
-        card_text += box_text(cbox, text_wrap_width)
-        print(card_text)
+        cbox += bot_text
+
+        face_page += box_text(cbox, text_wrap_width)
+        print(face_page)
 
         action = cio.select(None, non_number_choices=options)
 
@@ -1431,7 +1441,7 @@ def deck_view_card(s: Session, deck: Deck, card: Card):
         usage_card = carddb.get_one(s.db_filename, card.id)
     
     logger.info("Display card")
-    card_large_view(s, usage_card, scryfall_data)
+    card_large_view(usage_card, scryfall_data, subboxes=True)
 
 
 def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:

@@ -141,6 +141,11 @@ def main():
     remove_wish_parser.add_argument('-a', '--amount', help="Specify the amount of the card to remove from the wishlist. Default is 1.", type=int, default=1)
     remove_wish_parser.set_defaults(func=invoke_remove_wish)
 
+    # TODO: this is mostly for debug, flesh out into a full interactive session
+    show_parser = subs.add_parser('show-inven', help="Show a card's details in interactive faces mode. Mainly for debugging large card view")
+    show_parser.add_argument('card', help='Card to show. If all numeric, interpreted as a card ID. If a card number in EDC-123 format, interpreted as a TCG number. Otherwise, interpreted as a card name with partial matching. Card must exist in the inventory.')
+    show_parser.set_defaults(func=invoke_show_inven)
+
     args = parser.parse_args()
 
     if args.version:
@@ -163,8 +168,9 @@ def main():
         print("ERROR: " + str(e), file=sys.stderr)
         log.exception("Command error")
         sys.exit(1)
-    except Exception:
+    except Exception as e:
         log.exception("Error")
+        print("ERROR: " + str(e), file=sys.stderr)
         sys.exit(1)
 
 
@@ -449,6 +455,11 @@ def invoke_remove_wish(args):
     if args.amount < 1:
         raise ArgumentError("amount must be at least 1")
     return decks.remove_from_wishlist(args.db_filename, args.deck, args.card, args.amount)
+
+def invoke_show_inven(args):
+    card = mtg.card_from_cli_arg(args.db_filename, args.card)
+    s = interactive.Session(args.db_filename)
+    interactive.show_card_large_view(s, card, None)
 
 
 if __name__ == "__main__":
