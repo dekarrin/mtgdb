@@ -646,8 +646,6 @@ def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: Scryfal
 def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True):
     # logger = s.log.with_fields(action='card-large-view', card_id=c.id)
 
-    subboxes=False
-
     # TODO: encapsulate common functionality between this and infobox.
 
     if scryfall_data is None:
@@ -656,6 +654,7 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
     text_wrap_width = 70
     face_num = 0
     round_box_chars = BoxChars(charset='─│╭╮╯╰')
+    square_box_chars = BoxChars(charset='─│┌┐┘└')
 
     options = [
         ('X', 'EXIT', 'Exit')
@@ -684,28 +683,49 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
             above_text += "({:s})\n".format(c.special_print_items)
         else:
             above_text += "\n"
-
-        # SUBBOX SWAP
-        above_text = box_text(above_text, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
+        
+        if subboxes:
+            above_text = box_text(above_text, text_wrap_width-2, pad_sides=0, chars=round_box_chars, draw_sides=['r', 'b', 'l']) + '\n'
+        else:
+            above_text = box_text(above_text, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
         
         cbox += above_text
 
         if subboxes:
-            cbox += box_text(f.type, text_wrap_width-2, pad_sides=0, chars=round_box_chars) + '\n'
+            type_text = box_text(f.type, text_wrap_width-2, pad_sides=0, chars=round_box_chars) + '\n'
+
+            # hack in the nice looking t-chars in the last line
+            type_text_lines = type_text.splitlines()
+            type_text_lines[-1] = type_text_lines[-1][0] + '┬' + type_text_lines[-1][2:-2] + '┬' + type_text_lines[-1][-1]
+            type_text = '\n'.join(type_text_lines) + '\n'
+
+            cbox += type_text
         else:
             cbox += box_text(f.type, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
         
-        cbox += "\n\n"
+        if not subboxes:
+            cbox += "\n\n"
 
         card_text = ''
 
         if f.text is not None and len(f.text) > 0:
-            card_text = wrap_preformatted_text(f.text, text_wrap_width)
+            card_text_wrap_amt = text_wrap_width - 2
+            if subboxes:
+                card_text_wrap_amt -= 2
+
+            card_text = wrap_preformatted_text(f.text, card_text_wrap_amt)
             card_text = "{:s}\n".format(card_text)
-            card_text += "\n\n"
+
+            if not subboxes:
+                card_text += "\n\n"
 
             # SUBBOX SWAP
-            card_text = box_text(card_text, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
+            if subboxes:
+                card_text = box_text(card_text, text_wrap_width-4, pad_sides=0, chars=square_box_chars, draw_sides=['r', 'b', 'l']) + '\n'
+                # do it again for the boxed
+                card_text = box_text(card_text, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
+            else:
+                card_text = box_text(card_text, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
 
             cbox += card_text
 
@@ -728,7 +748,15 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
 
         cbox += bot_text
 
-        face_page += box_text(cbox, text_wrap_width, pad_sides=0)
+        cbox_boxed = box_text(cbox, text_wrap_width, pad_sides=0)
+
+        if subboxes:
+            # hack in the nice looking t-chars in the first line
+            cbox_boxed_lines = cbox_boxed.splitlines()
+            cbox_boxed_lines[0] = cbox_boxed_lines[0][0] + '╤' + cbox_boxed_lines[0][2:-2] + '╤' + cbox_boxed_lines[0][-1]
+            cbox_boxed = '\n'.join(cbox_boxed_lines) + '\n'
+
+        face_page += cbox_boxed
         print(face_page)
 
         action = cio.select(None, non_number_choices=options)
