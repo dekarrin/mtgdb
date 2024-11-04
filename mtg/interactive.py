@@ -392,15 +392,32 @@ class BoxChars:
     
     def bottom_bar(self, inner_width: int) -> str:
         return self.lower_left + self.horz * inner_width + self.lower_right
+
+
+def box_text(text: str, text_width: int, pad_sides: int=1, chars: BoxChars | str | None=None, draw_sides: list[str] | None=['top', 'bottom', 'left', 'right']) -> str:
+    if draw_sides is None:
+        draw_sides = []
+
+    checked_draw = set()
+    for side in draw_sides:
+        if side.lower() in ['top', 'bottom', 'left', 'right']:
+            checked_draw.add(side.lower())
+        elif side.lower() in ['t', 'u', 'up']:
+            checked_draw.add('top')
+        elif side.lower() in ['b', 'bot', 'd', 'down']:
+            checked_draw.add('bottom')
+        elif side.lower() == 'l':
+            checked_draw.add('left')
+        elif side.lower() == 'r':
+            checked_draw.add('right')
+        else:
+            raise ValueError("unknown side {:s}".format(side))
     
-    def line(self, text: str, text_width: int, pad_sides: int=1) -> str:
-        pad = max(pad_sides, 0)
-        add_amt = text_width - len(text)
-        line = self.vert + (" " * pad) + text + (" " * add_amt) + (" " * pad) + self.vert
-        return line
+    draw_top = 'top' in checked_draw
+    draw_bot = 'bottom' in checked_draw
+    draw_left = 'left' in checked_draw
+    draw_right = 'right' in checked_draw
 
-
-def box_text(text: str, text_width: int, pad_sides: int=1, chars: BoxChars | str | None=None) -> str:
     if chars is None:
         chars = BoxChars()
     elif isinstance(chars, str):
@@ -413,10 +430,20 @@ def box_text(text: str, text_width: int, pad_sides: int=1, chars: BoxChars | str
 
     lines = text.splitlines()
     boxed = []
-    boxed.append(chars.top_bar(inner_width))
+
+    left_bar = chars.vert if draw_left else ''
+    right_bar = chars.vert if draw_right else ''
+
+    if draw_top:
+        boxed.append(chars.top_bar(inner_width))
+    
     for line in lines:
-        boxed.append(chars.line(line, text_width, pad_sides))
-    boxed.append(chars.bottom_bar(inner_width))
+        add_amt = text_width - len(text)
+        line = left_bar + (" " * pad) + text + (" " * add_amt) + (" " * pad) + right_bar
+        boxed.append(line)
+
+    if draw_bot:
+        boxed.append(chars.bottom_bar(inner_width))
 
     return '\n'.join(boxed)
 
@@ -645,16 +672,17 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
 
         f = scryfall_data.faces[face_num]
 
-        cbox += f.name
         amt = text_wrap_width - len(f.name)
-        cost = f.cost
-        spaces = amt - len(cost)
-        cbox += "{:s}{:s}\n".format(' ' * spaces, cost)
+        spaces = amt - len(f.cost)
+        above_text = "{:s}{:s}{:s}\n".format(f.name, ' ' * spaces, f.cost)
 
         if len(c.special_print_items) > 0:
-            cbox += "({:s})\n".format(c.special_print_items)
+            above_text += "({:s})\n".format(c.special_print_items)
         else:
-            cbox += "\n"
+            above_text += "\n"
+
+        above_text = box_text(above_text, text_wrap_width, pad_sides=1, draw_sides=None)
+        cbox += above_text
 
         cbox += box_text(f.type, text_wrap_width-2, pad_sides=0, chars=round_box_chars) + '\n'
 
