@@ -438,8 +438,8 @@ def box_text(text: str, text_width: int, pad_sides: int=1, chars: BoxChars | str
         boxed.append(chars.top_bar(inner_width))
     
     for line in lines:
-        add_amt = text_width - len(text)
-        line = left_bar + (" " * pad) + text + (" " * add_amt) + (" " * pad) + right_bar
+        add_amt = text_width - len(line)
+        line = left_bar + (" " * pad) + line + (" " * add_amt) + (" " * pad) + right_bar
         boxed.append(line)
 
     if draw_bot:
@@ -640,10 +640,12 @@ def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: Scryfal
             cio.pause()
             return
 
-    card_large_view(card, scryfall_data)
+    card_large_view(s, card, scryfall_data)
 
 
-def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True):
+def card_large_view(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True):
+    logger = s.log.with_fields(action='card-large-view', card_id=c.id)
+
     # TODO: encapsulate common functionality between this and infobox.
 
     if scryfall_data is None:
@@ -680,8 +682,7 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
             above_text += "({:s})\n".format(c.special_print_items)
         else:
             above_text += "\n"
-
-        above_text = box_text(above_text, text_wrap_width, pad_sides=1, draw_sides=None)
+        
         cbox += above_text
 
         cbox += box_text(f.type, text_wrap_width-2, pad_sides=0, chars=round_box_chars) + '\n'
@@ -1430,7 +1431,7 @@ def deck_view_card(s: Session, deck: Deck, card: Card):
         usage_card = carddb.get_one(s.db_filename, card.id)
     
     logger.info("Display card")
-    card_large_view(usage_card, scryfall_data)
+    card_large_view(s, usage_card, scryfall_data)
 
 
 def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
