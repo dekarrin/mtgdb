@@ -676,7 +676,7 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
 
         f = scryfall_data.faces[face_num]
 
-        amt = text_wrap_width - len(f.name)
+        amt = text_wrap_width - 2 - len(f.name)
         spaces = amt - len(f.cost)
         above_text = "{:s}{:s}{:s}\n".format(f.name, ' ' * spaces, f.cost)
 
@@ -684,13 +684,16 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
             above_text += "({:s})\n".format(c.special_print_items)
         else:
             above_text += "\n"
+
+        # SUBBOX SWAP
+        above_text = box_text(above_text, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
         
         cbox += above_text
 
         if subboxes:
             cbox += box_text(f.type, text_wrap_width-2, pad_sides=0, chars=round_box_chars) + '\n'
         else:
-            cbox += f.type + '\n'
+            cbox += box_text(f.type, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
         
         cbox += "\n\n"
 
@@ -699,22 +702,33 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
         if f.text is not None and len(f.text) > 0:
             card_text = wrap_preformatted_text(f.text, text_wrap_width)
             card_text = "{:s}\n".format(card_text)
+            card_text += "\n\n"
+
+            # SUBBOX SWAP
+            card_text = box_text(card_text, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
+
             cbox += card_text
-            cbox += "\n\n"
 
         rarity_line = scryfall_data.rarity[0].upper() + '\n'
+
+        # SUBBOX SWAP
+        rarity_line = box_text(rarity_line, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
+
         cbox += rarity_line
 
         bot_text = c.cardnum
         if f.power is not None and len(f.power) > 0:
-            amt = text_wrap_width - len(c.cardnum)
+            amt = text_wrap_width - 2 - len(c.cardnum)
             st = "{:s}/{:s}".format(f.power, f.toughness)
             spaces = amt - len(st)
             bot_text += "{:s}{:s}\n".format(' ' * spaces, st)
 
+        # SUBBOX SWAP
+        bot_text = box_text(bot_text, text_wrap_width-2, pad_sides=1, draw_sides=None) + '\n'
+
         cbox += bot_text
 
-        face_page += box_text(cbox, text_wrap_width)
+        face_page += box_text(cbox, text_wrap_width, pad_sides=0)
         print(face_page)
 
         action = cio.select(None, non_number_choices=options)
