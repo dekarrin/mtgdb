@@ -214,6 +214,7 @@ def db_fixes_menu(s: Session):
 
     fix_actions = [
         ('dedupe', 'Deduplicate inventory entries')
+        ('clear-scryfall', 'Clear all scryfall data')
     ]
 
     letter_items = [
@@ -232,6 +233,8 @@ def db_fixes_menu(s: Session):
 
         if action == 'dedupe':
             fix_duplicate_inventory_entires(s)
+        elif action == 'clear-scryfall':
+            clear_scryfall_cache(s)
         elif action == 'exit':
             break
         else:
@@ -1737,6 +1740,39 @@ def fix_duplicate_inventory_entires(s: Session):
     maint.merge_duplicates(s.db_filename, apply=True, log=logger)
     logger.debug("Fixes complete")
     print("Done! Fixes applied")
+    cio.pause()
+
+
+def clear_scryfall_cache(s: Session):
+    logger = s.log.with_fields(action='clear-scryfall')
+    
+    reset_ids = cio.confirm("Clear scryfall IDs from cards as well?")
+
+    print("Scanning for existing scryfall data entries...")
+    logger.info("Scanning for existing scryfall data entries...")
+    affected, drops = maint.reset_scryfall_data(s.db_filename, apply=False, reset_ids=reset_ids, log=logger)
+
+    if len(affected) == 0:
+        extra_msg = ''
+        if reset_ids:
+            extra_msg = " and no cards with scryfall IDs set"
+        print("Database has no scryfall data entries" + extra_msg)
+        logger.info("Scan complete; nothing to clear")
+        cio.pause()
+        return
+    
+    extra_msg = ''
+    if reset_ids:
+        extra_msg = " and {:d} cards with orphaned scryfall IDs".format(len(affected)-drops)
+    print("Found {:d} scryfall data entries".format(len(affected)) + extra_msg)
+    if not cio.confirm("Clear data?"):
+        logger.info("Action canceled: user declined confirmation prompt")
+        return
+    
+    logger.debug("Re-scanning and clearing...")
+    maint.reset_scryfall_data(s.db_filename, apply=True, reset_ids=reset_ids, log=logger)
+    logger.debug("Clearing complete")
+    print("Done! Scryfall data cleared")
     cio.pause()
 
 
