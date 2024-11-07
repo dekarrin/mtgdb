@@ -220,6 +220,6 @@ def reset_scryfall_data(db_filename: str, apply: bool=False, reset_ids: bool=Fal
     if reset_ids:
         for cid in cards_with_orphan_scryfall_ids:
             carddb.update_scryfall_id(db_filename, cid, None)
-            log.debug("Removed scryfall_id for card ID {:d}".format(c.id))
+            log.debug("Removed scryfall_id for card ID {:d}".format(cid))
 
     return (sf_data_cards + cards_with_orphan_scryfall_ids, drop_count)

@@ -213,7 +213,7 @@ def db_fixes_menu(s: Session):
     logger = s.log.with_fields(menu='fixes')
 
     fix_actions = [
-        ('dedupe', 'Deduplicate inventory entries')
+        ('dedupe', 'Deduplicate inventory entries'),
         ('clear-scryfall', 'Clear all scryfall data')
     ]
 
@@ -1764,7 +1764,7 @@ def clear_scryfall_cache(s: Session):
     extra_msg = ''
     if reset_ids:
         extra_msg = " and {:d} cards with orphaned scryfall IDs".format(len(affected)-drops)
-    print("Found {:d} scryfall data entries".format(len(affected)) + extra_msg)
+    print("Found {:d} scryfall data entries".format(drops) + extra_msg)
     if not cio.confirm("Clear data?"):
         logger.info("Action canceled: user declined confirmation prompt")
         return

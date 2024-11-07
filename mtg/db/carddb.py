@@ -107,7 +107,7 @@ def get_all_with_scryfall_data(db_filename: str) -> list[Tuple[CardWithUsage, Sc
     # sort on order.
     card_rows = [x for x in unique_cards.values()]
     card_rows.sort(key=lambda x: x[0])
-    card_rows = [x[1] for x in rows]
+    card_rows = [x[1] for x in card_rows]
 
     # paste on the scryfall data
     rows = []
