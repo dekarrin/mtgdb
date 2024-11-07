@@ -11,8 +11,10 @@ def init(db_filename):
     # drop old tables
     cur.execute(sql_drop_deck_cards)
     cur.execute(sql_drop_inventory)
+    cur.execute(sql_drop_scryfall_types)
     cur.execute(sql_drop_scryfall_faces)
     cur.execute(sql_drop_scryfall)
+    cur.execute(sql_drop_types)
     cur.execute(sql_drop_editions)
     cur.execute(sql_drop_decks)
     cur.execute(sql_drop_deck_states)
@@ -25,8 +27,10 @@ def init(db_filename):
     cur.execute(sql_create_deck_states)
     cur.execute(sql_create_decks)
     cur.execute(sql_create_editions)
+    cur.execute(sql_create_types)
     cur.execute(sql_create_scryfall)
     cur.execute(sql_create_scryfall_faces)
+    cur.execute(sql_create_scryfall_types)
     cur.execute(sql_create_inventory)
     cur.execute(sql_create_deck_cards)
     
@@ -101,6 +105,17 @@ CREATE TABLE "editions" (
 )
 '''
 
+sql_drop_types = '''
+DROP TABLE IF EXISTS "types";
+'''
+
+sql_create_types = '''
+CREATE TABLE "types" (
+    "name"   TEXT NOT NULL,
+    PRIMARY KEY("name")
+)
+'''
+
 sql_drop_scryfall = '''
 DROP TABLE IF EXISTS "scryfall";
 '''
@@ -133,6 +148,20 @@ CREATE TABLE "scryfall_faces" (
     "text"         TEXT,
     FOREIGN KEY("scryfall_id") REFERENCES "scryfall"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     PRIMARY KEY ("scryfall_id", "index")
+)
+'''
+
+sql_drop_scryfall_types = '''
+DROP TABLE IF EXISTS "scryfall_types";
+'''
+
+sql_create_scryfall_types = '''
+CREATE TABLE "scryfall_types" (
+    "scryfall_id"  TEXT NOT NULL,
+    "type"         TEXT NOT NULL,
+    FOREIGN KEY("scryfall_id") REFERENCES "scryfall"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY("type") REFERENCES "types"("name") ON DELETE NO ACTION ON UPDATE CASCADE,
+    PRIMARY KEY ("scryfall_id", "type")
 )
 '''
 
