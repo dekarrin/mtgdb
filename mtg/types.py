@@ -97,6 +97,73 @@ class ScryfallSet:
     
     def to_edition(self) -> Edition:
         return Edition(self.code, self.name, self.released_at)
+    
+
+def parse_typeline(typeline: str) -> tuple[list[str], list[str], list[str]]:
+    """
+    Return tuple containg list of supertypes, list of types, and list of
+    subtypes."""
+    parts = typeline.split('—')
+    if len(parts) > 2:
+        raise ValueError("Multiple em-dashes (\"—\") in typeline {!r}".format(typeline))
+
+    if len(parts) == 2:
+        supers_and_primaries_str = parts[0].strip()
+        subs_str = parts[1].strip()
+    else:
+        supers_and_primaries_str = parts[0].strip()
+        subs_str = ''
+
+    supertypes = []
+    primary_types = []
+    subtypes = []
+
+    valid_supertypes = [
+        'BASIC',
+        'LEGENDARY',
+        'ONGOING',
+        'SNOW',
+        'WORLD'
+    ]
+
+    valid_primary_types = [
+        'ARTIFACT',
+        'CREATURE',
+        'ENCHANTMENT',
+        'INSTANT',
+        'LAND',
+        'PLANESWALKER',
+        'SORCERY',
+        'TRIBAL',
+        'KINDRED',
+        'BATTLE',
+        'DUNGEON',
+        'PHENOMENON',
+        'PLANE',
+        'SCHEME',
+        'VANGUARD',
+        'CONSPIRACY',
+        'BOUNTY',
+    ]
+
+    # consider all subtypes to be valid because there are hundreds
+
+    for s in supers_and_primaries_str.split():
+        s = s.strip()
+        if s.upper() in valid_supertypes:
+            supertypes.append(s.title())
+        elif s.upper() in valid_primary_types:
+            primary_types.append(s.title())
+        else:
+            raise ValueError("Unknown supertype or primary type {!r}".format(s))
+        
+    if len(subs_str) > 0:
+        for s in subs_str.split():
+            s = s.strip()
+            subtypes.append(s.title())
+    
+    return supertypes, primary_types, subtypes
+    
 
 
 class ScryfallFace:
@@ -108,6 +175,16 @@ class ScryfallFace:
         self.text = text
         self.power = power
         self.toughness = toughness
+
+        self.primary_types: list[str] = []
+        self.subtypes: list[str] = []
+        self.supertypes: list[str] = []
+
+        try:
+            self.supertypes, self.primary_types, self.subtypes = parse_typeline(self.type)
+        except ValueError as e:
+            # TODO: do somefin about this. for now, silently fail.
+            pass
 
     def __lt__(self, other):
         return self.index < other.index
@@ -127,7 +204,7 @@ class ScryfallFace:
             return "{:s} - {:s} {:s}".format(self.name, self.cost, self.type)
         
     def __repr__(self):
-        return "Face(name={!r}, type={!r}, cost={!r}, text={!r}, power={!r}, toughness={!r}, index={!r})".format(self.name, self.type, self.cost, self.text, self.power, self.toughness, self.index)
+        return "Face(index={!r}, name={!r}, type={!r}, cost={!r}, text={!r}, power={!r}, toughness={!r})".format(self.index, self.name, self.type, self.cost, self.text, self.power, self.toughness)
     
     def _identity_tuple(self):
         return (self.index, self.name, self.cost, self.type, self.text, self.power, self.toughness)
