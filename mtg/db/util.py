@@ -53,29 +53,8 @@ def card_row_to_card(r) -> Card:
         textless=int_to_bool(r[13]),
         printing_id=r[14],
         printing_note=none_to_empty_str(r[15]),
-        scryfall_id=r[16]
+        scryfall_id=r[16] if r[16] != '' else None,
     )
-
-
-def card_row_to_dict(r):
-    return {
-        'id': r[0],
-        'count': r[1],
-        'name': r[2],
-        'edition': r[3],
-        'tcg_num': r[4],
-        'condition': r[5],
-        'language': r[6],
-        'foil': int_to_bool(r[7]),
-        'signed': int_to_bool(r[8]),
-        'artist_proof': int_to_bool(r[9]),
-        'altered_art': int_to_bool(r[10]),
-        'misprint': int_to_bool(r[11]),
-        'promo': int_to_bool(r[12]),
-        'textless': int_to_bool(r[13]),
-        'printing_id': r[14],
-        'printing_note': none_to_empty_str(r[15]),
-    }
 
 
 sql_enable_foreign_keys = '''

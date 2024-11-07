@@ -23,7 +23,7 @@ from . import cards as cardops
 from . import decks as deckops
 from . import deckbox as deckboxops
 from . import scryfall as scryfallops
-from . import repairs
+from . import maint
 from .errors import DataConflictError, UserCancelledError
 from .db import schema, deckdb, carddb, DBError, NotFoundError, DBOpenError
 
@@ -120,7 +120,7 @@ def main_menu(s: Session):
         ('B', 'change-db', 'Change the database file being used'),
         ('S', 'show-db', 'Show the database file currently in use'),
         ('I', 'init', 'Initialize the database file'),
-        ('F', 'fixes', 'Perform database fixes'),
+        ('F', 'fixes', 'Perform database fixes and maintenance'),
         ('X', 'exit', 'Exit the program')
     ]
 
@@ -1720,7 +1720,7 @@ def fix_duplicate_inventory_entires(s: Session):
 
     print("Scanning for duplicate inventory entries...")
     logger.info("Scanning for duplicate inventory entries...")
-    fixes = repairs.scan_duplicates(s.db_filename, fix=False, log=logger)
+    fixes = maint.merge_duplicates(s.db_filename, apply=False, log=logger)
 
     if len(fixes) == 0:
         print("Inventory has no duplicate entires")
@@ -1734,7 +1734,7 @@ def fix_duplicate_inventory_entires(s: Session):
         return
     
     logger.debug("Re-scanning and applying fixes...")
-    repairs.scan_duplicates(s.db_filename, fix=True, log=logger)
+    maint.merge_duplicates(s.db_filename, apply=True, log=logger)
     logger.debug("Fixes complete")
     print("Done! Fixes applied")
     cio.pause()

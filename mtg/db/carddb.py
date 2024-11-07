@@ -1,25 +1,28 @@
+from typing import Tuple
+import datetime
+
 from . import util, editiondb, filters
 from .errors import MultipleFoundError, NotFoundError, ForeignKeyError
 
-from ..types import Card, CardWithUsage, Usage, DeckChangeRecord
+from ..types import Card, CardWithUsage, Usage, DeckChangeRecord, ScryfallCardData, ScryfallFace
 
 
 def get_all(db_filename: str) -> list[CardWithUsage]:
     con = util.connect(db_filename)
     cur = con.cursor()
 
-    unique_cards: dict[int, tuple[CardWithUsage, int]] = {}  # int in tuple is for ordering
+    unique_cards: dict[int, tuple[int, CardWithUsage]] = {}  # int in tuple is for ordering
     order = 0
     
     for r in cur.execute(sql_get_all_cards):
         if r[0] not in unique_cards:
             card = CardWithUsage(util.card_row_to_card(r))
-            new_entry = (card, order)
+            new_entry = (order, card)
             unique_cards[card.id] = new_entry
             order += 1
 
         if r[19] is not None:
-            card = unique_cards[r[0]][0]
+            card = unique_cards[r[0]][1]
             card.usage.append(Usage(
                 count=r[17],
                 wishlist_count=r[18],
@@ -28,14 +31,88 @@ def get_all(db_filename: str) -> list[CardWithUsage]:
                 deck_state=r[21]
             ))
 
-            unique_cards[card.id] = (card, unique_cards[card.id][1])
+            unique_cards[card.id] = (unique_cards[card.id][0], card)
         
     con.close()
 
     # sort on order.
     rows = [x for x in unique_cards.values()]
-    rows.sort(key=lambda x: x[1])
-    rows = [x[0] for x in rows]
+    rows.sort(key=lambda x: x[0])
+    rows = [x[1] for x in rows]
+    
+    return rows
+
+
+def get_all_with_scryfall_data(db_filename: str) -> list[Tuple[CardWithUsage, ScryfallCardData]]:
+    con = util.connect(db_filename)
+    cur = con.cursor()
+
+    unique_cards: dict[int, tuple[int, CardWithUsage]] = {}  # int in tuple is for ordering
+    unique_scryfall_data: dict[int, ScryfallCardData] = {}
+
+    order = 0
+    
+    for r in cur.execute(sql_get_all_cards_with_scryfall_data):
+        if r[0] not in unique_cards:
+            card = CardWithUsage(util.card_row_to_card(r))
+            new_entry = (order, card)
+            unique_cards[card.id] = new_entry
+            order += 1
+
+        scryfall_id = r[16]
+
+        if scryfall_id in unique_scryfall_data:
+            scryfall_data = unique_scryfall_data[scryfall_id]
+        else:
+            scryfall_data = ScryfallCardData(
+                id=scryfall_id,
+                rarity=r[22],
+                uri=r[23],
+                last_updated=datetime.datetime.fromisoformat(r[24])
+            )
+            unique_scryfall_data[scryfall_id] = scryfall_data
+
+        scryfall_face = ScryfallFace(
+            index=r[25],
+            name=r[26],
+            cost=r[27],
+            type=r[28],
+            power=r[29],
+            toughness=r[30],
+            text=r[31]
+        )
+
+        # check if the face is new
+        if not any(f.index == scryfall_face.index for f in scryfall_data.faces):
+            scryfall_data.faces.append(scryfall_face)
+            unique_scryfall_data[scryfall_id] = scryfall_data
+
+
+        if r[19] is not None:
+            card = unique_cards[r[0]][1]
+
+            if not any(u.deck_id == r[19] for u in card.usage):
+                card.usage.append(Usage(
+                    count=r[17],
+                    wishlist_count=r[18],
+                    deck_id=r[19],
+                    deck_name=r[20],
+                    deck_state=r[21]
+                ))
+
+                unique_cards[card.id] = (unique_cards[card.id][0], card)
+        
+    con.close()
+
+    # sort on order.
+    card_rows = [x for x in unique_cards.values()]
+    card_rows.sort(key=lambda x: x[0])
+    card_rows = [x[1] for x in rows]
+
+    # paste on the scryfall data
+    rows = []
+    for r in card_rows:
+        rows.append((r, unique_scryfall_data[r.scryfall_id]))
     
     return rows
 
@@ -296,7 +373,7 @@ def update_condition(db_filename: str, cid: int, cond: str):
     con.close()
 
 
-def update_scryfall_id(db_filename: str, cid: int, scryfall_id: str):
+def update_scryfall_id(db_filename: str, cid: int, scryfall_id: str | None):
     query = sql_update_scryfall_id
     params = (scryfall_id, cid)
 
@@ -492,6 +569,49 @@ FROM
     inventory as c
 LEFT OUTER JOIN deck_cards as dc ON dc.card = c.id
 LEFT OUTER JOIN decks as d ON dc.deck = d.id;
+'''
+
+
+sql_get_all_cards_with_scryfall_data = '''
+SELECT
+    c.id,
+    c.count,
+    c.name,
+    c.edition,
+    c.tcg_num,
+    c.condition,
+    c.language,
+    c.foil,
+    c.signed,
+    c.artist_proof,
+    c.altered_art,
+    c.misprint,
+    c.promo,
+    c.textless,
+    c.printing_id,
+    c.printing_note,
+    c.scryfall_id,
+    dc.count AS count_in_deck,
+    dc.wishlist_count AS wishlist_count_in_deck,
+    d.id AS deck_id,
+    d.name AS deck_name,
+    d.state AS deck_state,
+	s.rarity,
+    s.web_uri,
+    s.updated_at,
+    f."index",
+    f.name,
+    f.cost,
+    f.type,
+    f.power,
+    f.toughness,
+    f.text
+FROM 
+    inventory as c
+LEFT OUTER JOIN deck_cards as dc ON dc.card = c.id
+LEFT OUTER JOIN decks as d ON dc.deck = d.id
+INNER JOIN scryfall AS s ON s.id = c.scryfall_id
+LEFT OUTER JOIN scryfall_faces AS f ON f.scryfall_id = s.id
 '''
 
 

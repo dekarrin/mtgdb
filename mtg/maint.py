@@ -1,8 +1,10 @@
 # repairs.py handles checks of the database and fixes as needed.
 
+from typing import Tuple
+
 from . import elog
 from .types import Card, CardWithUsage, Deck, DeckCard
-from .db import carddb, deckdb, NotFoundError
+from .db import carddb, deckdb, scryfalldb, NotFoundError
 
 
 
@@ -18,7 +20,7 @@ class DedupeAction:
         return "{:s} (ID {:d}) is duplicated by IDs: [{:s}]".format(self.canonical_card.name, self.canonical_card.id, ', '.join(str(i) for i in self.duplicate_ids))
 
 
-def scan_duplicates(db_filename: str, fix=False, log: elog.Logger | None=None) -> list[DedupeAction]:
+def merge_duplicates(db_filename: str, apply: bool=False, log: elog.Logger | None=None) -> list[DedupeAction]:
     """
     Scan for duplicate inventory entries and fix them by merging if specified.
     When fixing, automatically convert any usages to usages of the merged card,
@@ -101,8 +103,8 @@ def scan_duplicates(db_filename: str, fix=False, log: elog.Logger | None=None) -
 
     log.info("Found {:d} cards with duplicate entries".format(len(fix_actions)))
 
-    if not fix:
-        log.debug("Dry-run complete".format(len(fix_actions)))
+    if not apply:
+        log.debug("Dry-run complete")
         return fix_actions
     
     log.debug("Performing fixes...")
@@ -160,3 +162,64 @@ def scan_duplicates(db_filename: str, fix=False, log: elog.Logger | None=None) -
         for dupe_id in act.duplicate_ids:
             carddb.delete(db_filename, dupe_id)
             card_log.debug("Deleted duplicate card ID %d", dupe_id)
+
+    return fix_actions
+
+
+def reset_scryfall_data(db_filename: str, apply: bool=False, reset_ids: bool=False, log: elog.Logger | None=None) -> Tuple[list[Card], int]:
+    """
+    Reset all scryfall data for all cards in the database.
+
+    Return a tuple containing a list of all of the cards that currently have
+    scryfall data (or a scryfall_id with no associated data if reset_ids is set
+    to true) and count of all scryfall_data to be removed. If apply is set to
+    True, all cards will have their scryfall data removed. If reset_ids is set
+    to True, all scryfall_ids on cards will additionally be removed, regardless
+    of whether they are associated with scryfall data.
+    """
+    if log is None:
+        log = elog.get(__name__)
+
+    sf_data_cards = carddb.get_all_with_scryfall_data(db_filename)
+    cards_with_orphan_scryfall_ids = []
+    drop_count = len(sf_data_cards)
+
+    log.info("Found {:d} cards with scryfall data".format(drop_count))
+
+    if reset_ids:
+        cards_with_orphan_scryfall_ids = []
+        has_scryfall_data = set()
+        for entry in sf_data_cards:
+            c = entry[0]
+            has_scryfall_data.add(c.id)
+        
+        all_cards = carddb.get_all(db_filename)
+        for c in all_cards:
+            if c.scryfall_id is not None and c.id not in has_scryfall_data:
+                cards_with_orphan_scryfall_ids.append(c.id)
+
+        log.info("Found {:d} cards with scryfall_id but no scryfall data".format(len(cards_with_orphan_scryfall_ids)))
+
+    if not apply:
+        log.debug("Dry-run complete")
+        return (sf_data_cards + cards_with_orphan_scryfall_ids, drop_count)
+    
+    log.debug("Performing fixes...")
+
+    # first do the scryfall data drops
+    for entry in sf_data_cards:
+        c = entry[0]
+        scryfalldb.delete_one(db_filename, c.scryfall_id)
+        log.debug("Removed scryfall data for card ID {:d}".format(c.id))
+
+        if reset_ids:
+            carddb.update_scryfall_id(db_filename, c.id, None)
+            log.debug("Removed scryfall_id for card ID {:d}".format(c.id))
+
+    # now delete the orphan_ids, if asked
+    if reset_ids:
+        for cid in cards_with_orphan_scryfall_ids:
+            carddb.update_scryfall_id(db_filename, cid, None)
+            log.debug("Removed scryfall_id for card ID {:d}".format(c.id))
+
+    return (sf_data_cards + cards_with_orphan_scryfall_ids, drop_count)
