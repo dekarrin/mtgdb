@@ -9,6 +9,29 @@ from .errors import NotFoundError, AlreadyExistsError
 from ..types import ScryfallCardData, ScryfallFace
 
 
+def get_one_type(db_filename: str, name: str) -> str:
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute(sql_get_type, (name,))
+    r = cur.fetchone()
+    con.close()
+
+    if r is None:
+        raise NotFoundError("No card type found with name {!r}".format(name))
+
+    return r[0]
+
+
+def insert_type(db_filename: str, name: str) -> str:
+    con = util.connect(db_filename)
+    cur = con.cursor()
+    cur.execute(sql_insert_type, (name.title(),))
+    con.commit()
+    con.close()
+
+    return name.title()
+
+
 def get_one(db_filename: str, id: str) -> ScryfallCardData:
     con = util.connect(db_filename)
     cur = con.cursor()
@@ -81,6 +104,19 @@ def insert(db_filename: str, card_data: ScryfallCardData):
         card_data.last_updated.isoformat()
     )
 
+    # first check if any types need to be inserted
+    types_to_insert = set()
+    for t in card_data.all_types:
+        try:
+            get_one_type(db_filename, t)
+        except NotFoundError:
+            types_to_insert.add(t)
+    for t in types_to_insert:
+        # TODO: could be an executemany instead of one at a time
+        insert_type(db_filename, t)
+
+        
+    # insert the actual card data
     con = util.connect(db_filename)
     cur = con.cursor()
 
@@ -91,8 +127,18 @@ def insert(db_filename: str, card_data: ScryfallCardData):
         con.close()
         raise AlreadyExistsError("Card data with scryfall_id {:s} already exists".format(card_data.id))
     con.commit()
+
+    # insert the faces
     cur.executemany(sql_insert_scryfall_card_face, face_rows)
     con.commit()
+
+    # insert the type indexes
+    scryfall_type_rows = []
+    for t in card_data.all_types:
+        scryfall_type_rows.append((card_data.id, t))
+    cur.executemany(sql_insert_scryfall_type, scryfall_type_rows)
+    con.commit()
+
     con.close()
 
 
@@ -145,4 +191,16 @@ INSERT INTO scryfall_faces (
     toughness,
     text
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+'''
+
+sql_get_type = '''
+SELECT name FROM types WHERE name LIKE ?
+'''
+
+sql_insert_type = '''
+INSERT INTO types (name) VALUES (?)
+'''
+
+sql_insert_scryfall_type = '''
+INSERT INTO scryfall_types (scryfall_id, type) VALUES (?, ?)
 '''

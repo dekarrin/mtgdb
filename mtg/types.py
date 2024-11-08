@@ -246,6 +246,43 @@ class ScryfallCardData:
         return ' // '.join(f.type for f in self.faces)
     
     @property
+    def primary_types(self) -> list[str]:
+        if len(self.faces) < 1:
+            return []
+        
+        collected = set()
+        for f in self.faces:
+            collected.update(f.primary_types)
+
+        return list(collected)
+    
+    @property
+    def subtypes(self) -> list[str]:
+        if len(self.faces) < 1:
+            return []
+        
+        collected = set()
+        for f in self.faces:
+            collected.update(f.subtypes)
+
+        return list(collected)
+    
+    @property
+    def supertypes(self) -> list[str]:
+        if len(self.faces) < 1:
+            return []
+        
+        collected = set()
+        for f in self.faces:
+            collected.update(f.supertypes)
+
+        return list(collected)
+    
+    @property
+    def all_types(self) -> list[str]:
+        return self.supertypes + self.primary_types + self.subtypes
+    
+    @property
     def cost(self) -> str:
         if len(self.faces) < 1:
             return ''
