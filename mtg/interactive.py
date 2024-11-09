@@ -4,6 +4,8 @@
 
 import os.path
 import sys
+import datetime
+import time
 
 if os.name != 'nt':
     # IMPORTING HAS SIDE EFFECTS; DO NOT REMOVE
@@ -1790,12 +1792,63 @@ def complete_scryfall_cache(s: Session):
     logger.info("Scanning for cards where scryfall data is missing or older than %d days...", carddb.DEFAULT_EXPIRE_DAYS)
 
     total_complete = -1
+    waited_time = 0.0
+    start_time = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    log_points = list()
+    start_points = list()
+
+    # ~0.6358s or ~0.6561s per card with no ids. With ids, ~0.4560s/card
+
+    check_at = 5
+    check_wait = 0.5
+    max_cps = None
+    min_cps = None
+
+    # WITH ID:
+    # W     @INT    LOG_CNT - START,    END,    MIN,    MAX
+    # 10    @25     6       - 0.3238,   0.3261, ?,      0.6062
+    # 5     @10     6       - 0.2675,   0.2734, 0.2373, 0.3575
+    # 2.5   @5      19,     - 0.2971,   0.3039, 0.2797, 0.6418
+    # 1     @5      20,     - 0.2894,   0.2966, 0.2692, 0.8634
+    # 0.5   @5      
     def prog_func(current: int, total: int, card: Card):
-        nonlocal total_complete
+        nonlocal total_complete, start_time, logger, waited_time, log_points, check_at, check_wait, start_points, min_cps, max_cps
+        elapsed_check_time = datetime.datetime.now(tz=datetime.timezone.utc)
+        elapsed_td = elapsed_check_time - start_time
+        elapsed = elapsed_td.total_seconds()
+
         total_complete = current
         percent_complete = int((current / total * 100) // 1)
+
+        if current > 0 and current % check_at == 0:
+            cio.clear()
+            print("Waiting " + str(check_wait) + " seconds to check times...")
+            time.sleep(check_wait)
+
+        seconds_per_card = 0.3
+        if current > 0:
+            seconds_per_card = (elapsed - waited_time) / current
+            logger.debug("s/c: %.4f", seconds_per_card)
+        ss = round(seconds_per_card * (total - current))
+        mm = ss // 60
+        ss %= 60
+
+        logger.debug("%02d:%02d", mm, ss)
+
+        if current > 0 and (max_cps is None or seconds_per_card > max_cps):
+            max_cps = seconds_per_card
+        if current > 0 and (min_cps is None or seconds_per_card < min_cps):
+            min_cps = seconds_per_card
+
         cio.clear()
-        print("{:d}% Downloading data for {:d}/{:d} [{:s}] {:s}...\n(Ctrl-C to stop)".format(percent_complete, current+1, total, card.cardnum, card.name))
+        print("[{:02d}:{:02d} {:d}%] {:d}/{:d} Downloading data for {:s} {:s}...\n(Ctrl-C to stop)".format(mm, ss, percent_complete, current+1, total, card.cardnum, card.name))
+        if current > 0 and current % check_at == 0:
+            log_points.append(seconds_per_card)
+        if current > 3 and (current-1) % check_at == 0:
+            start_points.append(seconds_per_card)
+
+        waited_time += (datetime.datetime.now(datetime.timezone.utc) - elapsed_check_time).total_seconds()
 
     affected = maint.download_all_scryfall_data(s.db_filename, apply=False, log=logger)
     cio.clear()
@@ -1813,10 +1866,14 @@ def complete_scryfall_cache(s: Session):
     
     logger.debug("Re-scanning and downloading...")
 
+    start_time = datetime.datetime.now(tz=datetime.timezone.utc)
+
     try:
         maint.download_all_scryfall_data(s.db_filename, apply=True, log=logger, progress=prog_func)
     except KeyboardInterrupt:
         logger.info("Ctrl-C; stop requested")
+        logger.info("COUNT: S:%d, E:%d", len(start_points), len(log_points))
+        logger.info("{:.4f}, {:.4f}, {:.4f}, {:.4f}".format(sum(start_points) / len(start_points), sum(log_points) / len(log_points), min_cps, max_cps))
         card_s = 's' if total_complete != 1  else ''
         cio.clear()
         print("Canceled after successfully downloading data for {:d} card{:s}".format(total_complete, card_s))
@@ -1824,6 +1881,10 @@ def complete_scryfall_cache(s: Session):
         return
     
     logger.debug("Downloading complete")
+    logger.info("COUNT: S:%d, E:%d", len(start_points), len(log_points))
+    logger.info("{:.4f}, {:.4f}, {:.4f}, {:.4f}".format(sum(start_points) / len(start_points), sum(log_points) / len(log_points), min_cps, max_cps))
+        
+    
 
     cio.clear()
     print("Done! Scryfall data downloaded")
