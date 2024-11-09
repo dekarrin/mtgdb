@@ -189,6 +189,8 @@ def download_all_scryfall_data(db_filename: str, apply: bool=False, log: elog.Lo
     
     log.debug("Performing fixes...")
 
+    cards.sort(key=lambda c: c.cardnum)
+
     for idx, c in enumerate(cards):
         card_log = log.with_fields(card_id=c.id, card_name=c.name)
         card_log.debug("Downloading scryfall data...")

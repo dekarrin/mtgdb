@@ -1724,7 +1724,7 @@ def decks_create(s: Session) -> Optional[Deck]:
 def fix_duplicate_inventory_entires(s: Session):
     logger = s.log.with_fields(action='fix-dupes')
 
-    print("Scanning for duplicate inventory entries...")
+    print("Scanning...")
     logger.info("Scanning for duplicate inventory entries...")
     fixes = maint.merge_duplicates(s.db_filename, apply=False, log=logger)
 
@@ -1734,6 +1734,7 @@ def fix_duplicate_inventory_entires(s: Session):
         cio.pause()
         return
     
+    cio.clear()
     print("Found {:d} duplicate entries".format(len(fixes)))
     if not cio.confirm("Apply fixes?"):
         logger.info("Action canceled: user declined confirmation prompt")
@@ -1751,9 +1752,10 @@ def clear_scryfall_cache(s: Session):
     
     reset_ids = cio.confirm("Clear scryfall IDs from cards as well?")
 
-    print("Scanning for existing scryfall data entries...")
+    print("Scanning...")
     logger.info("Scanning for existing scryfall data entries...")
     affected, drops = maint.reset_scryfall_data(s.db_filename, apply=False, reset_ids=reset_ids, log=logger)
+    cio.clear()
 
     if len(affected) == 0:
         extra_msg = ''
@@ -1767,6 +1769,7 @@ def clear_scryfall_cache(s: Session):
     extra_msg = ''
     if reset_ids:
         extra_msg = " and {:d} cards with orphaned scryfall IDs".format(len(affected)-drops)
+        
     print("Found {:d} scryfall data entries".format(drops) + extra_msg)
     if not cio.confirm("Clear data?"):
         logger.info("Action canceled: user declined confirmation prompt")
@@ -1783,15 +1786,19 @@ def clear_scryfall_cache(s: Session):
 def complete_scryfall_cache(s: Session):
     logger = s.log.with_fields(action='download-all-scryfall')
 
-    print("Scanning for cards where scryfall data is missing or older than {:d} days...".format(carddb.DEFAULT_EXPIRE_DAYS))
+    print("Scanning...")
     logger.info("Scanning for cards where scryfall data is missing or older than %d days...", carddb.DEFAULT_EXPIRE_DAYS)
 
+    total_complete = -1
     def prog_func(current: int, total: int, card: Card):
-        percent_complete = round(current / total * 100)
+        nonlocal total_complete
+        total_complete = current
+        percent_complete = int((current / total * 100) // 1)
         cio.clear()
-        print("{:d}% Downloading data for {:d}/{:d} [{:s}] {:s}...".format(percent_complete, current+1, total, card.cardnum, card.name))
+        print("{:d}% Downloading data for {:d}/{:d} [{:s}] {:s}...\n(Ctrl-C to stop)".format(percent_complete, current+1, total, card.cardnum, card.name))
 
     affected = maint.download_all_scryfall_data(s.db_filename, apply=False, log=logger)
+    cio.clear()
 
     if len(affected) == 0:
         print("Scryfall data is complete; no entries are missing or older than {:d} days".format(carddb.DEFAULT_EXPIRE_DAYS))
@@ -1805,7 +1812,17 @@ def complete_scryfall_cache(s: Session):
         return
     
     logger.debug("Re-scanning and downloading...")
-    maint.download_all_scryfall_data(s.db_filename, apply=True, log=logger, progress=prog_func)
+
+    try:
+        maint.download_all_scryfall_data(s.db_filename, apply=True, log=logger, progress=prog_func)
+    except KeyboardInterrupt:
+        logger.info("Ctrl-C; stop requested")
+        card_s = 's' if total_complete != 1  else ''
+        cio.clear()
+        print("Canceled after successfully downloading data for {:d} card{:s}".format(total_complete, card_s))
+        cio.pause()
+        return
+    
     logger.debug("Downloading complete")
 
     cio.clear()
