@@ -166,6 +166,21 @@ def merge_duplicates(db_filename: str, apply: bool=False, log: elog.Logger | Non
     return fix_actions
 
 
+def download_all_scryfall_data(db_filename: str, apply: bool=False, log: elog.Logger | None=None) -> list[Card]:
+    """
+    Download all scryfall data for all cards in the database.
+    
+    Return a list of all of the cards that do not have scryfall data or have
+    expired scryfall data at the time the function is called. If apply is set to
+    True, all cards will have their scryfall data downloaded.
+    """
+    if log is None:
+        log = elog.get(__name__)
+
+    cards = carddb.get_all_without_scryfall_data
+    
+
+
 def reset_scryfall_data(db_filename: str, apply: bool=False, reset_ids: bool=False, log: elog.Logger | None=None) -> Tuple[list[Card], int]:
     """
     Reset all scryfall data for all cards in the database.

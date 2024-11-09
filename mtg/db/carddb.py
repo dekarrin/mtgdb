@@ -7,6 +7,9 @@ from .errors import MultipleFoundError, NotFoundError, ForeignKeyError
 from ..types import Card, CardWithUsage, Usage, DeckChangeRecord, ScryfallCardData, ScryfallFace
 
 
+DEFAULT_EXPIRE_DAYS = 90
+
+
 def get_all(db_filename: str) -> list[CardWithUsage]:
     con = util.connect(db_filename)
     cur = con.cursor()
@@ -114,6 +117,45 @@ def get_all_with_scryfall_data(db_filename: str) -> list[Tuple[CardWithUsage, Sc
     for r in card_rows:
         rows.append((r, unique_scryfall_data[r.scryfall_id]))
     
+    return rows
+
+
+
+def get_all_without_scryfall_data(db_filename: str, days: int=DEFAULT_EXPIRE_DAYS) -> list[Tuple[CardWithUsage, ScryfallCardData]]:
+    con = util.connect(db_filename)
+    cur = con.cursor()
+
+    unique_cards: dict[int, tuple[int, CardWithUsage]] = {}  # int in tuple is for ordering
+    order = 0
+    
+    # TODO: rly need to encapsulate this in a function it is repeated several
+    # times glub 38O
+    for r in cur.execute(sql_get_all_cards_without_scryfall_data, (f'-{days} days',)):
+        if r[0] not in unique_cards:
+            card = CardWithUsage(util.card_row_to_card(r))
+            new_entry = (order, card)
+            unique_cards[card.id] = new_entry
+            order += 1
+        
+            if r[19] is not None:
+                card = unique_cards[r[0]][1]
+                card.usage.append(Usage(
+                    count=r[17],
+                    wishlist_count=r[18],
+                    deck_id=r[19],
+                    deck_name=r[20],
+                    deck_state=r[21]
+                ))
+
+                unique_cards[card.id] = (unique_cards[card.id][0], card)
+        
+    con.close()
+
+    # sort on order.
+    rows = [x for x in unique_cards.values()]
+    rows.sort(key=lambda x: x[0])
+    rows = [x[1] for x in rows]
+
     return rows
 
 
@@ -611,8 +653,6 @@ SELECT
     d.id AS deck_id,
     d.name AS deck_name,
     d.state AS deck_state,
-	s.rarity,
-    s.web_uri,
     s.updated_at,
     f."index",
     f.name,
@@ -627,6 +667,40 @@ LEFT OUTER JOIN deck_cards as dc ON dc.card = c.id
 LEFT OUTER JOIN decks as d ON dc.deck = d.id
 INNER JOIN scryfall AS s ON s.id = c.scryfall_id
 LEFT OUTER JOIN scryfall_faces AS f ON f.scryfall_id = s.id
+'''
+
+
+sql_get_all_cards_without_scryfall_data = '''
+SELECT
+    c.id,
+    c.count,
+    c.name,
+    c.edition,
+    c.tcg_num,
+    c.condition,
+    c.language,
+    c.foil,
+    c.signed,
+    c.artist_proof,
+    c.altered_art,
+    c.misprint,
+    c.promo,
+    c.textless,
+    c.printing_id,
+    c.printing_note,
+    c.scryfall_id,
+    dc.count AS count_in_deck,
+    dc.wishlist_count AS wishlist_count_in_deck,
+    d.id AS deck_id,
+    d.name AS deck_name,
+    d.state AS deck_state,
+    s.updated_at
+FROM 
+    inventory as c
+LEFT OUTER JOIN deck_cards as dc ON dc.card = c.id
+LEFT OUTER JOIN decks as d ON dc.deck = d.id
+LEFT OUTER JOIN scryfall AS s ON s.id = c.scryfall_id
+WHERE c.scryfall_id IS NULL OR s.updated_at IS NULL OR DATETIME(s.updated_at) < DATETIME('now', ?)
 '''
 
 

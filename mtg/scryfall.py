@@ -116,7 +116,7 @@ def get_card_data(db_filename: str, card: Card | None=None, scryfall_id: str='',
     card_data = None
     try:
         card_data = scryfalldb.get_one(db_filename, scryfall_id)
-        if datetime.datetime.now(tz=datetime.timezone.utc) - card_data.last_updated > datetime.timedelta(days=30*3):
+        if datetime.datetime.now(tz=datetime.timezone.utc) - card_data.last_updated > datetime.timedelta(days=carddb.DEFAULT_EXPIRE_DAYS):
             card_data = None
             scryfalldb.delete_one(db_filename, scryfall_id)
     except NotFoundError:
