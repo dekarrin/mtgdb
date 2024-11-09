@@ -653,6 +653,8 @@ SELECT
     d.id AS deck_id,
     d.name AS deck_name,
     d.state AS deck_state,
+    s.rarity,
+    s.web_uri,
     s.updated_at,
     f."index",
     f.name,
