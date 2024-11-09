@@ -1817,12 +1817,11 @@ def complete_scryfall_cache(s: Session):
         percent_complete = int((current / total * 100) // 1)
 
         if current > 0 and current % check_at == 0:
-            cio.clear()
             time.sleep(check_wait)
 
         seconds_per_card = 0.3
         if current > 0:
-            seconds_per_card = (elapsed - waited_time) / current
+            seconds_per_card = ((elapsed - waited_time) / current) + check_wait
             logger.debug("s/c: %.4f", seconds_per_card)
         ss = round(seconds_per_card * (total - current))
         mm = ss // 60
