@@ -121,7 +121,7 @@ def get_all_with_scryfall_data(db_filename: str) -> list[Tuple[CardWithUsage, Sc
 
 
 
-def get_all_without_scryfall_data(db_filename: str, days: int=DEFAULT_EXPIRE_DAYS) -> list[Tuple[CardWithUsage, ScryfallCardData]]:
+def get_all_without_scryfall_data(db_filename: str, days: int=DEFAULT_EXPIRE_DAYS) -> list[CardWithUsage]:
     con = util.connect(db_filename)
     cur = con.cursor()
 

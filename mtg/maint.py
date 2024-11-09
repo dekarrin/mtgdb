@@ -1,8 +1,8 @@
 # repairs.py handles checks of the database and fixes as needed.
 
-from typing import Tuple
+from typing import Tuple, Callable
 
-from . import elog
+from . import elog, scryfall
 from .types import Card, CardWithUsage, Deck, DeckCard
 from .db import carddb, deckdb, scryfalldb, NotFoundError
 
@@ -166,19 +166,35 @@ def merge_duplicates(db_filename: str, apply: bool=False, log: elog.Logger | Non
     return fix_actions
 
 
-def download_all_scryfall_data(db_filename: str, apply: bool=False, log: elog.Logger | None=None) -> list[Card]:
+def download_all_scryfall_data(db_filename: str, apply: bool=False, log: elog.Logger | None=None, progress: Callable[[int, int], None] | None=None) -> list[Card]:
     """
     Download all scryfall data for all cards in the database.
     
     Return a list of all of the cards that do not have scryfall data or have
     expired scryfall data at the time the function is called. If apply is set to
-    True, all cards will have their scryfall data downloaded.
+    True, all cards will have their scryfall data downloaded. When progress is
+    set to a function, it will be called before each card is downloaded with the
+    current card index and total count of cards to download.
     """
     if log is None:
         log = elog.get(__name__)
 
-    cards = carddb.get_all_without_scryfall_data
+    cards = carddb.get_all_without_scryfall_data(db_filename)
+
+    log.info("Found {:d} cards without scryfall data".format(len(cards)))
+
+    if not apply:
+        log.debug("Dry-run complete")
+        return cards
     
+    log.debug("Performing fixes...")
+
+    for idx, c in enumerate(cards):
+        card_log = log.with_fields(card_id=c.id, card_name=c.name)
+        card_log.debug("Downloading scryfall data...")
+        scryfall.get_card_data(db_filename, card=c, http_pre_wait_fn=lambda: progress(idx, len(cards)))
+
+    return cards
 
 
 def reset_scryfall_data(db_filename: str, apply: bool=False, reset_ids: bool=False, log: elog.Logger | None=None) -> Tuple[list[Card], int]:
