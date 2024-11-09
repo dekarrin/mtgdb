@@ -247,12 +247,19 @@ def confirm(preprompt, one_line: bool=False, default: bool | None=None):
         print(preprompt)
     
     confirmed = None
+
+    ychar = 'Y'
+    if default is not None and not default:
+        ychar = 'y'
+    nchar = 'N'
+    if default is not None and default:
+        nchar = 'n'
     
     while confirmed is None:
         if one_line:
-            c = input("{:s} (Y/N) ".format(preprompt))
+            c = input("{:s} ({:s}/{:s}) ".format(preprompt, ychar, nchar))
         else:
-            c = input("(Y/N) ")
+            c = input("({:s}/{:s}) ".format(ychar, nchar))
         
         c = c.upper()
         
@@ -260,6 +267,8 @@ def confirm(preprompt, one_line: bool=False, default: bool | None=None):
             confirmed = True
         elif c == "N" or c == "NO":
             confirmed = False
+        elif c == "" and default is not None:
+            confirmed = default
         else:        
             print("Please type 'Y'/'YES' or 'N'/'NO'")
         

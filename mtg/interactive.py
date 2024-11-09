@@ -1752,7 +1752,7 @@ def fix_duplicate_inventory_entires(s: Session):
 def clear_scryfall_cache(s: Session):
     logger = s.log.with_fields(action='clear-scryfall')
     
-    reset_ids = cio.confirm("Clear scryfall IDs from cards as well?")
+    reset_ids = cio.confirm("Clear scryfall IDs from cards as well?", default=False)
 
     print("Scanning...")
     logger.info("Scanning for existing scryfall data entries...")
@@ -1800,18 +1800,13 @@ def complete_scryfall_cache(s: Session):
 
     # ~0.6358s or ~0.6561s per card with no ids. With ids, ~0.4560s/card
 
-    check_at = 5
-    check_wait = 0.5
+    # TODO: clean up all this extra logging
+
+    check_at = 1
+    check_wait = 0.25
     max_cps = None
     min_cps = None
 
-    # WITH ID:
-    # W     @INT    LOG_CNT - START,    END,    MIN,    MAX
-    # 10    @25     6       - 0.3238,   0.3261, ?,      0.6062
-    # 5     @10     6       - 0.2675,   0.2734, 0.2373, 0.3575
-    # 2.5   @5      19,     - 0.2971,   0.3039, 0.2797, 0.6418
-    # 1     @5      20,     - 0.2894,   0.2966, 0.2692, 0.8634
-    # 0.5   @5      
     def prog_func(current: int, total: int, card: Card):
         nonlocal total_complete, start_time, logger, waited_time, log_points, check_at, check_wait, start_points, min_cps, max_cps
         elapsed_check_time = datetime.datetime.now(tz=datetime.timezone.utc)
@@ -1823,7 +1818,6 @@ def complete_scryfall_cache(s: Session):
 
         if current > 0 and current % check_at == 0:
             cio.clear()
-            print("Waiting " + str(check_wait) + " seconds to check times...")
             time.sleep(check_wait)
 
         seconds_per_card = 0.3
@@ -1845,7 +1839,7 @@ def complete_scryfall_cache(s: Session):
         print("[{:02d}:{:02d} {:d}%] {:d}/{:d} Downloading data for {:s} {:s}...\n(Ctrl-C to stop)".format(mm, ss, percent_complete, current+1, total, card.cardnum, card.name))
         if current > 0 and current % check_at == 0:
             log_points.append(seconds_per_card)
-        if current > 3 and (current-1) % check_at == 0:
+        if current > 1 and (current-1) % check_at == 0:
             start_points.append(seconds_per_card)
 
         waited_time += (datetime.datetime.now(datetime.timezone.utc) - elapsed_check_time).total_seconds()
