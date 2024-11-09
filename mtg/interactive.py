@@ -215,6 +215,7 @@ def db_fixes_menu(s: Session):
     fix_actions = [
         ('dedupe', 'Deduplicate inventory entries'),
         ('clear-scryfall', 'Clear all scryfall data')
+        ('download-all-scryfall', 'Download missing and expired scryfall data')
     ]
 
     letter_items = [
@@ -235,6 +236,8 @@ def db_fixes_menu(s: Session):
             fix_duplicate_inventory_entires(s)
         elif action == 'clear-scryfall':
             clear_scryfall_cache(s)
+        elif action == 'download-all-scryfall':
+            complete_scryfall_cache(s)
         elif action == 'exit':
             break
         else:
@@ -1773,6 +1776,40 @@ def clear_scryfall_cache(s: Session):
     maint.reset_scryfall_data(s.db_filename, apply=True, reset_ids=reset_ids, log=logger)
     logger.debug("Clearing complete")
     print("Done! Scryfall data cleared")
+    cio.pause()
+
+
+
+def complete_scryfall_cache(s: Session):
+    logger = s.log.with_fields(action='download-all-scryfall')
+
+    print("Scanning for cards where scryfall data is missing or older than %d days...".format(carddb.DEFAULT_EXPIRE_DAYS))
+    logger.info("Scanning for cards where scryfall data is missing or older than %d days...", carddb.DEFAULT_EXPIRE_DAYS)
+
+    def prog_func(current: int, total: int, card: Card):
+        percent_complete = current / total * 100
+        cio.clear()
+        print("{:.2f}% Downloading data for {:d}/{:d} [{:s}] {:s}...".format(percent_complete, current+1, total, card.cardnum, card.name))
+
+    affected = maint.download_all_scryfall_data(s.db_filename, apply=False, log=logger)
+
+    if len(affected) == 0:
+        print("Scryfall data is complete; no entries are missing or older than %d days".format(carddb.DEFAULT_EXPIRE_DAYS))
+        logger.info("Scan complete; nothing to download")
+        cio.pause()
+        return
+    
+    print("Found {:d} cards with missing or outdated scryfall data".format(len(affected)))
+    if not cio.confirm("Download scryfall data?"):
+        logger.info("Action canceled: user declined confirmation prompt")
+        return
+    
+    logger.debug("Re-scanning and downloading...")
+    maint.download_all_scryfall_data(s.db_filename, apply=True, log=logger, progress=prog_func)
+    logger.debug("Downloading complete")
+    
+    cio.clear()
+    print("Done! Scryfall data downloaded")
     cio.pause()
 
 

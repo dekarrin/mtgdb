@@ -166,7 +166,7 @@ def merge_duplicates(db_filename: str, apply: bool=False, log: elog.Logger | Non
     return fix_actions
 
 
-def download_all_scryfall_data(db_filename: str, apply: bool=False, log: elog.Logger | None=None, progress: Callable[[int, int], None] | None=None) -> list[Card]:
+def download_all_scryfall_data(db_filename: str, apply: bool=False, log: elog.Logger | None=None, progress: Callable[[int, int, Card], None] | None=None) -> list[Card]:
     """
     Download all scryfall data for all cards in the database.
     
@@ -192,7 +192,12 @@ def download_all_scryfall_data(db_filename: str, apply: bool=False, log: elog.Lo
     for idx, c in enumerate(cards):
         card_log = log.with_fields(card_id=c.id, card_name=c.name)
         card_log.debug("Downloading scryfall data...")
-        scryfall.get_card_data(db_filename, card=c, http_pre_wait_fn=lambda: progress(idx, len(cards)))
+
+        if progress is not None:
+            pre_wait = lambda: progress(idx, len(cards), c)
+        else:
+            pre_wait = None
+        scryfall.get_card_data(db_filename, card=c, http_pre_wait_fn=pre_wait)
 
     return cards
 
