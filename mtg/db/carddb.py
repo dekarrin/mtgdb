@@ -179,7 +179,7 @@ def get_one(db_filename: str, cid: int) -> CardWithUsage:
     return rows[0]
 
 
-def find(db_filename: str, name: str | None, card_num: str | None, edition: str | None) -> list[CardWithUsage]:
+def find(db_filename: str, name: str | None, card_num: str | None, edition: str | None, types: list[str] | None=None) -> list[CardWithUsage]:
     query = sql_select_in_use
     params = list()
     ed_codes = None
@@ -192,9 +192,24 @@ def find(db_filename: str, name: str | None, card_num: str | None, edition: str 
         ed_codes = []
         for ed in matching_editions:
             ed_codes.append(ed.code)
+
+    has_scryfall_filters = types is not None
+    has_inven_filters = name is not None or card_num is not None or ed_codes is not None
+
+    # if there are scryfall-requiring filters, we need to join on scryfall data
+    if has_scryfall_filters:
+        query += filters.card_scryfall_data_joins(types, card_table_alias='c', create_alias_scryfall_types='st')
+
+    filter_clause, filter_params = filters.card_scryfall_data(types, lead='AND' if has_inven_filters else 'WHERE', scryfall_types_alias='st')
     
-    filter_clause, filter_params = filters.card(name, card_num, ed_codes)
-    if filter_clause != '':
+    if has_inven_filters:
+        if has_scryfall_filters:
+            filter_clause += " AND "
+        inven_filter_clause, inven_filter_params = filters.card(name, card_num, ed_codes)
+        filter_clause += inven_filter_clause
+        filter_params += inven_filter_params
+    
+    if has_scryfall_filters or has_inven_filters:
         query += filter_clause
         params += filter_params
     

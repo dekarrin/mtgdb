@@ -1,6 +1,7 @@
+from typing import Tuple
 
 
-def card(name=None, card_num=None, edition_codes=None, include_where=True):
+def card(name=None, card_num=None, edition_codes=None, include_where=True) -> Tuple[str, list]:
     if name is None and card_num is None and edition_codes is None:
         return "", []
         
@@ -54,4 +55,35 @@ def card(name=None, card_num=None, edition_codes=None, include_where=True):
         # input, so we should just be able to directly add them safely.
         clause += " c.edition IN (" + ','.join(edition_codes) + ")"
         
+    return clause, data_params
+
+
+def card_scryfall_data_joins(types=None, card_table_alias='c', create_alias_scryfall_types='st') -> str:
+    if types is None:
+        return ''
+    
+    join_stmt = ""
+    if len(types) > 0:
+        join_stmt = f"INNER JOIN scryfall_types {create_alias_scryfall_types} ON {create_alias_scryfall_types}.scryfall_id = {card_table_alias}.scryfall_id"
+
+    return join_stmt
+
+
+def card_scryfall_data(types: list[str] | None=None, lead: str='WHERE', scryfall_types_alias='st') -> Tuple[str, list]:
+    if types is None:
+        return "", []
+    
+    clause = ''
+    
+    if lead is not None and len(lead) > 0:
+        clause = ' ' + lead
+        
+    num_exprs = 0
+    data_params = list()
+        
+    if len(types) > 0:
+        clause += f" {scryfall_types_alias}.type IN ({','.join(['?']*len(types))})"
+        num_exprs += 1
+        data_params.extend(types)
+    
     return clause, data_params
