@@ -1785,7 +1785,11 @@ def clear_scryfall_cache(s: Session):
 
 
 def complete_scryfall_cache(s: Session):
-    complete_scryfall_cache_orig
+    experiment_table = [
+        
+    ]
+
+    start_points, log_points, mean_start, mean_log, min_cps, max_cps = complete_scryfall_cache_orig()
 
 def complete_scryfall_cache_orig(s: Session, pause_every=5, pause_wait=0.5):
     logger = s.log.with_fields(action='download-all-scryfall')
