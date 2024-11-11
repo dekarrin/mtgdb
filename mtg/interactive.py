@@ -1784,8 +1784,10 @@ def clear_scryfall_cache(s: Session):
     cio.pause()
 
 
-
 def complete_scryfall_cache(s: Session):
+    complete_scryfall_cache_orig
+
+def complete_scryfall_cache_orig(s: Session, pause_every=5, pause_wait=0.5):
     logger = s.log.with_fields(action='download-all-scryfall')
 
     print("Scanning...")
@@ -1802,10 +1804,12 @@ def complete_scryfall_cache(s: Session):
 
     # TODO: clean up all this extra logging
 
-    check_at = 1
-    check_wait = 0.25
+    check_at = pause_every
+    check_wait = pause_wait
     max_cps = None
     min_cps = None
+    min_trials = 6
+    min_amt = 50
 
     def prog_func(current: int, total: int, card: Card):
         nonlocal total_complete, start_time, logger, waited_time, log_points, check_at, check_wait, start_points, min_cps, max_cps
@@ -1840,6 +1844,10 @@ def complete_scryfall_cache(s: Session):
             log_points.append(seconds_per_card)
         if current > 1 and (current-1) % check_at == 0:
             start_points.append(seconds_per_card)
+
+        if current > min_amt or len(log_points) > min_trials:
+            logger.debug("ENDED TRIAL")
+            raise KeyboardInterrupt()
 
         waited_time += (datetime.datetime.now(datetime.timezone.utc) - elapsed_check_time).total_seconds()
 
@@ -1877,6 +1885,7 @@ def complete_scryfall_cache(s: Session):
     logger.info("COUNT: S:%d, E:%d", len(start_points), len(log_points))
     logger.info("{:.4f}, {:.4f}, {:.4f}, {:.4f}".format(sum(start_points) / len(start_points), sum(log_points) / len(log_points), min_cps, max_cps))
         
+    return start_points, log_points, sum(start_points) / len(start_points), sum(log_points) / len(log_points), min_cps, max_cps
     
 
     cio.clear()
