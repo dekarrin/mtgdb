@@ -1853,7 +1853,7 @@ def complete_scryfall_cache(s: Session):
         card_s = 's' if total_complete != 1  else ''
         cio.clear()
         print("Canceled after successfully downloading data for {:d} card{:s}".format(total_complete, card_s))
-        print("(Operation took {:d} minutes, {:d} seconds)".format(mm, ss))
+        print("Operation took {:d} minutes, {:d} seconds".format(mm, ss))
         cio.pause()
         return
     else:
@@ -1866,7 +1866,7 @@ def complete_scryfall_cache(s: Session):
     logger.debug("Downloading complete")
     cio.clear()
     print("Done! Scryfall data downloaded")
-    print("(Operation took {:d} minutes, {:d} seconds)".format(mm, ss))
+    print("Operation took {:d} minutes, {:d} seconds".format(mm, ss))
     cio.pause()
 
 
