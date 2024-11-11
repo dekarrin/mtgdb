@@ -7,6 +7,9 @@ from .http import HttpAgent
 from .db import carddb, NotFoundError, AlreadyExistsError, scryfalldb
 from . import version
 
+DEFAULT_ANTIFLOOD_SECS = 0.25
+INITIAL_TIME_PER_REQ = 0.1
+
 
 class APIError(Exception):
     """
@@ -296,7 +299,7 @@ def _get_http_client(scryfall_host='api.scryfall.com') -> HttpAgent:
         _client = HttpAgent(
             scryfall_host,
             ssl=True,
-            antiflood_secs=0.2,
+            antiflood_secs=DEFAULT_ANTIFLOOD_SECS,
             ignored_errors=[400, 401, 403, 404, 422, 429, 500],
             log_full_response=False,
             log_full_request=False,
