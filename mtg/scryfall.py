@@ -292,7 +292,7 @@ _client: HttpAgent = None
 def _get_http_client(scryfall_host='api.scryfall.com') -> HttpAgent:
     global _client
 
-    if _client is None:
+    if _client is None or _client.host != scryfall_host:
         _client = HttpAgent(
             scryfall_host,
             ssl=True,
