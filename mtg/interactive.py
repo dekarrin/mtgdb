@@ -1786,10 +1786,47 @@ def clear_scryfall_cache(s: Session):
 
 def complete_scryfall_cache(s: Session):
     experiment_table = [
-        
+        # WAIT, EVERY/INTERVAL
+        #(10, 25),
+        #(5, 10),
+        #(2.5, 5),
+        (1, 5),
+        (0.5, 5),
     ]
 
-    start_points, log_points, mean_start, mean_log, min_cps, max_cps = complete_scryfall_cache_orig()
+    logger = s.log.with_fields(action='timing-experiment')
+
+    results = list()
+
+    for idx, params in enumerate(experiment_table):
+        wait_time, wait_interval = params
+        logger.info("Running with wait=%.2f, interval=%d", wait_time, wait_interval)
+
+        start_points, log_points, mean_start, mean_log, min_cps, max_cps = complete_scryfall_cache_orig(s, pause_every=wait_interval, pause_wait=wait_time)
+        results.append({
+            'wait': wait_time,
+            'interval': wait_interval,
+            'log_count': len(log_points),
+            'start_mean': mean_start,
+            'log_mean': mean_log,
+            'min_cps': min_cps,
+            'max_cps': max_cps
+        })
+
+        if idx + 1 < len(experiment_table):
+            print("Waiting 30 seconds to reset API rate limit...")
+            logger.info("Waiting 30 seconds to reset API rate limit...")
+            time.sleep(30)
+
+    logger.info("Experiments complete")
+                    
+    table = "W\t\t@INT\tLOG_CNT\t-\tSTART\tEND\t\tMIN\t\tMAX"
+    line_fmt = "{:.2f}\t\t@{:d}\t{:d}\t-\t{:.4f}\t{:.4f}\t\t{:.4f}\t\t{:.4f}"
+    for r in results:
+        table += "\n"
+        table += line_fmt.format(r['wait'], r['interval'], r['log_count'], r['start_mean'], r['log_mean'], r['min_cps'], r['max_cps'])
+    logger.info("RESULTS:\n" + table)
+
 
 def complete_scryfall_cache_orig(s: Session, pause_every=5, pause_wait=0.5):
     logger = s.log.with_fields(action='download-all-scryfall')
