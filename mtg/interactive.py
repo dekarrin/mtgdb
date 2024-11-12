@@ -17,7 +17,7 @@ import textwrap
 
 import traceback
 
-from typing import Optional, Any
+from typing import Optional, Any, Tuple
 
 from .types import Deck, DeckCard, Card, CardWithUsage, ScryfallCardData, deck_state_to_name, parse_cardnum, card_condition_to_name
 from . import cio, version, elog
@@ -257,20 +257,33 @@ def cards_master_menu(s: Session):
         cio.CatOption('I', '(I)mport', 'IMPORT'),
         cio.CatOption('A', '(A)dd', 'ADD'),
     ]
-    filters = card_cat_filters(with_usage=True)
+    filters = card_cat_filters(with_usage=True, with_scryfall_fetch=True)
+
+    
+    def fetch(filters: dict[str, str]) -> list[Tuple[CardWithUsage, str]]:
+        types = None
+
+        for k in filters:
+            if k.upper() == 'TYPE':
+                types = filters[k].split(',')
+
+        cards = carddb.find(s.db_filename, None, None, None, types)
+        cards = sorted(cards, key=lambda c: (c.edition, c.tcg_num))
+        cat_items = [(c, "{:d}x {:s}".format(c.count, str(c))) for c in cards]
+        return cat_items
+    
+
     while True:
         logger.debug("Entered menu")
 
-        cards = carddb.find(s.db_filename, None, None, None)
+        # TODO: since we have deferred fetch to inside the catalog, there is
+        # likely a more efficient db call that gets us just the count.
+        cards = carddb.get_all(s.db_filename)
         total = sum([c.count for c in cards])
         wl_total = sum([sum([u.wishlist_count for u in c.usage]) for c in cards])
-
-        # sort them
-        cards = sorted(cards, key=lambda c: (c.edition, c.tcg_num))
-
-        cat_items = [(c, "{:d}x {:s}".format(c.count, str(c))) for c in cards]
+        
         menu_title = "MANAGE CARDS - {:d} owned, {:d} WL".format(total, wl_total)
-        selection = cio.catalog_select(menu_title, items=cat_items, extra_options=extra_actions, include_create=False, filters=filters, state=s.inven_cat_state)
+        selection = cio.catalog_select(menu_title, items=fetch, extra_options=extra_actions, include_create=False, filters=filters, state=s.inven_cat_state)
 
         action = selection[0]
         card: CardWithUsage = selection[1]
@@ -1870,7 +1883,7 @@ def complete_scryfall_cache(s: Session):
     cio.pause()
 
 
-def card_cat_filters(with_usage: bool) -> list[cio.CatFilter]:
+def card_cat_filters(with_usage: bool, with_scryfall_fetch) -> list[cio.CatFilter]:
     def num_expr(val: str):
         # it can either be an exact number, or a comparator followed by a number
         val = val.strip()
@@ -1947,6 +1960,9 @@ def card_cat_filters(with_usage: bool) -> list[cio.CatFilter]:
         else:
             # should never happen
             raise ValueError("Unknown operator")
+        
+    def normal_comma_sep(val: str) -> str:
+        return ','.join(v.strip() for v in val.split(','))
     
     filters = [
         cio.CatFilter('name', lambda c, v: v.lower() in c.name.lower()),
@@ -1958,6 +1974,13 @@ def card_cat_filters(with_usage: bool) -> list[cio.CatFilter]:
         filters.extend([
             cio.CatFilter('in_decks', lambda c, v: num_expr_matches(c.deck_count(), v), normalize=num_expr)
         ])
+
+    if with_scryfall_fetch:
+        filters.extend([
+            cio.CatFilter('type', None, normal_comma_sep, fmt_hint=("comma-separated"), on_fetch=True)
+        ])
+
+    
 
     return filters
 
