@@ -1250,7 +1250,13 @@ def deck_detail_menu(s: Session, deck: Deck):
 def deck_cards_menu(s: Session, deck: Deck) -> Deck:
     logger = s.log.with_fields(menu='deck-cards', deck_id=deck.id)
         
-    filters = card_cat_filters(with_usage=False)
+    filters = card_cat_filters(with_usage=False, with_scryfall_fetch=True)
+
+    # DO NOT USE types_filter IN FETCH; doing so will make it v hard to decouple.
+    types_filter = None
+    if s.deck_cards_cat_state is not None and 'types' in s.deck_cards_cat_state.active_fetch_filters:
+        types_filter = s.deck_cards_cat_state.active_fetch_filters['types']
+
 
     def fetch(filters: dict[str, str]) -> list[Tuple[DeckCard, str]]:
         types = None
@@ -1258,23 +1264,8 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         for k in filters:
             if k.upper() == 'TYPE':
                 types = filters[k].split(',')
-
-    while True:
-        logger.debug("Entered menu")
-        menu_lead = deck_infobox(deck) + "\nCARDS"
-        extra_actions = [
-            cio.CatOption('A', '(A)dd Card', 'ADD'),
-        ]
-        cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None)
+        cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None, types)
         cards.sort(key=lambda c: (c.name, c.tcg_num))
-
-        wl_cards = [c for c in cards if c.deck_wishlist_count > 0]
-        owned_cards = [c for c in cards if c.deck_count > 0]
-        if len(owned_cards) > 0:
-            extra_actions.append(cio.CatOption('R', '(R)emove Card', 'REMOVE', selecting=True, title='Remove card'))
-        extra_actions.append(cio.CatOption('W', '(W)ishlist Card', 'WISHLIST'))
-        if len(wl_cards) > 0:
-            extra_actions.append(cio.CatOption('U', '(U)nwishlist Card', 'UNWISH', selecting=True, title='Unwishlist card'))
 
         cat_items = []
         for c in cards:
@@ -1285,10 +1276,33 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
                 amounts.append("{:d}x WL".format(c.deck_wishlist_count))
             card_str = "{:s} {:s}".format(', '.join(amounts), str(c))
             cat_items.append((c, card_str))
+
+        return cat_items
+
+
+    while True:
+        logger.debug("Entered menu")
+        menu_lead = deck_infobox(deck) + "\nCARDS"
+        extra_actions = [
+            cio.CatOption('A', '(A)dd Card', 'ADD'),
+        ]
+
+        # TODO: this is not actually getting cards it is just checking for the
+        # presence of WL or owned but in future it would be nice to have a
+        # cleaner way of doing this than yanking from the catalog state.
+        # perhaps extra actions could be predicated with a helper function.
+        cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None)
+        wl_cards = [c for c in cards if c.deck_wishlist_count > 0]
+        owned_cards = [c for c in cards if c.deck_count > 0]
+        if len(owned_cards) > 0:
+            extra_actions.append(cio.CatOption('R', '(R)emove Card', 'REMOVE', selecting=True, title='Remove card'))
+        extra_actions.append(cio.CatOption('W', '(W)ishlist Card', 'WISHLIST'))
+        if len(wl_cards) > 0:
+            extra_actions.append(cio.CatOption('U', '(U)nwishlist Card', 'UNWISH', selecting=True, title='Unwishlist card'))
         
         selection = cio.catalog_select(
             menu_lead,
-            items=cat_items,
+            items=fetch,
             include_create=False,
             extra_options=extra_actions,
             state=s.deck_cards_cat_state,
@@ -1298,6 +1312,9 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         action = selection[0]
         card: DeckCard = selection[1]
         s.deck_cards_cat_state = selection[2]
+
+        if 'types' in s.deck_cards_cat_state.active_fetch_filters:
+            types_filter = s.deck_cards_cat_state.active_fetch_filters['types']
 
         logger.debug("Selected action %s with card %s", action, str(card))
 
@@ -1403,19 +1420,29 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK WISHLIST"
     menu_state: Optional[cio.CatState] = None
 
+    filters = card_cat_filters(with_usage=True, with_scryfall_fetch=True)
+    
+    def fetch(filters: dict[str, str]) -> list[Tuple[CardWithUsage, str]]:
+        types = None
+
+        for k in filters:
+            if k.upper() == 'TYPE':
+                types = filters[k].split(',')
+
+        cards = carddb.find(s.db_filename, None, None, None, types)
+        cards = sorted(cards, key=lambda c: (c.name, c.special_print_items, c.condition))
+        cat_items = [(c, str(c)) for c in cards]
+        return cat_items
+
     while True:
         logger.debug("Entered menu")
-        cards = carddb.find(s.db_filename, None, None, None)
-
-        cat_items = [(c, str(c)) for c in cards]
         extra_options = [
             cio.CatOption('V', '(V)iew Card', 'VIEW', selecting=True, title='View card details')
         ]
-        filters = card_cat_filters(with_usage=True)
 
         selection = cio.catalog_select(
             menu_lead,
-            items=cat_items,
+            items=fetch,
             include_create=False,
             extra_options=extra_options,
             filters=filters,
@@ -1448,26 +1475,38 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
     logger = s.log.with_fields(menu='deck-add-card', deck_id=deck.id)
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK"
     menu_state: Optional[cio.CatState] = None
+    deck_used_states = ['C', 'P']
 
-    while True:
-        logger.debug("Entered menu")
-        cards = carddb.find(s.db_filename, None, None, None)
+    filters = card_cat_filters(with_usage=True, with_scryfall_fetch=True)
 
+    def fetch(filters: dict[str, str]) -> list[Tuple[CardWithUsage, str]]:
+        types = None
+
+        for k in filters:
+            if k.upper() == 'TYPE':
+                types = filters[k].split(',')
+
+        cards = carddb.find(s.db_filename, None, None, None, types)
+        cards = sorted(cards, key=lambda c: (c.name, c.special_print_items, c.condition))
         cat_items = []
-        deck_used_states = ['C', 'P']
         for c in cards:
             free = c.count - sum([u.count for u in c.usage if u.deck_state in deck_used_states])
             disp = str(c) + " ({:d}/{:d} free)".format(free, c.count)
             cat_items.append((c, disp))
 
+        return cat_items
+
+
+    while True:
+        logger.debug("Entered menu")
+        
         extra_options = [
             cio.CatOption('V', '(V)iew Card', 'VIEW', selecting=True, title='View card details')
         ]
-        filters = card_cat_filters(with_usage=True)
 
         selection = cio.catalog_select(
             menu_lead,
-            items=cat_items,
+            items=fetch,
             include_create=False,
             extra_options=extra_options,
             filters=filters,

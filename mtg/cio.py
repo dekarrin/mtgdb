@@ -355,6 +355,9 @@ class CatFilter:
                 return x
             self.normalize = noop
 
+    def __repr__(self) -> str:
+        return "CatFilter(name={!r}, fn={:s}, normalize={:s}, fmt_hint={!r}, on_fetch={!r})".format(self.name, "SET" if self.apply else "None", "SET" if self.normalize else "None", self.fmt_hint, self.on_fetch)
+
 
 def catalog_select(
         top_prompt: Optional[str],
