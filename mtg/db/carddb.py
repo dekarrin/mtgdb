@@ -6,7 +6,6 @@ from .errors import MultipleFoundError, NotFoundError, ForeignKeyError
 
 from ..types import Card, CardWithUsage, Usage, DeckChangeRecord, ScryfallCardData, ScryfallFace
 
-
 DEFAULT_EXPIRE_DAYS = 90
 
 
@@ -238,16 +237,20 @@ def find(db_filename: str, name: str | None, card_num: str | None, edition: str 
     has_scryfall_filters = types is not None
     has_inven_filters = name is not None or card_num is not None or ed_codes is not None
 
+    # normalize types so they match title case
+    if types is not None:
+        types = [t.title() for t in types]
+
     # if there are scryfall-requiring filters, we need to join on scryfall data
     if has_scryfall_filters:
         query += filters.card_scryfall_data_joins(types, card_table_alias='c', create_alias_scryfall_types='st')
 
-    filter_clause, filter_params = filters.card_scryfall_data(types, lead='AND' if has_inven_filters else 'WHERE', scryfall_types_alias='st')
+    filter_clause, filter_params = filters.card_scryfall_data(types, lead='WHERE', scryfall_types_alias='st')
     
     if has_inven_filters:
         if has_scryfall_filters:
             filter_clause += " AND "
-        inven_filter_clause, inven_filter_params = filters.card(name, card_num, ed_codes)
+        inven_filter_clause, inven_filter_params = filters.card(name, card_num, ed_codes, include_where=not has_scryfall_filters)
         filter_clause += inven_filter_clause
         filter_params += inven_filter_params
     

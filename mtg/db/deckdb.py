@@ -142,7 +142,7 @@ def get_one_card(db_filename: str, did: int, cid: int) -> DeckCard:
     return rows[0]
     
 
-def find_cards(db_filename: str, did: int, card_name: Optional[str], card_num: Optional[int], edition: Optional[str]) -> list[DeckCard]:
+def find_cards(db_filename: str, did: int, card_name: Optional[str], card_num: Optional[int], edition: Optional[str], types: list[str] | None=None) -> list[DeckCard]:
     query = sql_get_deck_cards
     params = [did]
 
@@ -157,7 +157,27 @@ def find_cards(db_filename: str, did: int, card_name: Optional[str], card_num: O
         for ed in matching_editions:
             ed_codes.append(ed.code)
 
-    filter_clause, filter_params = filters.card(card_name, card_num, ed_codes, include_where=False)
+    has_scryfall_filters = types is not None
+    has_inven_filters = card_name is not None or card_num is not None or ed_codes is not None
+
+    # normalize types so they match title case
+    if types is not None:
+        types = [t.title() for t in types]
+
+    # if there are scryfall-requiring filters, we need to join on scryfall data
+    if has_scryfall_filters:
+        query += filters.card_scryfall_data_joins(types, card_table_alias='c', create_alias_scryfall_types='st')
+    query += ' WHERE dc.deck = ?' # add WHERE back in
+
+    filter_clause, filter_params = filters.card_scryfall_data(types, lead=None, scryfall_types_alias='st')
+    
+    if has_inven_filters:
+        if has_scryfall_filters:
+            filter_clause += " AND "
+        inven_filter_clause, inven_filter_params = filters.card(card_name, card_num, ed_codes, include_where=False)
+        filter_clause += inven_filter_clause
+        filter_params += inven_filter_params
+
     if filter_clause != '':
         query += ' AND' + filter_clause
         params += filter_params
@@ -480,8 +500,8 @@ VALUES
 sql_get_deck_cards = '''
 SELECT * FROM inventory AS c
 INNER JOIN deck_cards AS dc ON dc.card = c.id
-WHERE dc.deck = ?
 '''
+# NOTE: WHERE will be appended by the funciton that calls this.
 
 
 sql_update_deck_card_count = '''

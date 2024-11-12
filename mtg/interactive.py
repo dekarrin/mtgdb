@@ -1249,6 +1249,15 @@ def deck_detail_menu(s: Session, deck: Deck):
 
 def deck_cards_menu(s: Session, deck: Deck) -> Deck:
     logger = s.log.with_fields(menu='deck-cards', deck_id=deck.id)
+        
+    filters = card_cat_filters(with_usage=False)
+
+    def fetch(filters: dict[str, str]) -> list[Tuple[DeckCard, str]]:
+        types = None
+
+        for k in filters:
+            if k.upper() == 'TYPE':
+                types = filters[k].split(',')
 
     while True:
         logger.debug("Entered menu")
@@ -1258,8 +1267,6 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         ]
         cards = deckdb.find_cards(s.db_filename, deck.id, None, None, None)
         cards.sort(key=lambda c: (c.name, c.tcg_num))
-        
-        filters = card_cat_filters(with_usage=False)
 
         wl_cards = [c for c in cards if c.deck_wishlist_count > 0]
         owned_cards = [c for c in cards if c.deck_count > 0]
@@ -1883,7 +1890,7 @@ def complete_scryfall_cache(s: Session):
     cio.pause()
 
 
-def card_cat_filters(with_usage: bool, with_scryfall_fetch) -> list[cio.CatFilter]:
+def card_cat_filters(with_usage: bool, with_scryfall_fetch: bool=False) -> list[cio.CatFilter]:
     def num_expr(val: str):
         # it can either be an exact number, or a comparator followed by a number
         val = val.strip()
