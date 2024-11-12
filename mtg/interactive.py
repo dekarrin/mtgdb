@@ -17,7 +17,7 @@ import textwrap
 
 import traceback
 
-from typing import Optional, Any, Tuple
+from typing import Optional, Any, Tuple, Callable
 
 from .types import Deck, DeckCard, Card, CardWithUsage, ScryfallCardData, deck_state_to_name, parse_cardnum, card_condition_to_name
 from . import cio, version, elog
@@ -645,7 +645,33 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
             break
 
 
-def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None):
+class DataSiblingSwapper:
+    def __init__(self, all_ids: list[str | int], pos: int, getter: Callable[[str | int], Any]):
+        self.all_ids = all_ids
+        self.pos = pos
+        self.getter = getter
+
+    @property
+    def has_next(self) -> bool:
+        return self.pos < len(self.all_ids) - 1
+    
+    @property
+    def has_prev(self) -> bool:
+        return self.pos > 0
+
+    def next(self):
+        if self.has_next:
+            self.pos += 1
+
+    def prev(self):
+        if self.has_prev:
+            self.pos -= 1
+    
+    def get(self):
+        return self.getter(self.all_ids[self.pos])
+
+
+def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None, siblings: DataSiblingSwapper | None=None):
     logger = s.log.with_fields(menu='card-large-view', card_id=card.id)
 
     cio.clear()
@@ -661,10 +687,10 @@ def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: Scryfal
             cio.pause()
             return
 
-    card_large_view(card, scryfall_data)
+    card_large_view(card, scryfall_data, siblings)
 
 
-def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True):
+def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True, siblings: DataSiblingSwapper | None=None):
     # logger = s.log.with_fields(action='card-large-view', card_id=c.id)
 
     # TODO: encapsulate common functionality between this and infobox.
@@ -677,14 +703,16 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
     round_box_chars = BoxChars(charset='─│╭╮╯╰')
     square_box_chars = BoxChars(charset='─│┌┐┘└')
 
-    options = [
-        ('X', 'EXIT', 'Exit')
-    ]
-
-    if len(scryfall_data.faces) > 1:
-        options.append(('F', 'FLIP', 'Flip to next face'))
-
     while True:
+        options = []
+        if siblings is not None and siblings.has_prev:
+            options.append(('P', 'PREV', 'Previous card'))
+        if siblings is not None and siblings.has_next:
+            options.append(('N', 'NEXT', 'Next card'))
+        options.append(('X', 'EXIT', 'Exit'))
+        if len(scryfall_data.faces) > 1:
+            options.append(('F', 'FLIP', 'Flip to next face'))
+        
         cio.clear()
         face_page = 'Scryfall ID: {:s}\n'.format(scryfall_data.id)
         if len(scryfall_data.faces) > 1:
@@ -784,11 +812,19 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
 
         # TODO: logger
 
-        if action == 'EXIT':
-            break
-        elif action == 'FLIP':
+        if action == 'FLIP':
             face_num += 1
             face_num %= len(scryfall_data.faces)
+        elif action == 'PREV':
+            siblings.prev()
+            face_num = 0
+            c, scryfall_data = siblings.get()
+        elif action == 'NEXT':
+            siblings.next()
+            face_num = 0
+            c, scryfall_data = siblings.get()
+        elif action == 'EXIT':
+            break
         else:
             # should never get here
             print("Unknown option")
