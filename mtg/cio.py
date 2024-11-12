@@ -402,7 +402,7 @@ def catalog_select(
             extra_opts_dict[eo.char.upper()] = eo
 
     pages = paginate(items, per_page)
-    
+
     def apply_list_filters(items, page_num, active_list_filters) -> tuple[list[list[tuple[any, str]]], int]:
         filtered_items = items
         for k in active_list_filters:
@@ -495,7 +495,11 @@ def catalog_select(
         elif choice == 'F' and filter_by is not None and len(filter_by) > 0:
             clear()
             catalogprint_page(page, top_prompt, per_page, fill_empty)
-            filter_opts = [(k, k.upper() + (": " + active_list_filters[k] if k in active_list_filters else '')) for k in list_filter_by]
+            all_active = dict()
+            all_active.update(active_list_filters)
+            all_active.update(active_fetch_filters)
+
+            filter_opts = [(k, k.upper() + (": " + all_active[k] if k in all_active else '')) for k in filter_by]
             extra_opts = [
                 ('A', '><*>CLEAR-ALL<*><', 'CLEAR ALL'),
                 ('C', '><*>CANCEL<*><', 'CANCEL'),
@@ -503,20 +507,31 @@ def catalog_select(
             filter_key = select("MANAGE FILTERS:", filter_opts, non_number_choices=extra_opts)
             
             if filter_key == '><*>CLEAR-ALL<*><':
+                # if we were given a fetch func and we are about to clear one,
+                # we need to re-fetch
+                refetch = fetch_items_fn is not None and len(active_fetch_filters) > 0
+
                 active_list_filters.clear()
+                active_fetch_filters.clear()
+
+                if refetch:
+                    items = fetch_items_fn(active_fetch_filters)
+
                 pages, page_num = apply_list_filters(items, page_num, active_list_filters)
                 continue
             elif filter_key == '><*>CANCEL<*><':
                 continue
                 
             clear()
-            f = list_filter_by[filter_key]
+            f = filter_by[filter_key]
             catalogprint_page(page, top_prompt, per_page, fill_empty)
             filter_expr = None
             
             existing = None
             if filter_key in active_list_filters:
                 existing = active_list_filters[filter_key]
+            elif filter_key in active_fetch_filters:
+                existing = active_fetch_filters[filter_key]
 
             while filter_expr is None:
                 hint = ""
@@ -533,16 +548,24 @@ def catalog_select(
                     print("ERROR: {!s}".format(e))
                 else:
                     filter_expr = filter_val
-
+            
             if filter_expr is None:
                 if existing is None:
                     print("No filter added")
                     pause()
                     continue
+                elif f.on_fetch:
+                    del active_fetch_filters[filter_key]
                 else:
                     del active_list_filters[filter_key]
+            elif f.on_fetch:
+                active_fetch_filters[filter_key] = filter_expr
             else:
                 active_list_filters[filter_key] = filter_expr
+
+            # refetch if we just altered a fetch filter
+            if f.on_fetch:
+                items = fetch_items_fn(active_fetch_filters)
 
             # update pages to be filtered
             pages, page_num = apply_list_filters(items, page_num, active_list_filters)
