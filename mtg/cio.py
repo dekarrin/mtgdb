@@ -358,7 +358,7 @@ class CatFilter:
 
 def catalog_select(
         top_prompt: Optional[str],
-        items: list[tuple[any, str]] | Callable[[list[CatFilter]], list[tuple[any, str]]],
+        items: list[tuple[any, str]] | Callable[[dict[str, str]], list[tuple[any, str]]],
         per_page: int=10,
         filters: list[CatFilter]=None,
         fill_empty: bool=True,
@@ -372,16 +372,14 @@ def catalog_select(
     tuple containing the action ((None), 'CREATE', 'SELECT'), and if an item selected, the item. Allows
     creation of new to be specified in the action. Items can either be given as
     a list of tuples, or a fetch function that returns the list of tuples; if it
-    is a fetch function, it will be passed a list of  
+    is a fetch function, it will be passed the dict of active fetch-filters that
+    map filter names to current values.
     """
 
-    # DO NOT CALL print or input IN HERE! WE DO NOT WANT TO LOG FULL PAGE DATA
-
-    # TODO: might need to set this after filters are so we can apply fetches.
-    fetch_items_fn = None
-    if callable(items):
-        fetch_items_fn = items
-        items = fetch_items_fn()
+    # it is illegal to have fetch filters if items is not a function. Check that
+    # now.
+    if any([f.on_fetch for f in filters]) and not callable(items):
+        raise ValueError("Cannot have fetch filters if items is not a fetch-function")
 
     filter_by: dict[str, CatFilter] = None
     if filters is not None:
@@ -404,9 +402,7 @@ def catalog_select(
             extra_opts_dict[eo.char.upper()] = eo
 
     pages = paginate(items, per_page)
-
-    # added options - (char, displayed, returned_action, selecting, confirm)
-
+    
     def apply_list_filters(items, page_num, active_list_filters) -> tuple[list[list[tuple[any, str]]], int]:
         filtered_items = items
         for k in active_list_filters:
@@ -425,14 +421,22 @@ def catalog_select(
     elif page_num >= len(pages):
         page_num = len(pages) - 1
 
-    active_list_filters = state.active_list_filters if state is not None else {}
     active_fetch_filters = state.active_fetch_filters if state is not None else {}
+    active_list_filters = state.active_list_filters if state is not None else {}
+    if active_fetch_filters is None:
+        active_fetch_filters = {}
+
+    # TODO: probably want pagination AFTER this 38/
+    # - We should get it for free with the apply_list_filters function ::::)
+    fetch_items_fn = None
+    if callable(items):
+        fetch_items_fn = items
+        items = fetch_items_fn(active_fetch_filters)
+
     if active_list_filters is None:
         active_list_filters = {}
     else:
         pages, page_num = apply_list_filters(items, page_num, active_list_filters)
-    if active_fetch_filters is None:
-        active_fetch_filters = {}
 
     # for selection prompts:
     extra_lines = 3  # 1 for end bar, 1 for total count, 1 for actions
