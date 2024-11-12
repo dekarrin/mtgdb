@@ -270,7 +270,7 @@ def cards_master_menu(s: Session):
 
         cat_items = [(c, "{:d}x {:s}".format(c.count, str(c))) for c in cards]
         menu_title = "MANAGE CARDS - {:d} owned, {:d} WL".format(total, wl_total)
-        selection = cio.catalog_select(menu_title, items=cat_items, extra_options=extra_actions, include_create=False, filters=filters, state=s.inven_cat_state)
+        selection = cio.catalog_select(menu_title, items_list=cat_items, extra_options=extra_actions, include_create=False, filters=filters, state=s.inven_cat_state)
 
         action = selection[0]
         card: CardWithUsage = selection[1]
@@ -806,7 +806,7 @@ def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
                 item = "{:d}x on wishlist in {:s}".format(u.wishlist_count, u.deck_name)
                 cat_items.append(('', item))
         
-        selection = cio.catalog_select(menu_lead, items=cat_items, include_create=False, include_select=False)
+        selection = cio.catalog_select(menu_lead, items_list=cat_items, include_create=False, include_select=False)
         
         action = selection[0]
 
@@ -1099,7 +1099,7 @@ def decks_master_menu(s: Session):
 
         decks = deckdb.get_all(s.db_filename)
         cat_items = [(d, deck_pretty_row(d)) for d in decks]
-        selection = cio.catalog_select("MANAGE DECKS", items=cat_items, filters=filters, state=s.deck_cat_state, extra_options=extra_options)
+        selection = cio.catalog_select("MANAGE DECKS", items_list=cat_items, filters=filters, state=s.deck_cat_state, extra_options=extra_options)
         
         action = selection[0]
         deck: Deck = selection[1]
@@ -1268,7 +1268,7 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         
         selection = cio.catalog_select(
             menu_lead,
-            items=cat_items,
+            items_list=cat_items,
             include_create=False,
             extra_options=extra_actions,
             state=s.deck_cards_cat_state,
@@ -1395,7 +1395,7 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
 
         selection = cio.catalog_select(
             menu_lead,
-            items=cat_items,
+            items_list=cat_items,
             include_create=False,
             extra_options=extra_options,
             filters=filters,
@@ -1447,7 +1447,7 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
 
         selection = cio.catalog_select(
             menu_lead,
-            items=cat_items,
+            items_list=cat_items,
             include_create=False,
             extra_options=extra_options,
             filters=filters,

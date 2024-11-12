@@ -302,9 +302,10 @@ class CatOption:
 
 
 class CatState:
-    def __init__(self, page_num: int, active_filters: dict, page: list[tuple[any, str]]):
+    def __init__(self, page_num: int, active_list_filters: dict, active_fetch_filters: dict, page: list[tuple[any, str]]):
         self.page_num = page_num
-        self.active_filters = active_filters
+        self.active_list_filters = active_list_filters
+        self.active_fetch_filters = active_fetch_filters
         self.page = page
 
 
@@ -330,10 +331,23 @@ def catalogprint_page(page: list[tuple[any, str]], top_prompt: Optional[str]=Non
 
 
 class CatFilter:
-    def __init__(self, name: str, fn: Callable[[any, str], bool], normalize: Optional[Callable[[str], str]]=None, fmt_hint: str | None=None):
+    """
+    If on_fetch is set, fn does not need to be set as the filter and its value
+    will simply be passed to the fetch function for it to handle. If on_fetch is
+    False, fn must be a function that takes the item and the filter value and
+    returns whether it matches.
+    """
+    def __init__(self,
+                 name: str,
+                 fn: Callable[[any, str], bool],
+                 normalize: Optional[Callable[[str], str]]=None,
+                 fmt_hint: str | None=None,
+                 on_fetch: bool=False
+        ):
         self.name = name
         self.apply = fn
         self.fmt_hint = fmt_hint
+        self.on_fetch = on_fetch
         if normalize is not None:
             self.normalize = normalize
         else:
@@ -344,7 +358,7 @@ class CatFilter:
 
 def catalog_select(
         top_prompt: Optional[str],
-        items: list[tuple[any, str]],
+        items: list[tuple[any, str]] | Callable[[list[CatFilter]], list[tuple[any, str]]],
         per_page: int=10,
         filters: list[CatFilter]=None,
         fill_empty: bool=True,
@@ -356,14 +370,24 @@ def catalog_select(
     """
     Select an item from a paginated catalog, or exit the catalog. Returns a
     tuple containing the action ((None), 'CREATE', 'SELECT'), and if an item selected, the item. Allows
-    creation of new to be specified in the action.
+    creation of new to be specified in the action. Items can either be given as
+    a list of tuples, or a fetch function that returns the list of tuples; if it
+    is a fetch function, it will be passed a list of  
     """
 
     # DO NOT CALL print or input IN HERE! WE DO NOT WANT TO LOG FULL PAGE DATA
 
+    # TODO: might need to set this after filters are so we can apply fetches.
+    fetch_items_fn = None
+    if callable(items):
+        fetch_items_fn = items
+        items = fetch_items_fn()
+
     filter_by: dict[str, CatFilter] = None
     if filters is not None:
         filter_by = {f.name: f for f in filters}
+    fetch_filter_by = {k: v for k, v in filter_by.items() if v.on_fetch}
+    list_filter_by = {k: v for k, v in filter_by.items() if not v.on_fetch}
 
     reserved_option_keys = ['X', 'S', 'N', 'P', 'F']
     if include_create:
@@ -383,11 +407,11 @@ def catalog_select(
 
     # added options - (char, displayed, returned_action, selecting, confirm)
 
-    def apply_filters(items, page_num, active_filters) -> tuple[list[list[tuple[any, str]]], int]:
+    def apply_list_filters(items, page_num, active_list_filters) -> tuple[list[list[tuple[any, str]]], int]:
         filtered_items = items
-        for k in active_filters:
-            f = filter_by[k]
-            filter_val = active_filters[k]
+        for k in active_list_filters:
+            f = list_filter_by[k]
+            filter_val = active_list_filters[k]
             filtered_items = [x for x in filtered_items if f.apply(x[0], filter_val)]
         items = filtered_items
         pages = paginate(items, per_page)
@@ -401,15 +425,18 @@ def catalog_select(
     elif page_num >= len(pages):
         page_num = len(pages) - 1
 
-    active_filters = state.active_filters if state is not None else {}
-    if active_filters is None:
-        active_filters = {}
+    active_list_filters = state.active_list_filters if state is not None else {}
+    active_fetch_filters = state.active_fetch_filters if state is not None else {}
+    if active_list_filters is None:
+        active_list_filters = {}
     else:
-        pages, page_num = apply_filters(items, page_num, active_filters)
+        pages, page_num = apply_list_filters(items, page_num, active_list_filters)
+    if active_fetch_filters is None:
+        active_fetch_filters = {}
 
     # for selection prompts:
     extra_lines = 3  # 1 for end bar, 1 for total count, 1 for actions
-    if filter_by is not None and len(filter_by) > 0:
+    if (list_filter_by is not None and len(list_filter_by) > 0) or (fetch_filter_by is not None and len(fetch_filter_by) > 0):
         extra_lines += 1
     
     while True:
@@ -422,8 +449,11 @@ def catalog_select(
         
         catalogprint_page(page, top_prompt, per_page, fill_empty)
         if filter_by is not None:
-            if len(active_filters) > 0:
-                print(' AND '.join(["{:s}:{!r}".format(k.upper(), v) for k, v in active_filters.items()]))
+            if len(active_list_filters) > 0 or len(active_fetch_filters) > 0:
+                all_active_filters = dict()
+                all_active_filters.update(active_list_filters)
+                all_active_filters.update(active_fetch_filters)
+                print(' AND '.join(["{:s}:{!r}".format(k.upper(), v) for k, v in all_active_filters.items()]))
             else:
                 print("(NO FILTERS)")
         print("{:d} total (Page {:d}/{:d})".format(len(items), max(page_num+1, 1), max(len(pages), 1)))
@@ -461,7 +491,7 @@ def catalog_select(
         elif choice == 'F' and filter_by is not None and len(filter_by) > 0:
             clear()
             catalogprint_page(page, top_prompt, per_page, fill_empty)
-            filter_opts = [(k, k.upper() + (": " + active_filters[k] if k in active_filters else '')) for k in filter_by]
+            filter_opts = [(k, k.upper() + (": " + active_list_filters[k] if k in active_list_filters else '')) for k in list_filter_by]
             extra_opts = [
                 ('A', '><*>CLEAR-ALL<*><', 'CLEAR ALL'),
                 ('C', '><*>CANCEL<*><', 'CANCEL'),
@@ -469,20 +499,20 @@ def catalog_select(
             filter_key = select("MANAGE FILTERS:", filter_opts, non_number_choices=extra_opts)
             
             if filter_key == '><*>CLEAR-ALL<*><':
-                active_filters.clear()
-                pages, page_num = apply_filters(items, page_num, active_filters)
+                active_list_filters.clear()
+                pages, page_num = apply_list_filters(items, page_num, active_list_filters)
                 continue
             elif filter_key == '><*>CANCEL<*><':
                 continue
                 
             clear()
-            f = filter_by[filter_key]
+            f = list_filter_by[filter_key]
             catalogprint_page(page, top_prompt, per_page, fill_empty)
             filter_expr = None
             
             existing = None
-            if filter_key in active_filters:
-                existing = active_filters[filter_key]
+            if filter_key in active_list_filters:
+                existing = active_list_filters[filter_key]
 
             while filter_expr is None:
                 hint = ""
@@ -506,12 +536,12 @@ def catalog_select(
                     pause()
                     continue
                 else:
-                    del active_filters[filter_key]
+                    del active_list_filters[filter_key]
             else:
-                active_filters[filter_key] = filter_expr
+                active_list_filters[filter_key] = filter_expr
 
             # update pages to be filtered
-            pages, page_num = apply_filters(items, page_num, active_filters)
+            pages, page_num = apply_list_filters(items, page_num, active_list_filters)
         elif include_select and choice == 'S':
             clear()
             # print the entire top prompt EXCEPT for the last line
@@ -522,11 +552,11 @@ def catalog_select(
             selected = select("Which one?\n" + ("-" * 22), page, non_number_choices=[('C', '><*>CANCEL<*><', 'CANCEL')], fill_to=per_page+extra_lines)
             if isinstance(selected, str) and selected == '><*>CANCEL<*><':
                 continue
-            return ('SELECT', selected, CatState(page_num, active_filters, page))
+            return ('SELECT', selected, CatState(page_num, active_list_filters, active_fetch_filters, page))
         elif include_create and choice == 'C':
-            return ('CREATE', None, CatState(page_num, active_filters, page))
+            return ('CREATE', None, CatState(page_num, active_list_filters, active_fetch_filters, page))
         elif choice == 'X':
-            return (None, None, CatState(page_num, active_filters, page))
+            return (None, None, CatState(page_num, active_list_filters, active_fetch_filters, page))
         elif choice in extra_opts_dict:
             eo = extra_opts_dict[choice]
             selected = None
@@ -544,7 +574,7 @@ def catalog_select(
                 catalogprint_page(page, top_prompt, per_page, fill_empty)
                 if not confirm(eo.confirm):
                     continue
-            return (eo.returned_action, selected, CatState(page_num, active_filters, page))
+            return (eo.returned_action, selected, CatState(page_num, active_list_filters, active_fetch_filters, page))
         else:
             print("Unknown option")
             pause()
