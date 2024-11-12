@@ -43,7 +43,16 @@ wishlisted count goes to 0.
 * `remove-wish` - Remove a card from a deck's wishlist.
 
 
+Troubleshooting
+---------------
+* No results after filtering on a value that should exist: certain attributes
+can only be indexed once Scryfall data for a card has been downloaded (such as
+type). Filters can only match against those that have been indexed; to force an
+index, go to the maintenance menu and download Scryfall data for all cards.
+
+
 Possible Enhancements:
 ------------------------
 - actually test import wishlist modification.
 - force deck names to contain at least one non-numeric char to allow flexible interpretation of args
+- Be able to do next/prev from card large-view menu
