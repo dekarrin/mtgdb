@@ -401,8 +401,6 @@ def catalog_select(
                 raise ValueError("Extra option key must be at least one character")
             extra_opts_dict[eo.char.upper()] = eo
 
-    pages = paginate(items, per_page)
-
     def apply_list_filters(items, page_num, active_list_filters) -> tuple[list[list[tuple[any, str]]], int]:
         filtered_items = items
         for k in active_list_filters:
@@ -414,12 +412,10 @@ def catalog_select(
         if page_num >= len(pages):
             page_num = len(pages) - 1
         return pages, page_num
-
+    
     page_num = state.page_num if state is not None else 0
     if page_num is None:
         page_num = 0
-    elif page_num >= len(pages):
-        page_num = len(pages) - 1
 
     active_fetch_filters = state.active_fetch_filters if state is not None else {}
     active_list_filters = state.active_list_filters if state is not None else {}
@@ -435,6 +431,9 @@ def catalog_select(
 
     if active_list_filters is None:
         active_list_filters = {}
+        pages = paginate(items, per_page)
+        if page_num >= len(pages):
+            page_num = len(pages) - 1
     else:
         pages, page_num = apply_list_filters(items, page_num, active_list_filters)
 
