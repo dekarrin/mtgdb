@@ -43,6 +43,14 @@ class DataSiblingSwapper:
     @property
     def has_prev(self) -> bool:
         return self.pos > 0
+    
+    @property
+    def count(self) -> int:
+        return len(self.all_ids)
+    
+    @property
+    def position(self) -> int:
+        return self.pos
 
     def next(self):
         if self.has_next:
@@ -738,6 +746,7 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
         raise ValueError("scryfall_data is required for large view")
     
     text_wrap_width = 70
+    reserved_card_lines = 28
     face_num = 0
     round_box_chars = BoxChars(charset='─│╭╮╯╰')
     square_box_chars = BoxChars(charset='─│┌┐┘└')
@@ -746,18 +755,16 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
         options = []
         options_prompt = ''
         if siblings is not None and siblings.has_prev:
-            prev_item = siblings.peek_prev()
-            prev_c: CardWithUsage = prev_item[0]
-            slug = "{:s} {:s}{:s}".format(prev_c.cardnum, prev_c.name, (" (" + prev_c.special_print_items + ")") if len(prev_c.special_print_items) > 0 else "")
-            options.append(('P', 'PREV', 'Prev: ' + slug))
+            options_prompt += '(P)rev, '
+            options.append('P')
         if siblings is not None and siblings.has_next:
-            next_item = siblings.peek_next()
-            next_c: CardWithUsage = next_item[0]
-            slug = "{:s} {:s}{:s}".format(next_c.cardnum, next_c.name, (" (" + next_c.special_print_items + ")") if len(next_c.special_print_items) > 0 else "")
-            options.append(('N', 'NEXT', 'Next: ' + slug))
-        options.append(('X', 'EXIT', 'Exit'))
+            options_prompt += '(N)ext, '
+            options.append('N')
         if len(scryfall_data.faces) > 1:
-            options.append(('F', 'FLIP', 'Flip to next face'))
+            options_prompt += '(F)lip Face, '
+            options.append('F')
+        options_prompt += 'E(X)it'
+        options.append('X')
         
         cio.clear()
         face_page = 'Scryfall ID: {:s}\n'.format(scryfall_data.id)
@@ -854,23 +861,23 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
         face_page += cbox_boxed
         face_page = face_page.strip()
 
-        wanted_lines = 24
         cur_lines = len(face_page.splitlines())
-        for i in range(wanted_lines - cur_lines):
+        for i in range(reserved_card_lines - cur_lines):
             face_page += '\n'
 
         print(face_page)
 
-        action = cio.prompt_choice(None, )
-        action = cio.select(None, non_number_choices=options)
+        if siblings is not None:
+            options_prompt = "[{:d}/{:d}] {:s}".format(siblings.position + 1, siblings.count, options_prompt)
+        action = cio.prompt_choice(options_prompt, choices=options)
 
         # TODO: logger
 
-        if action == 'FLIP':
+        if action == 'F':
             face_num += 1
             face_num %= len(scryfall_data.faces)
         
-        elif action == 'PREV':
+        elif action == 'P':
             siblings.prev()
             face_num = 0
             last_c, last_data = c, scryfall_data
@@ -880,7 +887,7 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
                 siblings.next()
                 c, scryfall_data = last_c, last_data
                 
-        elif action == 'NEXT':
+        elif action == 'N':
             siblings.next()
             face_num = 0
             last_c, last_data = c, scryfall_data
@@ -890,7 +897,7 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
                 siblings.next()
                 c, scryfall_data = last_c, last_data
         
-        elif action == 'EXIT':
+        elif action == 'X':
             break
         else:
             # should never get here
