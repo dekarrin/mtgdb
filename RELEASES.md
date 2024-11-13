@@ -1,3 +1,10 @@
+v0.5.0 - November 13th, 2024
+----------------------------
+* Added ability to view Next and Prev cards from card large-view that is based
+on the visible list of cards that the user got there from, including any
+filtering.
+
+
 v0.4.0 - November 12th, 2024
 ----------------------------
 * Added a new "large-view" for cards that includes all data and card text and

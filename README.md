@@ -33,6 +33,7 @@ for cases where that is the only thing that difers.
 * `add` - Add a card from inventory to a deck
 * `remove` - Remove a card from deck
 * `show-deck` - Show all cards in a particular deck, with filters available
+* `show-inven` - View a single inventory card in interactive mode.
 * `export-decks` - Export decklists in MTGDB CSV format.
 * `import-decks` - Import decklist files in MTGDB CSV format.
 * `add-inven` - Update inventory owned count, and/or create a new inventory
@@ -55,4 +56,3 @@ Possible Enhancements:
 ------------------------
 - actually test import wishlist modification.
 - force deck names to contain at least one non-numeric char to allow flexible interpretation of args
-- Be able to do next/prev from card large-view menu
