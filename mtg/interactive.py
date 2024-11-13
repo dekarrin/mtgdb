@@ -731,8 +731,6 @@ def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: Scryfal
 
 def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True, siblings: DataSiblingSwapper | None=None, logger: elog.Logger | None=None):
     # logger = s.log.with_fields(action='card-large-view', card_id=c.id)
-    if logger is None:
-        logger = elog.get(__name__)
 
     # TODO: encapsulate common functionality between this and infobox.
 
@@ -744,11 +742,9 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
     round_box_chars = BoxChars(charset='─│╭╮╯╰')
     square_box_chars = BoxChars(charset='─│┌┐┘└')
 
-
-    logger.debug("Sibling swapper DATA: %s", repr(siblings))
-
     while True:
         options = []
+        options_prompt = ''
         if siblings is not None and siblings.has_prev:
             prev_item = siblings.peek_prev()
             prev_c: CardWithUsage = prev_item[0]
@@ -856,8 +852,16 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
             cbox_boxed = '\n'.join(cbox_boxed_lines) + '\n'
 
         face_page += cbox_boxed
+        face_page = face_page.strip()
+
+        wanted_lines = 24
+        cur_lines = len(face_page.splitlines())
+        for i in range(wanted_lines - cur_lines):
+            face_page += '\n'
+
         print(face_page)
 
+        action = cio.prompt_choice(None, )
         action = cio.select(None, non_number_choices=options)
 
         # TODO: logger
@@ -1411,6 +1415,7 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         action = selection[0]
         card: DeckCard = selection[1]
         s.deck_cards_cat_state = selection[2]
+        filtered_items = selection[3]
 
         if 'types' in s.deck_cards_cat_state.active_fetch_filters:
             types_filter = s.deck_cards_cat_state.active_fetch_filters['types']
@@ -1420,7 +1425,35 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         cio.clear()
         if action == 'SELECT':
             # we need the usage card for this
-            deck_view_card(s, deck, card)
+
+
+            # TODO: encapsulate this for CardWithUsage at least.
+            per_page = 10
+            # find index of our card within the given page
+            matched_idx = -1
+            for i, (c, _) in enumerate(filtered_items):
+                if c.id == card.id:
+                    matched_idx = i
+                    break
+            cur_pos = (s.deck_cards_cat_state.page_num * per_page) + matched_idx
+
+            # TODO: cache the data so scryfall retrieve does not require hitting
+            # the DB
+            def get_item(i: int) -> tuple[CardWithUsage, ScryfallCardData]:
+                dc: DeckCard = filtered_items[i][0]
+                c = carddb.get_one(s.db_filename, dc.id)
+
+                scryfall_data = retrieve_scryfall_data(s, c)
+                if c.scryfall_id is None:
+                    c.scryfall_id = scryfall_data.id
+                if scryfall_data is None:
+                    logger.error("could not retrieve card data from Scryfall")
+                    print("ERROR: could not retrieve card data from Scryfall")
+                    return None, None
+                return c, scryfall_data
+            sibling_swapper = DataSiblingSwapper([x for x in range(len(filtered_items))], cur_pos, get_item)
+
+            deck_view_card(s, deck, card, siblings=sibling_swapper)
         elif action == 'ADD':
             deck = deck_detail_add(s, deck)
             logger.debug("Exited deck add-card menu")
@@ -1551,6 +1584,7 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
         action = selection[0]
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
+        filtered_items = selection[3]
 
         menu_state = None
 
@@ -1565,7 +1599,31 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
                 menu_state = cat_state
         elif action == 'VIEW':
             menu_state = cat_state
-            deck_view_card(s, deck, card)
+
+            # TODO: encapsulate this for CardWithUsage at least.
+            per_page = 10
+            # find index of our card within the given page
+            matched_idx = -1
+            for i, (c, _) in enumerate(filtered_items):
+                if c.id == card.id:
+                    matched_idx = i
+                    break
+            cur_pos = (cat_state.page_num * per_page) + matched_idx
+
+            # TODO: cache the data so scryfall retrieve does not require hitting
+            # the DB
+            def get_item(i: int) -> tuple[CardWithUsage, ScryfallCardData]:
+                c: CardWithUsage = filtered_items[i][0]
+                scryfall_data = retrieve_scryfall_data(s, c)
+                if c.scryfall_id is None:
+                    c.scryfall_id = scryfall_data.id
+                if scryfall_data is None:
+                    logger.error("could not retrieve card data from Scryfall")
+                    print("ERROR: could not retrieve card data from Scryfall")
+                    return None, None
+                return c, scryfall_data
+            sibling_swapper = DataSiblingSwapper([x for x in range(len(filtered_items))], cur_pos, get_item)
+            deck_view_card(s, deck, card, siblings=sibling_swapper)
         elif action is None:
             return deck
 
@@ -1615,6 +1673,7 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
         action = selection[0]
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
+        filtered_items = selection[3]
 
         menu_state = None
 
@@ -1629,14 +1688,38 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
                 menu_state = cat_state
         elif action == 'VIEW':
             menu_state = cat_state
-            deck_view_card(s, deck, card)
+
+            # TODO: encapsulate this for CardWithUsage at least.
+            per_page = 10
+            # find index of our card within the given page
+            matched_idx = -1
+            for i, (c, _) in enumerate(filtered_items):
+                if c.id == card.id:
+                    matched_idx = i
+                    break
+            cur_pos = (cat_state.page_num * per_page) + matched_idx
+
+            # TODO: cache the data so scryfall retrieve does not require hitting
+            # the DB
+            def get_item(i: int) -> tuple[CardWithUsage, ScryfallCardData]:
+                c: CardWithUsage = filtered_items[i][0]
+                scryfall_data = retrieve_scryfall_data(s, c)
+                if c.scryfall_id is None:
+                    c.scryfall_id = scryfall_data.id
+                if scryfall_data is None:
+                    logger.error("could not retrieve card data from Scryfall")
+                    print("ERROR: could not retrieve card data from Scryfall")
+                    return None, None
+                return c, scryfall_data
+            sibling_swapper = DataSiblingSwapper([x for x in range(len(filtered_items))], cur_pos, get_item)
+            deck_view_card(s, deck, card, siblings=sibling_swapper)
         elif action is None:
             return deck
         else:
             raise ValueError("Unknown action")
         
 
-def deck_view_card(s: Session, deck: Deck, card: Card):
+def deck_view_card(s: Session, deck: Deck, card: Card, siblings: DataSiblingSwapper | None=None):
     logger = s.log.with_fields(action='view-deck-card', deck_id=deck.id, card_id=card.id)
 
     scryfall_data = retrieve_scryfall_data(s, card, logger)
@@ -1649,7 +1732,7 @@ def deck_view_card(s: Session, deck: Deck, card: Card):
         usage_card = carddb.get_one(s.db_filename, card.id)
     
     logger.info("Display card")
-    card_large_view(usage_card, scryfall_data, subboxes=True)
+    card_large_view(usage_card, scryfall_data, siblings=siblings)
 
 
 def deck_wishlist_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
