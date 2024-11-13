@@ -30,6 +30,45 @@ from .errors import DataConflictError, UserCancelledError
 from .db import schema, deckdb, carddb, DBError, NotFoundError, DBOpenError
 
 
+class DataSiblingSwapper:
+    def __init__(self, all_ids: list[str | int], pos: int, getter: Callable[[str | int], Any]):
+        self.all_ids = all_ids
+        self.pos = pos
+        self.getter = getter
+
+    @property
+    def has_next(self) -> bool:
+        return self.pos < len(self.all_ids) - 1
+    
+    @property
+    def has_prev(self) -> bool:
+        return self.pos > 0
+
+    def next(self):
+        if self.has_next:
+            self.pos += 1
+
+    def prev(self):
+        if self.has_prev:
+            self.pos -= 1
+
+    def peek_next(self):
+        if self.has_next:
+            return self.getter(self.all_ids[self.pos + 1])
+        return None
+    
+    def peek_prev(self):
+        if self.has_prev:
+            return self.getter(self.all_ids[self.pos - 1])
+        return None
+    
+    def get(self):
+        return self.getter(self.all_ids[self.pos])
+
+    def __repr__(self) -> str:
+        return "DataSiblingSwapper(getter={:s}, pos={!r}, ids={!r})".format("None" if self.getter is None else "(SET)", self.pos, self.all_ids, )
+
+
 class Session:
     def __init__(self, db_filename: str):
         self.db_filename: str = db_filename
@@ -288,6 +327,7 @@ def cards_master_menu(s: Session):
         action = selection[0]
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
+        filtered_items = selection[3]
 
         logger.debug("Selected action %s with card %s", action, str(card))
 
@@ -300,7 +340,30 @@ def cards_master_menu(s: Session):
             if scryfall_data is not None and card.scryfall_id is None:
                 card.scryfall_id = scryfall_data.id
 
-            card_detail_menu(s, card, scryfall_data)
+            per_page = 10
+            # find index of our card within the given page
+            matched_idx = -1
+            for i, (c, _) in enumerate(filtered_items):
+                if c.id == card.id:
+                    matched_idx = i
+                    break
+            cur_pos = (cat_state.page_num * per_page) + matched_idx
+
+            # TODO: cache the data so scryfall retrieve does not require hitting
+            # the DB
+            def get_item(i: int) -> tuple[CardWithUsage, ScryfallCardData]:
+                c: CardWithUsage = filtered_items[i][0]
+                scryfall_data = retrieve_scryfall_data(s, c)
+                if c.scryfall_id is None:
+                    c.scryfall_id = scryfall_data.id
+                if scryfall_data is None:
+                    logger.error("could not retrieve card data from Scryfall")
+                    print("ERROR: could not retrieve card data from Scryfall")
+                    return None, None
+                return c, scryfall_data
+            sibling_swapper = DataSiblingSwapper([x for x in range(len(filtered_items))], cur_pos, get_item)
+
+            card_detail_menu(s, card, scryfall_data, sibling_swapper)
             logger.debug("Exited card detail menu")
         elif action == 'ADD':
             s.inven_cat_state = cat_state
@@ -601,7 +664,7 @@ def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final
     return hdr
 
 
-def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None):
+def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None, sibling_swapper: DataSiblingSwapper):
     logger = s.log.with_fields(menu='card-detail', card_id=card.id)
 
     while True:
@@ -640,35 +703,11 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
         elif action == 'FOIL':
             card = card_set_foil(s, card, scryfall_data)
         elif action == 'ONLY':
-            show_card_large_view(s, card, scryfall_data)
+            show_card_large_view(s, card, scryfall_data, sibling_swapper)
         elif action == 'EXIT':
             break
 
 
-class DataSiblingSwapper:
-    def __init__(self, all_ids: list[str | int], pos: int, getter: Callable[[str | int], Any]):
-        self.all_ids = all_ids
-        self.pos = pos
-        self.getter = getter
-
-    @property
-    def has_next(self) -> bool:
-        return self.pos < len(self.all_ids) - 1
-    
-    @property
-    def has_prev(self) -> bool:
-        return self.pos > 0
-
-    def next(self):
-        if self.has_next:
-            self.pos += 1
-
-    def prev(self):
-        if self.has_prev:
-            self.pos -= 1
-    
-    def get(self):
-        return self.getter(self.all_ids[self.pos])
 
 
 def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: ScryfallCardData | None, siblings: DataSiblingSwapper | None=None):
@@ -687,11 +726,13 @@ def show_card_large_view(s: Session, card: CardWithUsage, scryfall_data: Scryfal
             cio.pause()
             return
 
-    card_large_view(card, scryfall_data, siblings)
+    card_large_view(card, scryfall_data, siblings=siblings, logger=logger)
 
 
-def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True, siblings: DataSiblingSwapper | None=None):
+def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=True, siblings: DataSiblingSwapper | None=None, logger: elog.Logger | None=None):
     # logger = s.log.with_fields(action='card-large-view', card_id=c.id)
+    if logger is None:
+        logger = elog.get(__name__)
 
     # TODO: encapsulate common functionality between this and infobox.
 
@@ -703,12 +744,21 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
     round_box_chars = BoxChars(charset='─│╭╮╯╰')
     square_box_chars = BoxChars(charset='─│┌┐┘└')
 
+
+    logger.debug("Sibling swapper DATA: %s", repr(siblings))
+
     while True:
         options = []
         if siblings is not None and siblings.has_prev:
-            options.append(('P', 'PREV', 'Previous card'))
+            prev_item = siblings.peek_prev()
+            prev_c: CardWithUsage = prev_item[0]
+            slug = "{:s} {:s}{:s}".format(prev_c.cardnum, prev_c.name, (" (" + prev_c.special_print_items + ")") if len(prev_c.special_print_items) > 0 else "")
+            options.append(('P', 'PREV', 'Prev: ' + slug))
         if siblings is not None and siblings.has_next:
-            options.append(('N', 'NEXT', 'Next card'))
+            next_item = siblings.peek_next()
+            next_c: CardWithUsage = next_item[0]
+            slug = "{:s} {:s}{:s}".format(next_c.cardnum, next_c.name, (" (" + next_c.special_print_items + ")") if len(next_c.special_print_items) > 0 else "")
+            options.append(('N', 'NEXT', 'Next: ' + slug))
         options.append(('X', 'EXIT', 'Exit'))
         if len(scryfall_data.faces) > 1:
             options.append(('F', 'FLIP', 'Flip to next face'))
@@ -815,14 +865,27 @@ def card_large_view(c: CardWithUsage, scryfall_data: ScryfallCardData, subboxes=
         if action == 'FLIP':
             face_num += 1
             face_num %= len(scryfall_data.faces)
+        
         elif action == 'PREV':
             siblings.prev()
             face_num = 0
+            last_c, last_data = c, scryfall_data
             c, scryfall_data = siblings.get()
+            if c is None or scryfall_data is None:
+                cio.pause()
+                siblings.next()
+                c, scryfall_data = last_c, last_data
+                
         elif action == 'NEXT':
             siblings.next()
             face_num = 0
+            last_c, last_data = c, scryfall_data
             c, scryfall_data = siblings.get()
+            if c is None or scryfall_data is None:
+                cio.pause()
+                siblings.next()
+                c, scryfall_data = last_c, last_data
+        
         elif action == 'EXIT':
             break
         else:
