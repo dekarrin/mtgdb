@@ -19,7 +19,7 @@ import traceback
 
 from typing import Optional, Any, Tuple, Callable
 
-from .types import Deck, DeckCard, Card, CardWithUsage, ScryfallCardData, deck_state_to_name, parse_cardnum, card_condition_to_name
+from .types import Deck, DeckCard, Card, CardWithUsage, ScryfallCardData, Config, deck_state_to_name, parse_cardnum, card_condition_to_name
 from . import cio, version, elog
 from . import cards as cardops
 from . import decks as deckops
@@ -85,7 +85,11 @@ class Session:
         self.inven_cat_state: Optional[cio.CatState] = None
         self.deck_cards_cat_state: Optional[cio.CatState] = None
         self.log = elog.get(__name__)
-        self.config = configdb.read_config(db_filename)
+
+        try:
+            self.config = configdb.read_config(db_filename)
+        except DBOpenError:
+            self.config = Config()
 
 
 def create_sibling_swapper_from_cat_select(s: Session, r: cio.CatResult, per_page: int=10, logger: elog.Logger | None=None) -> DataSiblingSwapper:
@@ -220,7 +224,7 @@ def main_menu(s: Session):
         ('S', 'show-db', 'Show the database file currently in use'),
         ('I', 'init', 'Initialize the database file'),
         ('F', 'fixes', 'Perform database fixes and maintenance'),
-        ('P', 'prefs', 'Change program settings')
+        ('P', 'prefs', 'Change program settings'),
         ('X', 'exit', 'Exit the program')
     ]
 
@@ -248,7 +252,7 @@ def main_menu(s: Session):
                 decks_master_menu(s)
                 logger.debug("Exited decks menu")
             except DBOpenError:
-                logger.exception("DB must be initialized before managing cards")
+                logger.exception("DB must be initialized before managing decks")
                 print("ERROR: DB must be initialized before managing decks")
                 cio.pause()
         elif item == 'change-db':
@@ -323,8 +327,8 @@ def settings_menu(s: Session):
         logger.debug("Entered menu")
 
         conf_values = [
-            ('db', 'Database file (Changing will refresh all values)', s.db_filename)
-            ('deck-used', 'Deck Used States', s.config.deck_used_states)
+            ('db', 'Database file (Changing will refresh all values)', s.db_filename),
+            ('deck-used', 'Deck Used States', s.config.deck_used_states),
         ]
 
         longest_title_len = -1
