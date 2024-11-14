@@ -88,8 +88,10 @@ class Session:
 
         try:
             self.config = configdb.read_config(db_filename)
+            self.config_from_db = True
         except DBOpenError:
             self.config = Config()
+            self.config_from_db = False
 
 
 def create_sibling_swapper_from_cat_select(s: Session, r: cio.CatResult, per_page: int=10, logger: elog.Logger | None=None) -> DataSiblingSwapper:
@@ -313,6 +315,11 @@ def do_init(s: Session) -> bool:
             return False
     
     schema.init(s.db_filename)
+
+    # reload the config from the new DB
+    s.config = configdb.read_config(s.db_filename)
+    s.config_from_db = True
+
     return True
 
 
@@ -328,7 +335,7 @@ def settings_menu(s: Session):
 
         conf_values = [
             ('db', 'Database file (Changing will refresh all values)', s.db_filename),
-            ('deck-used', 'Deck Used States', s.config.deck_used_states),
+            ('deck-used', 'Deck Used States', s.config.deck_used_states if s.config_from_db else '(DB NOT INITIALIZED)'),
         ]
 
         longest_title_len = -1
@@ -353,6 +360,11 @@ def settings_menu(s: Session):
         if action == 'db':
             change_db(s)
         elif action == 'deck-used':
+            if not s.config_from_db:
+                print("ERROR: DB must be initialized before changing settings besides DB filename")
+                logger.error("DB not initialized; cannot change setting deck used states")
+                cio.pause()
+                continue
             existing = ','.join(s.config.deck_used_states)
             result = cio.prompt("States (comma-separated list of C, P, and/or B): ", prefill=existing)
             # need to be able to convert result
