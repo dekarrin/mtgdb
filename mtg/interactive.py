@@ -665,11 +665,13 @@ def box_text(text: str, text_width: int, pad_sides: int=1, chars: BoxChars | str
     return '\n'.join(boxed)
 
 
-def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar: bool=True, inven_details: bool=True, title: str='CARD', box_card: bool=False, max_cardtext_lines: int=6) -> str:
-    deck_used_states = ['P', 'C']
+def card_infobox(c: CardWithUsage, scryfall_data: ScryfallCardData | None, final_bar: bool=True, inven_details: bool=True, title: str='CARD', box_card: bool=False, max_cardtext_lines: int=6, config: Config | None=None) -> str:
+    if config is None:
+        config = Config()
+
     wishlist_total = sum([u.wishlist_count for u in c.usage])
     in_decks = sum([u.count for u in c.usage])
-    in_decks_unfree = sum([u.count for u in c.usage if u.deck_state in deck_used_states])
+    in_decks_unfree = sum([u.count for u in c.usage if u.deck_state in config.deck_used_states])
     free = c.count - in_decks_unfree
 
     text_wrap_width = 40
@@ -804,7 +806,7 @@ def card_detail_menu(s: Session, card: CardWithUsage, scryfall_data: ScryfallCar
         logger.debug("Entered menu")
 
         cio.clear()
-        print(card_infobox(card, scryfall_data, box_card=True))
+        print(card_infobox(card, scryfall_data, box_card=True, config=s.config))
 
         actions = [
             ('D', 'DECKS', 'View decks this card is in'),
@@ -1067,7 +1069,7 @@ def card_decks_menu(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardDat
 def card_set_foil(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage | None:
     logger = s.log.with_fields(action='set-foil', card_id=c.id)
 
-    print(card_infobox(c, scryfall_data, box_card=True))
+    print(card_infobox(c, scryfall_data, box_card=True, config=s.config))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         logger.info("Action canceled by user at initial confirmation")
         return c
@@ -1101,7 +1103,7 @@ def card_set_foil(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData 
 def card_remove_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage | None:
     logger = s.log.with_fields(action='decrement-inven', card_id=c.id)
 
-    print(card_infobox(c, scryfall_data, box_card=True))
+    print(card_infobox(c, scryfall_data, box_card=True, config=s.config))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         logger.info("Action canceled by user at initial confirmation")
         return c
@@ -1142,7 +1144,7 @@ def card_remove_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCard
 def card_set_condition(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage:
     logger = s.log.with_fields(action='set-card-condition', card_id=c.id)
 
-    print(card_infobox(c, scryfall_data, box_card=True))
+    print(card_infobox(c, scryfall_data, box_card=True, config=s.config))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         logger.info("Action canceled by user at initial confirmation")
         return c
@@ -1165,7 +1167,7 @@ def card_set_condition(s: Session, c: CardWithUsage, scryfall_data: ScryfallCard
 def card_add_single(s: Session, c: CardWithUsage, scryfall_data: ScryfallCardData | None) -> CardWithUsage:
     logger = s.log.with_fields(action='increment-inven', card_id=c.id)
     
-    print(card_infobox(c, scryfall_data, box_card=True))
+    print(card_infobox(c, scryfall_data, box_card=True, config=s.config))
     if not cio.confirm("WARNING: this can bring inventory out of sync with deckbox. Continue?"):
         logger.info("Action canceled by user at initial confirmation")
         return c
@@ -1702,7 +1704,6 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
     logger = s.log.with_fields(menu='deck-add-card', deck_id=deck.id)
     menu_lead = deck_infobox(deck) + "\nADD CARD TO DECK"
     menu_state: Optional[cio.CatState] = None
-    deck_used_states = ['C', 'P']
 
     filters = card_cat_filters(with_usage=True, with_scryfall_fetch=True)
 
@@ -1717,7 +1718,7 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
         cards = sorted(cards, key=lambda c: (c.name, c.special_print_items, c.condition))
         cat_items = []
         for c in cards:
-            free = c.count - sum([u.count for u in c.usage if u.deck_state in deck_used_states])
+            free = c.count - sum([u.count for u in c.usage if u.deck_state in s.config.deck_used_states])
             disp = str(c) + " ({:d}/{:d} free)".format(free, c.count)
             cat_items.append((c, disp))
 
@@ -1815,8 +1816,7 @@ def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
     prior prompt."""
     logger = s.log.with_fields(action='deck-add-card', deck_id=deck.id, card_id=card.id)
 
-    deck_used_states = ['C', 'P']
-    free = card.count - sum([u.count for u in card.usage if u.deck_state in deck_used_states])
+    free = card.count - sum([u.count for u in card.usage if u.deck_state in s.config.deck_used_states])
     if free < 1:
         print(deck_infobox(deck))
         print("ERROR: No more free cards of {!s}".format(card))
@@ -1832,7 +1832,7 @@ def deck_add_card(s: Session, deck: Deck, card: CardWithUsage) -> Deck:
     logger.debug("Adding %dx copies of %s to deck %s...", amt, str(card), deck.name)
     
     try:
-        cardops.add_to_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt, deck_used_states=deck_used_states)
+        cardops.add_to_deck(s.db_filename, card_id=card.id, deck_id=deck.id, amount=amt, deck_used_states=s.config.deck_used_states)
     except DataConflictError as e:
         print("ERROR: " + str(e))
         logger.exception("Data conflict error occurred")
