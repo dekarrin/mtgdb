@@ -74,7 +74,7 @@ class DataSiblingSwapper:
         return self.getter(self.all_ids[self.pos])
 
     def __repr__(self) -> str:
-        return "DataSiblingSwapper(getter={:s}, pos={!r}, ids={!r})".format("None" if self.getter is None else "(SET)", self.pos, self.all_ids, )
+        return "DataSiblingSwapper(getter={:s}, pos={!r}, ids={!r})".format("None" if self.getter is None else "(SET)", self.pos, self.all_ids)
 
 
 class Session:
@@ -85,6 +85,53 @@ class Session:
         self.inven_cat_state: Optional[cio.CatState] = None
         self.deck_cards_cat_state: Optional[cio.CatState] = None
         self.log = elog.get(__name__)
+
+
+def create_sibling_swapper_from_cat_select(s: Session, r: cio.CatResult, per_page: int=10, logger: elog.Logger | None=None) -> DataSiblingSwapper:
+    """
+    Create a DataSiblingSwapper from the given CatResult, which must contain a Card as its selected item.
+    """
+    if logger is None:
+        logger = s.log
+
+    # find index of our card within the given page
+    card = r.item
+    if card is None:
+        raise ValueError("No card selected")
+    if not isinstance(card, Card):
+        raise ValueError("Selection is not a Card or subclass")
+
+    matched_idx = -1
+    for i, (c, _) in enumerate(r.state.page):
+        if c.id == card.id:
+            matched_idx = i
+            break
+
+    cur_pos = (r.state.page_num * per_page) + matched_idx
+    
+    filtered_items: list[Card] = [x[0] for x in r.filtered_items]
+
+    # verify that cur_pos is the correct one
+    if filtered_items[cur_pos].id != card.id:
+        raise ValueError("Card not found in filtered items")
+
+    # TODO: cache the data so scryfall retrieve does not require hitting the DB
+    def get_item(i: int) -> tuple[CardWithUsage, ScryfallCardData]:
+        c = filtered_items[i]
+        if not isinstance(c, CardWithUsage):
+            c = carddb.get_one(s.db_filename, c.id)
+
+        scryfall_data = retrieve_scryfall_data(s, c)
+        if c.scryfall_id is None:
+            c.scryfall_id = scryfall_data.id
+        if scryfall_data is None:
+            logger.error("could not retrieve card data from Scryfall")
+            print("ERROR: could not retrieve card data from Scryfall")
+            return None, None
+        return c, scryfall_data
+    
+    sibling_swapper = DataSiblingSwapper(list(range(len(filtered_items))), cur_pos, get_item)
+    return sibling_swapper
 
 
 def start(db_filename, alt_buffer: bool=True):
@@ -335,7 +382,6 @@ def cards_master_menu(s: Session):
         action = selection[0]
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
-        filtered_items = selection[3]
 
         logger.debug("Selected action %s with card %s", action, str(card))
 
@@ -347,30 +393,8 @@ def cards_master_menu(s: Session):
             scryfall_data = retrieve_scryfall_data(s, card)
             if scryfall_data is not None and card.scryfall_id is None:
                 card.scryfall_id = scryfall_data.id
-
-            per_page = 10
-            # find index of our card within the given page
-            matched_idx = -1
-            for i, (c, _) in enumerate(filtered_items):
-                if c.id == card.id:
-                    matched_idx = i
-                    break
-            cur_pos = (cat_state.page_num * per_page) + matched_idx
-
-            # TODO: cache the data so scryfall retrieve does not require hitting
-            # the DB
-            def get_item(i: int) -> tuple[CardWithUsage, ScryfallCardData]:
-                c: CardWithUsage = filtered_items[i][0]
-                scryfall_data = retrieve_scryfall_data(s, c)
-                if c.scryfall_id is None:
-                    c.scryfall_id = scryfall_data.id
-                if scryfall_data is None:
-                    logger.error("could not retrieve card data from Scryfall")
-                    print("ERROR: could not retrieve card data from Scryfall")
-                    return None, None
-                return c, scryfall_data
-            sibling_swapper = DataSiblingSwapper([x for x in range(len(filtered_items))], cur_pos, get_item)
-
+            
+            sibling_swapper = create_sibling_swapper_from_cat_select(s, selection, logger=logger)
             card_detail_menu(s, card, scryfall_data, sibling_swapper)
             logger.debug("Exited card detail menu")
         elif action == 'ADD':
@@ -1416,42 +1440,12 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         action = selection[0]
         card: DeckCard = selection[1]
         s.deck_cards_cat_state = selection[2]
-        filtered_items = selection[3]
 
         logger.debug("Selected action %s with card %s", action, str(card))
 
         cio.clear()
         if action == 'SELECT':
-            # we need the usage card for this
-
-
-            # TODO: encapsulate this for CardWithUsage at least.
-            per_page = 10
-            # find index of our card within the given page
-            matched_idx = -1
-            for i, (c, _) in enumerate(s.deck_cards_cat_state.page):
-                if c.id == card.id:
-                    matched_idx = i
-                    break
-            
-            cur_pos = (s.deck_cards_cat_state.page_num * per_page) + matched_idx
-
-            # TODO: cache the data so scryfall retrieve does not require hitting
-            # the DB
-            def get_item(i: int) -> tuple[CardWithUsage, ScryfallCardData]:
-                dc: DeckCard = filtered_items[i][0]
-                c = carddb.get_one(s.db_filename, dc.id)
-
-                scryfall_data = retrieve_scryfall_data(s, c)
-                if c.scryfall_id is None:
-                    c.scryfall_id = scryfall_data.id
-                if scryfall_data is None:
-                    logger.error("could not retrieve card data from Scryfall")
-                    print("ERROR: could not retrieve card data from Scryfall")
-                    return None, None
-                return c, scryfall_data
-            sibling_swapper = DataSiblingSwapper([x for x in range(len(filtered_items))], cur_pos, get_item)
-
+            sibling_swapper = create_sibling_swapper_from_cat_select(s, selection, logger=logger)
             deck_view_card(s, deck, card, siblings=sibling_swapper)
         elif action == 'ADD':
             deck = deck_detail_add(s, deck)
@@ -1506,15 +1500,6 @@ def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
     deck = deckdb.get_one(s.db_filename, deck.id)
     logger.with_fields(**deck_mutation_fields(deck, 'unwishlist-card', card, count=amt)).info("Card unwishlisted from deck")
     return deck
-
-
-def create_sibling_swapper_from_cat_select(s: Session, state: cio.CatState, filtered_items: list[tuple[Card, str]], current_card: Card, per_page: int=10) -> DataSiblingSwapper:
-    # find index of our card within the given page
-    matched_idx = -1
-    for i, (c, _) in enumerate(state.page):
-        if c.id == current_card.id:
-            matched_idx = i
-            break
 
 
 def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
@@ -1592,7 +1577,6 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
         action = selection[0]
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
-        filtered_items = selection[3]
 
         menu_state = None
 
@@ -1607,30 +1591,7 @@ def deck_detail_wishlist(s: Session, deck: Deck) -> Deck:
                 menu_state = cat_state
         elif action == 'VIEW':
             menu_state = cat_state
-
-            # TODO: encapsulate this for CardWithUsage at least.
-            per_page = 10
-            # find index of our card within the given page
-            matched_idx = -1
-            for i, (c, _) in enumerate(filtered_items):
-                if c.id == card.id:
-                    matched_idx = i
-                    break
-            cur_pos = (cat_state.page_num * per_page) + matched_idx
-
-            # TODO: cache the data so scryfall retrieve does not require hitting
-            # the DB
-            def get_item(i: int) -> tuple[CardWithUsage, ScryfallCardData]:
-                c: CardWithUsage = filtered_items[i][0]
-                scryfall_data = retrieve_scryfall_data(s, c)
-                if c.scryfall_id is None:
-                    c.scryfall_id = scryfall_data.id
-                if scryfall_data is None:
-                    logger.error("could not retrieve card data from Scryfall")
-                    print("ERROR: could not retrieve card data from Scryfall")
-                    return None, None
-                return c, scryfall_data
-            sibling_swapper = DataSiblingSwapper([x for x in range(len(filtered_items))], cur_pos, get_item)
+            sibling_swapper = create_sibling_swapper_from_cat_select(s, selection, logger=logger)
             deck_view_card(s, deck, card, siblings=sibling_swapper)
         elif action is None:
             return deck
@@ -1681,7 +1642,6 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
         action = selection[0]
         card: CardWithUsage = selection[1]
         cat_state = selection[2]
-        filtered_items = selection[3]
 
         menu_state = None
 
@@ -1696,30 +1656,7 @@ def deck_detail_add(s: Session, deck: Deck) -> Deck:
                 menu_state = cat_state
         elif action == 'VIEW':
             menu_state = cat_state
-
-            # TODO: encapsulate this for CardWithUsage at least.
-            per_page = 10
-            # find index of our card within the given page
-            matched_idx = -1
-            for i, (c, _) in enumerate(filtered_items):
-                if c.id == card.id:
-                    matched_idx = i
-                    break
-            cur_pos = (cat_state.page_num * per_page) + matched_idx
-
-            # TODO: cache the data so scryfall retrieve does not require hitting
-            # the DB
-            def get_item(i: int) -> tuple[CardWithUsage, ScryfallCardData]:
-                c: CardWithUsage = filtered_items[i][0]
-                scryfall_data = retrieve_scryfall_data(s, c)
-                if c.scryfall_id is None:
-                    c.scryfall_id = scryfall_data.id
-                if scryfall_data is None:
-                    logger.error("could not retrieve card data from Scryfall")
-                    print("ERROR: could not retrieve card data from Scryfall")
-                    return None, None
-                return c, scryfall_data
-            sibling_swapper = DataSiblingSwapper([x for x in range(len(filtered_items))], cur_pos, get_item)
+            sibling_swapper = create_sibling_swapper_from_cat_select(s, selection, logger=logger)
             deck_view_card(s, deck, card, siblings=sibling_swapper)
         elif action is None:
             return deck
