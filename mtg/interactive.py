@@ -27,7 +27,7 @@ from . import deckbox as deckboxops
 from . import scryfall as scryfallops
 from . import maint
 from .errors import DataConflictError, UserCancelledError
-from .db import schema, deckdb, carddb, DBError, NotFoundError, DBOpenError
+from .db import schema, deckdb, carddb, configdb, DBError, NotFoundError, DBOpenError
 
 
 class DataSiblingSwapper:
@@ -85,6 +85,7 @@ class Session:
         self.inven_cat_state: Optional[cio.CatState] = None
         self.deck_cards_cat_state: Optional[cio.CatState] = None
         self.log = elog.get(__name__)
+        self.config = configdb.read_config(db_filename)
 
 
 def create_sibling_swapper_from_cat_select(s: Session, r: cio.CatResult, per_page: int=10, logger: elog.Logger | None=None) -> DataSiblingSwapper:

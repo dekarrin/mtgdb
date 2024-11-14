@@ -543,3 +543,9 @@ class DeckChangeRecord:
         self.amount = amount
         self.deck_name = deck_name
         self.card_data = card_data
+
+
+# TODO: make this apply to non-interactive commands as well
+class Config:
+    def __init__(self, deck_used_states: list[str]=['C', 'P']):
+        self.deck_used_states = deck_used_states

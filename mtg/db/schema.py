@@ -19,10 +19,12 @@ def init(db_filename):
     cur.execute(sql_drop_decks)
     cur.execute(sql_drop_deck_states)
     cur.execute(sql_drop_conditions)
+    cur.execute(sql_drop_config)
     
     con.commit()
 
     # create tables
+    cur.execute(sql_create_config)
     cur.execute(sql_create_conditions)
     cur.execute(sql_create_deck_states)
     cur.execute(sql_create_decks)
@@ -38,6 +40,7 @@ def init(db_filename):
     con.commit()
     
     # populate enum data
+    cur.execute(sql_insert_config)
     cur.execute(sql_insert_conditions)
     cur.execute(sql_insert_deck_states)
     cur.execute(sql_insert_editions)
@@ -51,6 +54,21 @@ def init(db_filename):
 
 sql_enable_fks = '''
 PRAGMA foreign_keys = ON;
+'''
+
+
+sql_drop_config = '''
+DROP TABLE IF EXISTS "config";
+'''
+
+sql_create_config = '''
+CREATE TABLE "config" (
+    "key"            TEXT NOT NULL,
+    "value"          TEXT NOT NULL,
+    "type"           TEXT NOT NULL,
+    "description"    TEXT,
+    PRIMARY KEY ("key")
+)
 '''
 
 
@@ -208,6 +226,14 @@ CREATE TABLE "deck_cards" (
     FOREIGN KEY("deck") REFERENCES "decks"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     PRIMARY KEY("card", "deck")
 );
+'''
+
+
+sql_insert_config = '''
+INSERT INTO "config"
+    ('key', 'type', 'value', 'description')
+VALUES
+    ('deck_used_states', 'comma-list-str', 'C,P', 'Comma-separated list of states. When a deck is set to one of these, cards in it are considered 'used' and will not be available for use in other decks.'),
 '''
 
 
