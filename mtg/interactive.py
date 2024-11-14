@@ -214,10 +214,13 @@ def main_menu(s: Session):
     top_level_items = [
         ('C', 'cards', 'View and manage cards in inventory'),
         ('D', 'decks', 'View and manage decks'),
+
+        # TODO: integrate these two into a new 'SETTINGS' menu.
         ('B', 'change-db', 'Change the database file being used'),
         ('S', 'show-db', 'Show the database file currently in use'),
         ('I', 'init', 'Initialize the database file'),
         ('F', 'fixes', 'Perform database fixes and maintenance'),
+        ('P', 'prefs', 'Change program settings')
         ('X', 'exit', 'Exit the program')
     ]
 
@@ -266,6 +269,9 @@ def main_menu(s: Session):
         elif item == 'fixes':
             db_fixes_menu(s)
             logger.debug("Exited fixes menu")
+        elif item == 'prefs':
+            settings_menu(s)
+            logger.debug("Exited settings menu")
         elif item == 'exit':
             s.running = False
             logger.info("Program is no longer running")
@@ -304,6 +310,78 @@ def do_init(s: Session) -> bool:
     
     schema.init(s.db_filename)
     return True
+
+
+def settings_menu(s: Session):
+    logger = s.log.with_fields(menu='settings')
+
+    letter_items = [
+        ('X', 'exit', 'Exit')
+    ]
+
+    while True:
+        logger.debug("Entered menu")
+
+        conf_values = [
+            ('db', 'Database file (Changing will refresh all values)', s.db_filename)
+            ('deck-used', 'Deck Used States', s.config.deck_used_states)
+        ]
+
+        longest_title_len = -1
+        for i in conf_values:
+            if len(i[1]) > longest_title_len:
+                longest_title_len = len(i[1])
+        conf_items = []
+        for action, title, value in conf_values:
+            full_title = title + ': '
+            needed_spaces = longest_title_len - len(title)
+            if needed_spaces > 0:
+                full_title += ' ' * needed_spaces
+            full_title += repr(value)
+            conf_items.append((action, full_title))
+
+        cio.clear()
+        action = cio.select("SETTINGS - SELECT VALUE TO UPDATE", options=conf_items, non_number_choices=letter_items)
+
+        logger.debug("Selected action %s", action)
+
+        cio.clear()
+        if action == 'db':
+            change_db(s)
+        elif action == 'deck-used':
+            existing = ','.join(s.config.deck_used_states)
+            result = cio.prompt("States (comma-separated list of C, P, and/or B): ", prefill=existing)
+            # need to be able to convert result
+            entered_values = [x.strip().upper() for x in result.strip('[]').split(',')]
+            errored = False
+            for ev in entered_values:
+                if ev not in ['C', 'P', 'B']:
+                    print("ERROR: {!r} is not a valid state; must be one of C, P, or B".format(ev))
+                    logger.error("invalid state %s entered", repr(ev))
+                    errored = True
+                    break
+            if errored:
+                print("Value not updated")
+                cio.pause()
+                continue
+            else:
+                # eliminate dupes
+                seen = set()
+                actual_values = []
+                for ev in entered_values:
+                    if ev not in seen:
+                        actual_values.append(ev)
+                        seen.add(ev)
+                
+                configdb.set(s.db_filename, 'deck_used_states', actual_values)
+                s.config.deck_used_states = actual_values
+        elif action == 'exit':
+            break
+        else:
+            # should never get here
+            print("Unknown option")
+            logger.warning("unknown option %s selected; ignoring", repr(action))
+            cio.pause()
 
 
 def db_fixes_menu(s: Session):

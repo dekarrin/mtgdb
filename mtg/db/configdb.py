@@ -14,10 +14,49 @@ def read_config(db_filename: str) -> Config:
 def set(db_filename: str, key: str, value: any) -> str:
     con = util.connect(db_filename)
     cur = con.cursor()
-    cur.execute(sql_set, (str(value) if value is not None else None, key))
+
+    key_records = []
+    for r in cur.execute(sql_get_key, (key,)):
+        key_records.append(r[0], r[1], r[2])
+
+    if len(key_records) < 1:
+        con.close()
+        raise NotFoundError("No config key with name {!r} exists".format(key))
+    if len(key_records) > 1:
+        con.close()
+        raise MultipleFoundError("Multiple config keys match {!r}".format(key))
+    
+    key_info = key_records[0]
+    key_type = key_info[1]
+
+    def convert(type_str: str, value: any):
+        type_str = type_str.upper()
+
+        if value is None:
+            return None
+        
+        if type_str in ['STR', 'INT', 'FLOAT']:
+            return str(value).strip()
+        if type_str == 'BOOL':
+            return '1' if value else '0'
+        elif type_str.startswith("COMMA-LIST"):
+            if not isinstance(value, list):
+                raise ValueError("Value must be a list for type {!r}".format(type_str))
+            
+            sub_type = type_str[len("COMMA-LIST-"):]
+            built_values = []
+            for v in value:
+                built_values.append(convert(sub_type, v))
+            return ",".join(built_values)
+        else:
+            raise ValueError("Unknown type string {!r}".format(type_str))
+
+
+    cur.execute(sql_set, (convert(value, key_type), key))
     con.commit()
 
     if con.total_changes < 1:
+        con.close()
         raise NotFoundError("no config key with name {!r} exists".format(key))
 
     con.close()
@@ -41,7 +80,7 @@ def get(db_filename: str, key: str) -> any:
     t = records[0][0]
     v = records[0][1]
 
-    def convert(type_str, value):
+    def convert(value: any, type_str: str):
         type_str = type_str.upper()
 
         if type_str == 'STR':
@@ -57,12 +96,12 @@ def get(db_filename: str, key: str) -> any:
             sub_type = type_str[len("COMMA-LIST-"):]
             vals = []
             for rv in raw_vals:
-                vals.append(convert(sub_type, rv))
+                vals.append(convert(rv, sub_type))
             return vals
         else:
             raise ValueError("Unknown type string {!r}".format(type_str))
 
-    v = convert(t, v)
+    v = convert(v, t)
     return v
 
 
@@ -72,4 +111,8 @@ UPDATE config SET value = ? WHERE key LIKE ?;
 
 sql_get = '''
 SELECT type, value FROM config WHERE key LIKE ?;
+'''
+
+sql_get_key = '''
+SELECT key, type, description FROM config WHERE key LIKE ?;
 '''

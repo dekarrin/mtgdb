@@ -64,7 +64,7 @@ DROP TABLE IF EXISTS "config";
 sql_create_config = '''
 CREATE TABLE "config" (
     "key"            TEXT NOT NULL,
-    "value"          TEXT NOT NULL,
+    "value"          TEXT,
     "type"           TEXT NOT NULL,
     "description"    TEXT,
     PRIMARY KEY ("key")
