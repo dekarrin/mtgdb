@@ -359,6 +359,26 @@ class CatFilter:
         return "CatFilter(name={!r}, fn={:s}, normalize={:s}, fmt_hint={!r}, on_fetch={!r})".format(self.name, "SET" if self.apply else "None", "SET" if self.normalize else "None", self.fmt_hint, self.on_fetch)
 
 
+class CatResult:
+    def __init__(self, action: str, item: Optional[any], state: CatState, filtered_items: list[tuple[any, str]]):
+        self.action = action
+        self.item = item
+        self.state = state
+        self.filtered_items = filtered_items
+
+    def __getitem__(self, key):
+        if key == 0:
+            return self.action
+        elif key == 1:
+            return self.item
+        elif key == 2:
+            return self.state
+        elif key == 3:
+            return self.filtered_items
+        else:
+            raise IndexError("CatResult invalid index: %d".format(key))
+
+
 def catalog_select(
         top_prompt: Optional[str],
         items: list[tuple[any, str]] | Callable[[dict[str, str]], list[tuple[any, str]]],
@@ -369,7 +389,7 @@ def catalog_select(
         include_create: bool=True,
         include_select: bool=True,
         extra_options: Optional[list[CatOption]]=None
-    ) -> tuple[str, Optional[any], CatState, list[tuple[any, str]]]:
+    ) -> CatResult:
     """
     Select an item from a paginated catalog, or exit the catalog. Returns a
     tuple containing the action ((None), 'CREATE', 'SELECT'), and if an item selected, the item. Allows
@@ -588,17 +608,17 @@ def catalog_select(
             filtered_items = []
             for p in pages:
                 filtered_items.extend(p)
-            return ('SELECT', selected, CatState(page_num, active_list_filters, active_fetch_filters, page), filtered_items)
+            return CatResult('SELECT', selected, CatState(page_num, active_list_filters, active_fetch_filters, page), filtered_items)
         elif include_create and choice == 'C':
             filtered_items = []
             for p in pages:
                 filtered_items.extend(p)
-            return ('CREATE', None, CatState(page_num, active_list_filters, active_fetch_filters, page), filtered_items)
+            return CatResult('CREATE', None, CatState(page_num, active_list_filters, active_fetch_filters, page), filtered_items)
         elif choice == 'X':
             filtered_items = []
             for p in pages:
                 filtered_items.extend(p)
-            return (None, None, CatState(page_num, active_list_filters, active_fetch_filters, page), filtered_items)
+            return CatResult(None, None, CatState(page_num, active_list_filters, active_fetch_filters, page), filtered_items)
         elif choice in extra_opts_dict:
             eo = extra_opts_dict[choice]
             selected = None
@@ -620,7 +640,7 @@ def catalog_select(
             filtered_items = []
             for p in pages:
                 filtered_items.extend(p)
-            return (eo.returned_action, selected, CatState(page_num, active_list_filters, active_fetch_filters, page), filtered_items)
+            return CatResult(eo.returned_action, selected, CatState(page_num, active_list_filters, active_fetch_filters, page), filtered_items)
         else:
             print("Unknown option")
             pause()

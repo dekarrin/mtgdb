@@ -1362,12 +1362,6 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         
     filters = card_cat_filters(with_usage=False, with_scryfall_fetch=True)
 
-    # DO NOT USE types_filter IN FETCH; doing so will make it v hard to decouple.
-    types_filter = None
-    if s.deck_cards_cat_state is not None and 'types' in s.deck_cards_cat_state.active_fetch_filters:
-        types_filter = s.deck_cards_cat_state.active_fetch_filters['types']
-
-
     def fetch(filters: dict[str, str]) -> list[Tuple[DeckCard, str]]:
         types = None
 
@@ -1424,9 +1418,6 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
         s.deck_cards_cat_state = selection[2]
         filtered_items = selection[3]
 
-        if 'types' in s.deck_cards_cat_state.active_fetch_filters:
-            types_filter = s.deck_cards_cat_state.active_fetch_filters['types']
-
         logger.debug("Selected action %s with card %s", action, str(card))
 
         cio.clear()
@@ -1438,10 +1429,11 @@ def deck_cards_menu(s: Session, deck: Deck) -> Deck:
             per_page = 10
             # find index of our card within the given page
             matched_idx = -1
-            for i, (c, _) in enumerate(filtered_items):
+            for i, (c, _) in enumerate(s.deck_cards_cat_state.page):
                 if c.id == card.id:
                     matched_idx = i
                     break
+            
             cur_pos = (s.deck_cards_cat_state.page_num * per_page) + matched_idx
 
             # TODO: cache the data so scryfall retrieve does not require hitting
@@ -1514,6 +1506,15 @@ def deck_detail_unwish(s: Session, deck: Deck, card: DeckCard) -> Deck:
     deck = deckdb.get_one(s.db_filename, deck.id)
     logger.with_fields(**deck_mutation_fields(deck, 'unwishlist-card', card, count=amt)).info("Card unwishlisted from deck")
     return deck
+
+
+def create_sibling_swapper_from_cat_select(s: Session, state: cio.CatState, filtered_items: list[tuple[Card, str]], current_card: Card, per_page: int=10) -> DataSiblingSwapper:
+    # find index of our card within the given page
+    matched_idx = -1
+    for i, (c, _) in enumerate(state.page):
+        if c.id == current_card.id:
+            matched_idx = i
+            break
 
 
 def deck_detail_remove(s: Session, deck: Deck, card: DeckCard) -> Deck:
