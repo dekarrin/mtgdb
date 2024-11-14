@@ -155,6 +155,7 @@ def start(db_filename, alt_buffer: bool=True):
 
     fatal_msg = None
 
+    s.log.debug("Using database file %s".format(s.db_filename))
     if alt_buffer:
         s.log.debug("Using alt screen buffer for interactive session")
         with cio.alternate_screen_buffer():
@@ -224,13 +225,8 @@ def main_menu(s: Session):
     top_level_items = [
         ('C', 'cards', 'View and manage cards in inventory'),
         ('D', 'decks', 'View and manage decks'),
-
-        # TODO: integrate these two into a new 'SETTINGS' menu.
-        ('B', 'change-db', 'Change the database file being used'),
-        ('S', 'show-db', 'Show the database file currently in use'),
-        ('I', 'init', 'Initialize the database file'),
         ('F', 'fixes', 'Perform database fixes and maintenance'),
-        ('P', 'prefs', 'Change program settings'),
+        ('S', 'settings', 'View and manage MTGDB settings and config'),
         ('X', 'exit', 'Exit the program')
     ]
 
@@ -261,25 +257,10 @@ def main_menu(s: Session):
                 logger.exception("DB must be initialized before managing decks")
                 print("ERROR: DB must be initialized before managing decks")
                 cio.pause()
-        elif item == 'change-db':
-            change_db(s)
-            logger.info("Changed DB filename to %s", s.db_filename)
-
-            cio.pause()
-        elif item == 'show-db':
-            print("Using database {:s}".format(s.db_filename))
-            logger.info("Using database %s", s.db_filename)
-
-            cio.pause()
-        elif item == 'init':
-            do_init(s)
-            logger.info("Initialized database")
-
-            cio.pause()
         elif item == 'fixes':
             db_fixes_menu(s)
             logger.debug("Exited fixes menu")
-        elif item == 'prefs':
+        elif item == 'settings':
             settings_menu(s)
             logger.debug("Exited settings menu")
         elif item == 'exit':
@@ -363,8 +344,8 @@ def settings_menu(s: Session):
 
         cio.clear()
         if action == 'db':
-            #TODO: actual updating of prior values
             change_db(s)
+            logger.info("Changed DB filename to %s", s.db_filename)
         elif action == 'deck-used':
             if not s.config_from_db:
                 print("ERROR: DB must be initialized before changing settings besides DB filename")
@@ -415,6 +396,7 @@ def db_fixes_menu(s: Session):
     logger = s.log.with_fields(menu='fixes')
 
     fix_actions = [
+        ('init', 'Initialize the database file ({:s})'.format(s.db_filename)),
         ('dedupe', 'Deduplicate inventory entries'),
         ('clear-scryfall', 'Clear all scryfall data'),
         ('download-all-scryfall', 'Download missing and expired scryfall data')
@@ -434,7 +416,12 @@ def db_fixes_menu(s: Session):
 
         cio.clear()
 
-        if action == 'dedupe':
+        if action == 'init':
+            do_init(s)
+            logger.info("Initialized database")
+
+            cio.pause()
+        elif action == 'dedupe':
             fix_duplicate_inventory_entires(s)
         elif action == 'clear-scryfall':
             clear_scryfall_cache(s)
