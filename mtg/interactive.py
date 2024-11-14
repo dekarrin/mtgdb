@@ -85,9 +85,13 @@ class Session:
         self.inven_cat_state: Optional[cio.CatState] = None
         self.deck_cards_cat_state: Optional[cio.CatState] = None
         self.log = elog.get(__name__)
+        self.config = Config()
+        self.config_from_db = False
+        self.load_config_from_db()
 
+    def load_config_from_db(self):
         try:
-            self.config = configdb.read_config(db_filename)
+            self.config = configdb.read_config(self.db_filename)
             self.config_from_db = True
         except DBOpenError:
             self.config = Config()
@@ -299,6 +303,7 @@ def change_db(s: Session):
         return
 
     s.db_filename = new_name
+    s.load_config_from_db()
     print("Now using database file {:s}".format(s.db_filename))
 
 
@@ -334,8 +339,8 @@ def settings_menu(s: Session):
         logger.debug("Entered menu")
 
         conf_values = [
-            ('db', 'Database file (Changing will refresh all values)', s.db_filename),
-            ('deck-used', 'Deck Used States', s.config.deck_used_states if s.config_from_db else '(DB NOT INITIALIZED)'),
+            ('db', 'Database file', repr(s.db_filename)),
+            ('deck-used', 'Deck Used States', repr(s.config.deck_used_states) if s.config_from_db else '(DB NOT INITIALIZED)'),
         ]
 
         longest_title_len = -1
@@ -344,20 +349,21 @@ def settings_menu(s: Session):
                 longest_title_len = len(i[1])
         conf_items = []
         for action, title, value in conf_values:
-            full_title = title + ': '
+            full_title = title + ':  '
             needed_spaces = longest_title_len - len(title)
             if needed_spaces > 0:
                 full_title += ' ' * needed_spaces
-            full_title += repr(value)
+            full_title += value
             conf_items.append((action, full_title))
 
         cio.clear()
-        action = cio.select("SETTINGS - SELECT VALUE TO UPDATE", options=conf_items, non_number_choices=letter_items)
+        action = cio.select("SETTINGS - SELECT VALUE TO UPDATE\n==============================================", options=conf_items, non_number_choices=letter_items)
 
         logger.debug("Selected action %s", action)
 
         cio.clear()
         if action == 'db':
+            #TODO: actual updating of prior values
             change_db(s)
         elif action == 'deck-used':
             if not s.config_from_db:

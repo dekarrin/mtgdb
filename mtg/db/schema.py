@@ -233,7 +233,7 @@ sql_insert_config = '''
 INSERT INTO "config"
     ('key', 'type', 'value', 'description')
 VALUES
-    ('deck_used_states', 'comma-list-str', 'C,P', 'Comma-separated list of states. When a deck is set to one of these, cards in it are considered 'used' and will not be available for use in other decks.'),
+    ('deck_used_states', 'comma-list-str', 'C,P', 'Comma-separated list of states. When a deck is set to one of these, cards in it are considered ''used'' and will not be available for use in other decks.')
 '''
 
 

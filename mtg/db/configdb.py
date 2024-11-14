@@ -17,7 +17,7 @@ def set(db_filename: str, key: str, value: any) -> str:
 
     key_records = []
     for r in cur.execute(sql_get_key, (key,)):
-        key_records.append(r[0], r[1], r[2])
+        key_records.append((r[0], r[1], r[2]))
 
     if len(key_records) < 1:
         con.close()
@@ -29,7 +29,7 @@ def set(db_filename: str, key: str, value: any) -> str:
     key_info = key_records[0]
     key_type = key_info[1]
 
-    def convert(type_str: str, value: any):
+    def convert(value: any, type_str: str):
         type_str = type_str.upper()
 
         if value is None:
@@ -46,7 +46,7 @@ def set(db_filename: str, key: str, value: any) -> str:
             sub_type = type_str[len("COMMA-LIST-"):]
             built_values = []
             for v in value:
-                built_values.append(convert(sub_type, v))
+                built_values.append(convert(v, sub_type))
             return ",".join(built_values)
         else:
             raise ValueError("Unknown type string {!r}".format(type_str))
