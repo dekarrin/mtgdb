@@ -104,7 +104,10 @@ def delete_by_name(db_filename: str, name: str):
     con.commit()
 
     if con.total_changes < 1:
+        # TODO: con.close()????????
         raise NotFoundError("no deck called {!r} exists".format(name))
+    
+    con.close()
 
 
 # diff between find and get_one_by_name is that find will do prefix
