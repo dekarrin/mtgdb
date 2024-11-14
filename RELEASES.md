@@ -1,3 +1,9 @@
+v0.5.1 - November 14th, 2024
+----------------------------
+* Fixed bug where using card large-view Next and Prev for the first time would
+jump back one page and continue from there.
+
+
 v0.5.0 - November 13th, 2024
 ----------------------------
 * Added ability to view Next and Prev cards from card large-view that is based
