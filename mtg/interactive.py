@@ -340,7 +340,7 @@ def settings_menu(s: Session):
 
         conf_values = [
             ('db', 'Database file', s.db_filename),
-            ('deck-used', 'Deck Used States', ','.join(s.config.deck_used_states) if s.config_from_db else '(DB NOT INITIALIZED)'),
+            ('deck-used', 'Deck Used States', (','.join(s.config.deck_used_states) if len(s.config.deck_used_states) > 0 else '(none)') if s.config_from_db else '(DB NOT INITIALIZED)'),
         ]
 
         longest_title_len = -1
@@ -377,9 +377,12 @@ def settings_menu(s: Session):
             entered_values = [x.strip().upper() for x in result.strip('[]').split(',')]
             errored = False
             for ev in entered_values:
+                if ev.strip() == '':
+                    continue
+
                 if ev.strip() not in ['C', 'P', 'B']:
-                    print("ERROR: {!r} is not a valid state; must be one of C, P, or B".format(ev))
-                    logger.error("invalid state %s entered", repr(ev))
+                    print("ERROR: {!r} is not a valid state; must be one of C, P, or B".format(ev.strip()))
+                    logger.error("invalid state %s entered", repr(ev.strip()))
                     errored = True
                     break
             if errored:
@@ -391,6 +394,8 @@ def settings_menu(s: Session):
                 seen = set()
                 actual_values = []
                 for ev in entered_values:
+                    if ev.strip() == '':
+                        continue
                     if ev.strip() not in seen:
                         actual_values.append(ev.strip())
                         seen.add(ev.strip())
